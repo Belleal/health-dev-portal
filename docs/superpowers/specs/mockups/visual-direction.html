@@ -1,0 +1,123 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  .vd { --ink:#00130F; --g7:#005842; --g6:#00664D; --g5:#009B75; --mint:#BFE6DC; --mint1:#EEF8F5; --red:#D0201F; --grey:#F0F0F0;
+        font-family:"Sofia Sans",Arial,sans-serif; color:var(--ink); font-size:12px; line-height:1.4; text-align:left; }
+  .vd * { box-sizing:border-box; }
+  .vd .disp { font-family:"Sofia Sans Extra Condensed","Sofia Sans",sans-serif; text-transform:uppercase; letter-spacing:.02em; font-weight:700; }
+  .vd .mono { font-family:"JetBrains Mono",Consolas,monospace; font-size:11px; }
+  .vd .logo { display:inline-grid; grid-template-columns:7px 7px; gap:2px; vertical-align:middle; margin-right:6px; }
+  .vd .logo i { width:7px; height:7px; display:block; background:var(--g6); }
+  .vd .logo i:nth-child(2) { background:var(--red); } .vd .logo i:nth-child(3) { background:var(--g5); }
+  .vd .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10.5px; font-weight:600; }
+  .vd .req { color:var(--g7); font-weight:700; } .vd .cond { color:#8a5a00; font-weight:700; } .vd .opt { color:#667; font-weight:700; }
+  .vd table { border-collapse:collapse; width:100%; }
+  .vd td { padding:4px 6px; border-bottom:1px solid #e3e8e6; vertical-align:top; }
+  .vd .ind1 { padding-left:16px; } .vd .ind2 { padding-left:28px; }
+  .vd a { color:var(--g6); text-decoration:none; font-weight:600; }
+  .vd-frame { border:1px solid #d5dcd9; border-radius:6px; overflow:hidden; background:#fff; min-height:330px; }
+</style>
+
+<h2>Which visual direction should the portal take?</h2>
+<p class="subtitle">All three use his.bg's palette — deep green <b>#00664D</b> / <b>#005842</b>, mint <b>#BFE6DC</b>, ink <b>#00130F</b>, logo red <b>#D0201F</b> — and the same real page: message P001 of e-Prescription. They differ in how much of his.bg's institutional look they carry into a developer tool. Fonts: Sofia Sans (the family his.bg already uses) with its Extra Condensed cut for headings, standing in for his.bg's Bebas.</p>
+
+<div class="cards">
+
+  <!-- A: institutional -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="vd vd-frame">
+        <div style="background:#fff;padding:8px 12px;display:flex;align-items:center;border-bottom:1px solid #e3e8e6">
+          <span class="logo"><i></i><i></i><i></i><i></i></span>
+          <span class="disp" style="font-size:13px;color:var(--g7);line-height:1">НЗИС · Портал за разработчици</span>
+        </div>
+        <div style="background:var(--g6);color:#fff;padding:6px 12px;font-size:11px" class="disp">Спецификации &nbsp;·&nbsp; Номенклатури &nbsp;·&nbsp; Ръководства &nbsp;·&nbsp; Инструменти</div>
+        <div style="background:var(--mint);padding:14px 12px">
+          <div class="disp" style="font-size:22px;color:var(--g7);line-height:1">P001 · Заявка за създаване на е-рецепта</div>
+          <div style="margin-top:6px"><span class="badge" style="background:#fff;color:var(--g7)">Продукция 1.5.1</span> <span class="mono">POST /v4/eprescription/doctor/issue</span></div>
+        </div>
+        <div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--mint1);padding:8px;border-radius:4px"><div class="disp" style="color:var(--g7)">Header</div>8 полета</div>
+          <div style="background:var(--mint1);padding:8px;border-radius:4px"><div class="disp" style="color:var(--g7)">Prescription</div>14 полета · 3 групи</div>
+          <div style="background:var(--mint1);padding:8px;border-radius:4px"><div class="disp" style="color:var(--g7)">Subject</div>Пациент</div>
+          <div style="background:var(--mint1);padding:8px;border-radius:4px"><div class="disp" style="color:var(--g7)">Requester</div>Медицинско лице</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Institutional</h3>
+      <p>Closest to his.bg: green navigation bar, mint hero, condensed capital headings, content as tiles. Unmistakably part of НЗИС; dense reference material sits less comfortably in tiles.</p>
+    </div>
+  </div>
+
+  <!-- B: developer docs -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="vd vd-frame">
+        <div style="padding:8px 12px;display:flex;align-items:center;border-bottom:1px solid #e3e8e6;gap:10px">
+          <span class="logo"><i></i><i></i><i></i><i></i></span><b style="font-size:12.5px">НЗИС Developers</b>
+          <span style="flex:1"></span><span style="border:1px solid #d5dcd9;border-radius:4px;padding:2px 8px;color:#889;width:110px">Търсене…  ⌘K</span>
+        </div>
+        <div style="display:grid;grid-template-columns:105px 1fr">
+          <div style="border-right:1px solid #e3e8e6;padding:10px 8px;font-size:11px;line-height:1.9;color:#445">
+            <b style="color:var(--ink)">Е-рецепта</b><br><span style="color:var(--g6);font-weight:700">P001</span> Издаване<br>P003 Търсене<br>P005 Изпълнение<br>P007 Анулиране<br><span style="color:#99a">…</span>
+          </div>
+          <div style="padding:10px 12px">
+            <div style="font-size:16px;font-weight:700">P001 · Заявка за създаване на е-рецепта</div>
+            <div style="margin:5px 0 8px"><span class="badge" style="background:var(--mint1);color:var(--g7)">Продукция 1.5.1</span> <span class="mono" style="color:#556">POST /v4/eprescription/doctor/issue</span></div>
+            <table>
+              <tr><td class="mono">prescription</td><td class="req">R</td><td>1..1</td></tr>
+              <tr><td class="mono ind1">lrn</td><td class="req">R</td><td>String ≤36</td></tr>
+              <tr><td class="mono ind1">category</td><td class="req">R</td><td><a>CL007</a></td></tr>
+              <tr><td class="mono ind1">isProtocolBased</td><td class="cond">C</td><td><a>CDP01</a></td></tr>
+              <tr><td class="mono ind1">group</td><td class="req">R</td><td>1..*</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Developer documentation</h3>
+      <p>White, quiet, sidebar navigation and a dense field table — the convention of developer portals. Green only for links and badges. Efficient to use; reads as a generic docs site rather than НЗИС.</p>
+    </div>
+  </div>
+
+  <!-- C: hybrid -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="vd vd-frame">
+        <div style="background:var(--g7);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:10px">
+          <span class="logo" style="background:#fff;padding:2px;border-radius:2px"><i></i><i></i><i></i><i></i></span>
+          <span class="disp" style="font-size:14px;line-height:1">НЗИС · Разработчици</span>
+          <span style="flex:1"></span><span style="background:rgba(255,255,255,.12);border-radius:4px;padding:2px 8px;color:#cfe;width:110px">Търсене…  ⌘K</span>
+        </div>
+        <div style="background:var(--mint);padding:4px 12px;font-size:11px;display:flex;gap:12px;align-items:center">
+          <span style="font-weight:700;color:var(--g7)">Среда:</span>
+          <span style="background:#fff;border-radius:3px;padding:1px 7px;font-weight:700;color:var(--g7)">Продукция 1.5.1</span>
+          <span>Тестова 1.6.0</span><span style="color:#556">Предишна 1.4.5 · до 30.04.2027</span>
+        </div>
+        <div style="display:grid;grid-template-columns:105px 1fr">
+          <div style="border-right:1px solid #e3e8e6;padding:10px 8px;font-size:11px;line-height:1.9;color:#445">
+            <b class="disp" style="color:var(--g7);font-size:12px">Е-рецепта</b><br><span style="color:var(--g6);font-weight:700;border-left:2px solid var(--g6);padding-left:4px">P001</span> Издаване<br>P003 Търсене<br>P005 Изпълнение<br>P007 Анулиране<br><span style="color:#99a">…</span>
+          </div>
+          <div style="padding:10px 12px">
+            <div class="disp" style="font-size:20px;color:var(--g7);line-height:1">P001 · Заявка за създаване на е-рецепта</div>
+            <div style="margin:5px 0 8px" class="mono" style="color:#556">POST /v4/eprescription/doctor/issue</div>
+            <table>
+              <tr><td class="mono">prescription</td><td class="req">R</td><td>1..1</td></tr>
+              <tr><td class="mono ind1">lrn</td><td class="req">R</td><td>String ≤36</td></tr>
+              <tr><td class="mono ind1">category</td><td class="req">R</td><td><a>CL007</a></td></tr>
+              <tr><td class="mono ind1">isProtocolBased</td><td class="cond">C</td><td><a>CDP01</a></td></tr>
+              <tr style="background:#fff4f4"><td class="mono ind1">group <span class="badge" style="background:var(--red);color:#fff">промяна</span></td><td class="req">R</td><td>1..*</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · Hybrid (recommended)</h3>
+      <p>НЗИС identity where it orients — dark green top bar, condensed capital headings, mint band carrying the environment switcher — and documentation conventions where people work: sidebar, dense field table. Logo red reserved for changes and warnings.</p>
+    </div>
+  </div>
+
+</div>

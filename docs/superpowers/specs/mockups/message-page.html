@@ -1,0 +1,134 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  .vd { --ink:#00130F; --g7:#005842; --g6:#00664D; --g5:#009B75; --mint:#BFE6DC; --mint1:#EEF8F5; --red:#D0201F; --amber:#8a5a00; --line:#e3e8e6;
+        font-family:"Sofia Sans",Arial,sans-serif; color:var(--ink); font-size:12.5px; line-height:1.45; text-align:left; background:#fff; }
+  .vd * { box-sizing:border-box; }
+  .vd .disp { font-family:"Sofia Sans Extra Condensed","Sofia Sans",sans-serif; text-transform:uppercase; letter-spacing:.02em; font-weight:700; }
+  .vd .mono { font-family:"JetBrains Mono",Consolas,monospace; font-size:11.5px; }
+  .vd .logo { display:inline-grid; grid-template-columns:7px 7px; gap:2px; background:#fff; padding:2px; border-radius:2px; }
+  .vd .logo i { width:7px; height:7px; display:block; background:var(--g6); }
+  .vd .logo i:nth-child(2) { background:var(--red); } .vd .logo i:nth-child(3) { background:var(--g5); }
+  .vd .top { background:var(--g7); color:#fff; padding:9px 16px; display:flex; align-items:center; gap:12px; }
+  .vd .top nav { display:flex; gap:14px; font-size:12px; color:#d8efe8; margin-left:12px; }
+  .vd .top nav .on { color:#fff; border-bottom:2px solid #fff; }
+  .vd .search { background:rgba(255,255,255,.12); border-radius:4px; padding:3px 10px; color:#cfe; width:150px; }
+  .vd .env { background:var(--mint); padding:6px 16px; display:flex; gap:8px; align-items:center; font-size:12px; }
+  .vd .env .tab { padding:2px 9px; border-radius:3px; }
+  .vd .env .tab.on { background:#fff; font-weight:700; color:var(--g7); }
+  .vd .side { border-right:1px solid var(--line); padding:12px 10px; font-size:12px; line-height:1.95; color:#445; }
+  .vd .side .on { color:var(--g6); font-weight:700; border-left:2px solid var(--g6); padding-left:5px; margin-left:-7px; }
+  .vd .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10.5px; font-weight:700; }
+  .vd .new { background:var(--red); color:#fff; } .vd .chgd { background:#ffe3e3; color:var(--red); }
+  .vd .R { color:var(--g7); font-weight:700; } .vd .C { color:var(--amber); font-weight:700; } .vd .O { color:#778; font-weight:700; }
+  .vd table { border-collapse:collapse; width:100%; }
+  .vd th { text-align:left; font-size:10.5px; color:#667; font-weight:600; padding:4px 6px; border-bottom:2px solid var(--line); text-transform:uppercase; letter-spacing:.03em; }
+  .vd td { padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .vd tr.sel td { background:var(--mint1); }
+  .vd tr.grp td:first-child { font-weight:600; }
+  .vd a { color:var(--g6); font-weight:600; text-decoration:none; }
+  .vd .i1 { padding-left:18px; } .vd .i2 { padding-left:32px; } .vd .i3 { padding-left:46px; }
+  .vd .tw { color:#99a; display:inline-block; width:10px; }
+  .vd .tabs { display:flex; gap:16px; border-bottom:1px solid var(--line); margin:10px 0 8px; font-size:12px; }
+  .vd .tabs span { padding:4px 0; } .vd .tabs .on { border-bottom:2px solid var(--g6); color:var(--g7); font-weight:700; }
+  .vd .code { background:#f5f8f7; border:1px solid var(--line); border-radius:4px; padding:7px 9px; white-space:pre; }
+  .vd .muted { color:#667; }
+  .vd .def { border:1px solid var(--line); border-radius:6px; padding:9px 11px; margin-bottom:8px; }
+  .vd .grouphead { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--mint1); border-radius:6px; margin:10px 0 8px; }
+  .vd-frame { border:1px solid #d5dcd9; border-radius:6px; overflow:hidden; }
+  .vd .btn { border:1px solid var(--g6); color:var(--g6); border-radius:4px; padding:2px 9px; font-weight:600; font-size:11.5px; }
+</style>
+
+<h2>Message page: how should the element tree read?</h2>
+<p class="subtitle">Direction C, staging view of e-Prescription P001. Fields, types, constraints, code lists and conditions are the real 1.5.1 workbook values; the version 1.6.0 and the "new/changed" markers are example data, shown because this is where vendors spot what moved.</p>
+
+<div class="cards" style="grid-template-columns:1fr">
+
+  <!-- M1 -->
+  <div class="card" data-choice="tree-table" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;display:block;padding:12px">
+      <div class="vd vd-frame">
+        <div class="top"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:15px">НЗИС · Разработчици</span>
+          <nav><span class="on">Спецификации</span><span>Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span>Инструменти</span></nav>
+          <span style="flex:1"></span><span class="search">Търсене…  ⌘K</span></div>
+        <div class="env"><b style="color:var(--g7)">Среда:</b><span class="tab on">Тестова 1.6.0</span><span class="tab">Продукция 1.5.1</span><span class="tab muted">Предишна 1.4.5 · до 30.04.2027</span>
+          <span style="flex:1"></span><span>Сравни с продукция</span> <span class="badge new">3 промени</span></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 270px">
+          <div class="side"><b class="disp" style="color:var(--g7)">Е-рецепта</b><br><span class="muted">/doctor</span><br><span class="on">P001 Създаване</span><br>P007 Анулиране<br>P017 Извличане<br>P019 Списък на лекаря<br><span class="muted">/pharmacy</span><br>P003 Търсене<br>P005 Изпълнение<br>P009 Отказ<br><span class="muted">… още 4</span><br><span class="muted">Грешки · Условия · Речник</span></div>
+          <div style="padding:12px 14px">
+            <div class="disp" style="font-size:21px;color:var(--g7);line-height:1.05">P001 · Заявка за създаване на е-рецепта</div>
+            <div style="margin-top:4px"><span class="mono">POST /v4/eprescription/doctor/issue</span> <span class="muted">· отговор</span> <a>P002</a></div>
+            <div class="tabs"><span class="on">Елементи</span><span>Примерно съобщение</span><span>Условия</span><span>XSD</span><span>Промени</span></div>
+            <table>
+              <tr><th>Елемент</th><th></th><th>Брой</th><th>Тип</th><th>Ограничения</th><th>Връзки</th></tr>
+              <tr class="grp"><td><span class="tw">▸</span><span class="mono">header</span></td><td class="R">R</td><td>1..1</td><td class="muted">група</td><td></td><td></td></tr>
+              <tr class="grp"><td><span class="tw">▾</span><span class="mono">contents</span></td><td class="R">R</td><td>1..1</td><td class="muted">група</td><td></td><td></td></tr>
+              <tr class="grp"><td class="i1"><span class="tw">▾</span><span class="mono">prescription</span></td><td class="R">R</td><td>1..1</td><td class="muted">група</td><td></td><td></td></tr>
+              <tr class="sel"><td class="i2"><span class="mono">lrn</span></td><td class="R">R</td><td>1..1</td><td>String</td><td class="mono">≤ 36, an</td><td></td></tr>
+              <tr><td class="i2"><span class="mono">authoredOn</span></td><td class="R">R</td><td>1..1</td><td>Date</td><td class="mono">YYYY-MM-DD</td><td><a>RL071</a></td></tr>
+              <tr><td class="i2"><span class="mono">category</span></td><td class="R">R</td><td>1..1</td><td>Code</td><td></td><td><a>CL007</a> <a>RL082</a></td></tr>
+              <tr><td class="i2"><span class="mono">isProtocolBased</span></td><td class="C">C</td><td>0..1</td><td>Boolean</td><td class="muted">по подр. false</td><td><a>CDP01</a></td></tr>
+              <tr><td class="i2"><span class="mono">protocolNumber</span></td><td class="C">C</td><td>0..1</td><td>String</td><td class="mono">≤ 12, an</td><td><a>CDP02</a></td></tr>
+              <tr><td class="i2"><span class="mono">financingSource</span> <span class="badge chgd">променено</span></td><td class="R">R</td><td>1..1</td><td>Code</td><td></td><td><a>CL069</a> <a>CDP32</a></td></tr>
+              <tr><td class="i2"><span class="mono">supplements</span></td><td class="O">O</td><td>0..1</td><td>String</td><td class="mono">≤ 2000</td><td></td></tr>
+              <tr class="grp"><td class="i2"><span class="tw">▾</span><span class="mono">group</span></td><td class="R">R</td><td>1..*</td><td class="muted">група</td><td></td><td><a>CDP19</a></td></tr>
+              <tr><td class="i3"><span class="mono">groupIdentifier</span></td><td class="C">C</td><td>0..1</td><td>Code</td><td></td><td><a>CL019</a> <a>CDP08</a></td></tr>
+              <tr class="grp"><td class="i3"><span class="tw">▸</span><span class="mono">medication</span> <span class="badge new">ново поле</span></td><td class="R">R</td><td>1..*</td><td class="muted">група</td><td></td><td><a>CDP29</a></td></tr>
+            </table>
+          </div>
+          <div style="border-left:1px solid var(--line);padding:12px;background:#fbfdfc">
+            <div class="mono" style="font-weight:600;font-size:12.5px">prescription.lrn</div>
+            <div class="muted" style="font-size:11px">contents / prescription / lrn @value</div>
+            <p style="margin:8px 0">Уникален номер, генериран от системата на медицинския специалист (препоръчва се да е UUID) – трябва да е уникален за подадения УИН.</p>
+            <table style="font-size:11.5px">
+              <tr><td class="muted">Задължителност</td><td class="R">R · 1..1</td></tr>
+              <tr><td class="muted">Тип</td><td>String, буквено-цифров</td></tr>
+              <tr><td class="muted">Дължина</td><td>до 36 знака</td></tr>
+              <tr><td class="muted">XSD тип</td><td class="mono">lrnBase</td></tr>
+              <tr><td class="muted">Използва се и в</td><td><a>P002</a> <a>P003</a> <a>P004</a> <a>P011</a> <a>P014</a> <a>P018</a></td></tr>
+            </table>
+            <div class="code mono" style="margin-top:8px">&lt;nhis:lrn value="…"/&gt;</div>
+            <div style="margin-top:8px"><span class="btn">Копирай връзка</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>M1 · Tree table with a detail panel (recommended)</h3>
+      <p>One dense, scannable table — the whole structure of a message on one screen, like the workbook vendors know, but collapsible. Clicking a row opens its full definition on the right, with the XML it produces and every message that uses the same field. Tabs hold the sample message, conditions, XSD and changes.</p>
+    </div>
+  </div>
+
+  <!-- M2 -->
+  <div class="card" data-choice="definitions" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;display:block;padding:12px">
+      <div class="vd vd-frame">
+        <div class="top"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:15px">НЗИС · Разработчици</span>
+          <nav><span class="on">Спецификации</span><span>Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span>Инструменти</span></nav>
+          <span style="flex:1"></span><span class="search">Търсене…  ⌘K</span></div>
+        <div class="env"><b style="color:var(--g7)">Среда:</b><span class="tab on">Тестова 1.6.0</span><span class="tab">Продукция 1.5.1</span><span class="tab muted">Предишна 1.4.5 · до 30.04.2027</span></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 230px">
+          <div class="side"><b class="disp" style="color:var(--g7)">Е-рецепта</b><br><span class="on">P001 Създаване</span><br>P003 Търсене<br>P005 Изпълнение<br>P007 Анулиране<br><span class="muted">…</span></div>
+          <div style="padding:12px 14px">
+            <div class="disp" style="font-size:21px;color:var(--g7);line-height:1.05">P001 · Заявка за създаване на е-рецепта</div>
+            <div style="margin-top:4px" class="mono">POST /v4/eprescription/doctor/issue</div>
+            <div class="grouphead"><b class="mono">prescription</b><span class="R">R 1..1</span><span class="muted">Рецепта</span></div>
+            <div class="def"><b class="mono">lrn</b> <span class="R">R 1..1</span> · String ≤ 36, буквено-цифров<br><span class="muted">Уникален номер, генериран от системата на медицинския специалист (препоръчва се да е UUID).</span></div>
+            <div class="def"><b class="mono">authoredOn</b> <span class="R">R 1..1</span> · Date YYYY-MM-DD · <a>RL071</a><br><span class="muted">Дата на издаване на рецептата.</span></div>
+            <div class="def"><b class="mono">category</b> <span class="R">R 1..1</span> · код от <a>CL007</a> · <a>RL082</a><br><span class="muted">Категория на рецептата – бяла, реимбурсирана…</span></div>
+            <div class="def"><b class="mono">isProtocolBased</b> <span class="C">C 0..1</span> · Boolean, по подразбиране false<br><span class="muted">Задължително, ако категорията е T2 или T3 (</span><a>CDP01</a><span class="muted">).</span></div>
+          </div>
+          <div style="border-left:1px solid var(--line);padding:12px">
+            <div class="disp" style="color:var(--g7);margin-bottom:6px">На тази страница</div>
+            <div style="line-height:1.9">header<br><b>prescription</b><br>&nbsp;&nbsp;group<br>&nbsp;&nbsp;&nbsp;&nbsp;medication<br>subject<br>requester</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>M2 · Definition blocks</h3>
+      <p>Every field as a readable block with its description in full, groups as headings, an outline on the right. Easier for a first read, but P001 has ~110 rows: the structure no longer fits on a screen and comparing fields means scrolling.</p>
+    </div>
+  </div>
+
+</div>

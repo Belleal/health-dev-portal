@@ -1,0 +1,125 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  .vd { --ink:#00130F; --g7:#005842; --g6:#00664D; --g5:#009B75; --mint:#BFE6DC; --mint1:#EEF8F5; --red:#D0201F; --amber:#B86E00; --line:#e3e8e6;
+        font-family:"Sofia Sans",Arial,sans-serif; color:var(--ink); font-size:12.5px; line-height:1.45; text-align:left; background:#fff; }
+  .vd * { box-sizing:border-box; }
+  .vd .disp { font-family:"Sofia Sans Extra Condensed","Sofia Sans",sans-serif; text-transform:uppercase; letter-spacing:.02em; font-weight:700; }
+  .vd .mono { font-family:"JetBrains Mono",Consolas,monospace; font-size:11.5px; }
+  .vd .logo { display:inline-grid; grid-template-columns:7px 7px; gap:2px; background:#fff; padding:2px; border-radius:2px; }
+  .vd .logo i { width:7px; height:7px; display:block; background:var(--g6); }
+  .vd .logo i:nth-child(2) { background:var(--red); } .vd .logo i:nth-child(3) { background:var(--g5); }
+  .vd .top { background:var(--g7); color:#fff; padding:10px 18px; display:flex; align-items:center; gap:12px; }
+  .vd .top nav { display:flex; gap:16px; font-size:12px; color:#d8efe8; margin-left:14px; }
+  .vd .search { background:rgba(255,255,255,.12); border-radius:4px; padding:3px 10px; color:#cfe; width:170px; }
+  .vd .lang { font-size:11px; color:#cfe; }
+  .vd .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .vd .ok { background:#e2f5ee; color:var(--g7); } .vd .warn { background:#fff1dc; color:var(--amber); } .vd .chg { background:var(--red); color:#fff; }
+  .vd .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+  .vd table { border-collapse:collapse; width:100%; }
+  .vd th { text-align:left; font-size:11px; color:#556; font-weight:600; padding:5px 8px; border-bottom:2px solid var(--line); }
+  .vd td { padding:5px 8px; border-bottom:1px solid var(--line); }
+  .vd .diff { color:var(--red); font-weight:700; }
+  .vd h4 { margin:0 0 8px; font-size:15px; color:var(--g7); }
+  .vd .panel { border:1px solid var(--line); border-radius:6px; padding:12px; }
+  .vd .muted { color:#667; }
+  .vd a { color:var(--g6); font-weight:600; text-decoration:none; }
+  .vd-frame { border:1px solid #d5dcd9; border-radius:6px; overflow:hidden; }
+</style>
+
+<h2>Home page: what should a vendor see first?</h2>
+<p class="subtitle">Direction C, real module names and the versions published on his.bg today. Dates, statuses and the upcoming go-live are example data. Most of the ~100 vendors are returning users who come to check what changed; a few are new each month.</p>
+
+<div class="cards" style="grid-template-columns:1fr">
+
+  <!-- H1: status first -->
+  <div class="card" data-choice="status-first" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;display:block;padding:12px">
+      <div class="vd vd-frame">
+        <div class="top">
+          <span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:16px">НЗИС · Разработчици</span>
+          <nav><span>Спецификации</span><span>Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span>Инструменти</span></nav>
+          <span style="flex:1"></span><span class="search">Търсене…  ⌘K</span><span class="lang">BG · EN</span>
+        </div>
+        <div style="background:var(--mint);padding:8px 18px;display:flex;gap:22px;align-items:center;font-size:12px">
+          <span><span class="dot" style="background:var(--g5)"></span><b>Тестова среда</b> работи нормално</span>
+          <span><span class="dot" style="background:var(--amber)"></span><b>Продукция</b> планирана поддръжка 18.10.2026, 22:00–23:30</span>
+          <span style="flex:1"></span><span style="font-size:11px">Нов разработчик? <a>Започнете оттук →</a></span>
+        </div>
+        <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 290px;gap:18px">
+          <div>
+            <h4 class="disp">Версии по среди</h4>
+            <table>
+              <tr><th>Спецификация</th><th>Тестова</th><th>Продукция</th><th>Предишна</th></tr>
+              <tr><td><a>Е-рецепта</a></td><td>1.5.1</td><td>1.5.1</td><td class="muted">—</td></tr>
+              <tr><td><a>Е-направление</a></td><td>1.4.4</td><td>1.4.4</td><td class="muted">—</td></tr>
+              <tr><td><a>Е-имунизация</a></td><td class="diff">1.2.3</td><td>1.2.2</td><td class="muted">—</td></tr>
+              <tr><td><a>Е-преглед</a></td><td class="diff">1.3.11</td><td>1.3.10</td><td class="muted">—</td></tr>
+              <tr><td><a>Е-хоспитализация</a></td><td class="diff">1.1.2</td><td>1.1.1</td><td class="muted">—</td></tr>
+              <tr><td><a>Е-дентално лечение</a></td><td>1.0.7</td><td>1.0.7</td><td class="muted">—</td></tr>
+              <tr><td><a>Общи медицински услуги</a></td><td>1.2.2</td><td>1.2.2</td><td class="muted">—</td></tr>
+              <tr><td><a>Номенклатури</a></td><td>1.5.33</td><td>1.5.33</td><td class="muted">—</td></tr>
+              <tr><td class="muted">+ 3 още</td><td></td><td></td><td></td></tr>
+            </table>
+            <div class="muted" style="font-size:11px;margin-top:6px"><span class="diff">червено</span> = тестовата среда е пред продукцията</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="panel" style="border-left:3px solid var(--red)">
+              <h4 class="disp">Предстоящо в продукция</h4>
+              <b>Е-преглед 1.3.11</b> — 03.11.2026<br><span class="muted">2 несъвместими промени · <a>какво да променя</a></span>
+            </div>
+            <div class="panel">
+              <h4 class="disp">Последни издания</h4>
+              <div>08.10 · <b>Номенклатури 1.5.33</b> <span class="badge ok">тест + прод</span></div>
+              <div>01.10 · <b>Е-преглед 1.3.11</b> <span class="badge warn">тест</span></div>
+              <div>25.09 · <b>Е-имунизация 1.2.3</b> <span class="badge warn">тест</span></div>
+              <div style="margin-top:6px"><a>Всички промени</a> · <a>RSS</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>H1 · Status first (recommended)</h3>
+      <p>The page answers the returning vendor's questions immediately: is anything down, what is live where, what goes live next, and what changed. Newcomers get one link in the status band to a "start here" guide.</p>
+    </div>
+  </div>
+
+  <!-- H2: journey first -->
+  <div class="card" data-choice="journey-first" onclick="toggleSelect(this)">
+    <div class="card-image" style="aspect-ratio:auto;display:block;padding:12px">
+      <div class="vd vd-frame">
+        <div class="top">
+          <span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:16px">НЗИС · Разработчици</span>
+          <nav><span>Спецификации</span><span>Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span>Инструменти</span></nav>
+          <span style="flex:1"></span><span class="search">Търсене…  ⌘K</span><span class="lang">BG · EN</span>
+        </div>
+        <div style="background:var(--mint);padding:20px 18px">
+          <div class="disp" style="font-size:28px;color:var(--g7);line-height:1">Интеграция с НЗИС</div>
+          <div style="max-width:560px;margin-top:6px">Спецификации, номенклатури и инструменти за софтуер, който обменя данни с Националната здравноинформационна система.</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px">
+            <div style="background:#fff;border-radius:6px;padding:10px"><b class="disp" style="color:var(--g6)">1 · Запознайте се</b><br><span class="muted">Среди, автентикация, подписване</span></div>
+            <div style="background:#fff;border-radius:6px;padding:10px"><b class="disp" style="color:var(--g6)">2 · Изберете модул</b><br><span class="muted">Съобщения и полета</span></div>
+            <div style="background:#fff;border-radius:6px;padding:10px"><b class="disp" style="color:var(--g6)">3 · Проверете съобщение</b><br><span class="muted">Тестер в браузъра</span></div>
+            <div style="background:#fff;border-radius:6px;padding:10px"><b class="disp" style="color:var(--g6)">4 · Продукция</b><br><span class="muted">Промени и оценка на софтуера</span></div>
+          </div>
+        </div>
+        <div style="padding:16px 18px">
+          <h4 class="disp">Модули</h4>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+            <div class="panel"><b>Е-рецепта</b><br><span class="badge ok">прод 1.5.1</span> <span class="badge warn">тест 1.5.1</span></div>
+            <div class="panel"><b>Е-направление</b><br><span class="badge ok">прод 1.4.4</span> <span class="badge warn">тест 1.4.4</span></div>
+            <div class="panel"><b>Е-имунизация</b><br><span class="badge ok">прод 1.2.2</span> <span class="badge chg">тест 1.2.3</span></div>
+            <div class="panel"><b>Е-преглед</b><br><span class="badge ok">прод 1.3.10</span> <span class="badge chg">тест 1.3.11</span></div>
+          </div>
+          <div class="muted" style="margin-top:10px;font-size:11.5px">Статус на средите, предстоящи издания и последни промени ↓</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>H2 · Journey first</h3>
+      <p>A welcoming hero with the four steps of an integration, then module tiles; status and releases further down. Friendlier for newcomers, but the returning majority scroll past the same hero on every visit.</p>
+    </div>
+  </div>
+
+</div>
