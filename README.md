@@ -1,1 +1,21 @@
 # health-dev-portal
+
+The developer portal of the Bulgarian National Health Information System (НЗИС): the place where software vendors
+find the integration specifications, nomenclatures and guides, and — in later stages — register, get sandbox
+access and have their software assessed.
+
+Built on the [ti-engine](https://github.com/Belleal/ti-engine) framework. Work in progress; nothing here is
+released yet.
+
+## Licensing
+
+Copyright © 2026 the health-dev-portal contributors.
+
+- **Source code** is licensed under the **European Union Public Licence v. 1.2** ([`LICENSE`](LICENSE),
+  SPDX `EUPL-1.2`). All linguistic versions approved by the European Commission, including the Bulgarian one, have
+  identical value; they are published at <https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
+- **Documentation and specification content** — guides, FAQ, and the specifications, nomenclatures and changelogs
+  the portal publishes — is licensed under **Creative Commons Attribution 4.0 International**
+  ([`LICENSE-CONTENT`](LICENSE-CONTENT), SPDX `CC-BY-4.0`).
+
+Where a file does not say otherwise, code is EUPL-1.2 and prose is CC BY 4.0.
