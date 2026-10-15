@@ -1,0 +1,126 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  .vd { --ink:#00130F; --g7:#005842; --g6:#00664D; --g5:#009B75; --mint:#BFE6DC; --mint1:#EEF8F5; --red:#D0201F; --amber:#8a5a00; --line:#e3e8e6;
+        font-family:"Sofia Sans",Arial,sans-serif; color:var(--ink); font-size:12.5px; line-height:1.45; text-align:left; background:#fff; }
+  .vd * { box-sizing:border-box; }
+  .vd .disp { font-family:"Sofia Sans Extra Condensed","Sofia Sans",sans-serif; text-transform:uppercase; letter-spacing:.02em; font-weight:700; }
+  .vd .mono { font-family:"JetBrains Mono",Consolas,monospace; font-size:11.5px; }
+  .vd .logo { display:inline-grid; grid-template-columns:7px 7px; gap:2px; background:#fff; padding:2px; border-radius:2px; }
+  .vd .logo i { width:7px; height:7px; display:block; background:var(--g6); }
+  .vd .logo i:nth-child(2) { background:var(--red); } .vd .logo i:nth-child(3) { background:var(--g5); }
+  .vd .top { background:var(--g7); color:#fff; padding:9px 16px; display:flex; align-items:center; gap:12px; }
+  .vd .top nav { display:flex; gap:14px; font-size:12px; color:#d8efe8; margin-left:12px; }
+  .vd .top nav .on { color:#fff; border-bottom:2px solid #fff; }
+  .vd .search { background:rgba(255,255,255,.12); border-radius:4px; padding:3px 10px; color:#cfe; width:150px; }
+  .vd .env { background:var(--mint); padding:6px 16px; display:flex; gap:8px; align-items:center; font-size:12px; }
+  .vd .env .tab { padding:2px 9px; border-radius:3px; } .vd .env .tab.on { background:#fff; font-weight:700; color:var(--g7); }
+  .vd .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10.5px; font-weight:700; }
+  .vd .brk { background:var(--red); color:#fff; } .vd .okb { background:#e2f5ee; color:var(--g7); }
+  .vd table { border-collapse:collapse; width:100%; }
+  .vd th { text-align:left; font-size:10.5px; color:#667; font-weight:600; padding:4px 6px; border-bottom:2px solid var(--line); text-transform:uppercase; letter-spacing:.03em; }
+  .vd td { padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .vd a { color:var(--g6); font-weight:600; text-decoration:none; }
+  .vd .muted { color:#667; }
+  .vd .field { border:1px solid #cfd8d5; border-radius:4px; padding:3px 9px; color:#889; }
+  .vd .btn { border:1px solid var(--g6); color:var(--g6); border-radius:4px; padding:2px 9px; font-weight:600; font-size:11.5px; }
+  .vd .btnp { background:var(--g6); color:#fff; border-radius:4px; padding:4px 12px; font-weight:700; }
+  .vd .code { background:#f5f8f7; border:1px solid var(--line); border-radius:4px; padding:8px 10px; white-space:pre; line-height:1.5; }
+  .vd .res { border-left:3px solid var(--red); background:#fff6f6; padding:6px 9px; margin-bottom:6px; border-radius:0 4px 4px 0; }
+  .vd .resok { border-left:3px solid var(--g5); background:var(--mint1); padding:6px 9px; margin-bottom:6px; border-radius:0 4px 4px 0; }
+  .vd h5 { margin:12px 0 6px; font-size:13px; color:var(--g7); }
+  .vd-frame { border:1px solid #d5dcd9; border-radius:6px; overflow:hidden; }
+  .shot { margin-bottom:22px; } .shot h3 { margin:0 0 4px; } .shot p.note { margin:0 0 8px; color:var(--text-secondary,#aaa); font-size:.85rem; }
+</style>
+
+<h2>The remaining key pages, in direction C</h2>
+<p class="subtitle">Not a choice this time — a check that the style holds on the other page types. CL007 values and the change notes are real (nomenclatures 1.5.33, e-Prescription 1.5.0 and 1.5.1). The tester's message and results are example data.</p>
+
+<div class="shot">
+  <h3>1 · Nomenclature list</h3>
+  <p class="note">Every column the workbook has, a filter that searches keys and both languages, "since/valid until" from the list itself, downloads, and where the list is used.</p>
+  <div class="vd vd-frame">
+    <div class="top"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:15px">НЗИС · Разработчици</span>
+      <nav><span>Спецификации</span><span class="on">Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span>Инструменти</span></nav><span style="flex:1"></span><span class="search">Търсене…  ⌘K</span></div>
+    <div class="env"><b style="color:var(--g7)">Среда:</b><span class="tab on">Продукция 1.5.33</span><span class="tab">Тестова 1.5.33</span></div>
+    <div style="padding:12px 16px">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <div class="disp" style="font-size:21px;color:var(--g7)">CL007 · Тип на рецепта</div><span class="muted">9 стойности</span>
+        <span style="flex:1"></span><span class="btn">JSON</span> <span class="btn">CSV</span> <span class="btn">XSD тип</span>
+      </div>
+      <div class="muted" style="margin:2px 0 10px">Използва се в: <a>Е-рецепта · P001 category</a> и още…</div>
+      <div style="display:flex;gap:10px;margin-bottom:8px"><span class="field" style="width:240px">Филтър: ключ, описание BG или EN…</span><label class="muted"><input type="checkbox"> покажи изтеклите</label></div>
+      <table>
+        <tr><th>Ключ</th><th>Описание</th><th>Description</th><th>Документ НЗОК</th><th>От версия</th><th>Валидна до</th></tr>
+        <tr><td class="mono">T1</td><td>Рецепта – обикновена (бяла)</td><td>Prescription – Standard</td><td class="muted">—</td><td>1.0.0</td><td class="muted">—</td></tr>
+        <tr><td class="mono">T2</td><td>Рецепта – реимбурсирана</td><td>Prescription – Reimbursed</td><td>5</td><td>1.0.0</td><td class="muted">—</td></tr>
+        <tr><td class="mono">T3</td><td>Рецепта – тройна реимбурсирана</td><td>Prescription – Reimbursed, Tripple</td><td>5A</td><td>1.0.0</td><td class="muted">—</td></tr>
+        <tr><td class="mono">T4</td><td>Рецепта за военноивалиди</td><td>Prescription for Disabled Solders</td><td>5Б</td><td>1.2.6</td><td class="muted">—</td></tr>
+        <tr><td class="mono">T6</td><td>Рецепта – зелена</td><td>Prescription – Drugs with Narcotic Substances</td><td class="muted">—</td><td>1.3.13</td><td class="muted">—</td></tr>
+        <tr><td class="mono">T8</td><td>Рецепта – онколекарства</td><td>Prescription – Oncology Treatment</td><td class="muted">—</td><td>1.4.4</td><td class="muted">—</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="shot">
+  <h3>2 · Changes and comparison</h3>
+  <p class="note">Pick any two kept versions; breaking changes first, each linked to the element it touches. The entries below are the real 1.5.0 notes, regrouped from the workbook's font colours.</p>
+  <div class="vd vd-frame">
+    <div class="top"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:15px">НЗИС · Разработчици</span>
+      <nav><span>Спецификации</span><span>Номенклатури</span><span>Схеми</span><span class="on">Промени</span><span>Ръководства</span><span>Инструменти</span></nav><span style="flex:1"></span><span class="search">Търсене…  ⌘K</span></div>
+    <div style="padding:12px 16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="disp" style="font-size:21px;color:var(--g7)">Е-рецепта · промени</div><span style="flex:1"></span>
+        <span class="muted">Сравни</span><span class="field" style="color:var(--ink)">1.4.5 ▾</span><span class="muted">→</span><span class="field" style="color:var(--ink)">1.5.1 ▾</span><span class="btn">RSS</span>
+      </div>
+      <h5 class="disp">Версия 1.5.0 <span class="muted" style="text-transform:none;font-weight:400">· датите на издаване не са записани в работната книга</span></h5>
+      <div style="margin-bottom:4px"><span class="badge brk">Несъвместими · 11</span></div>
+      <table>
+        <tr><td style="width:24%" class="mono">P011, P012</td><td>Съобщенията са премахнати от API и не следва да се използват</td></tr>
+        <tr><td class="mono">P004, P018 · medication.isDispensed</td><td>Премахнато поле</td></tr>
+        <tr><td class="mono">P006, P014, P016 · statusDispense</td><td>Добавено поле</td></tr>
+        <tr><td class="mono">P001, P004, P014, P018 · prescription.nrnPreValidation</td><td>Добавено поле</td></tr>
+        <tr><td class="mono">P004 · medication.remainingValue</td><td>Задължително, с променена логика – връща оставащите единици за изпълнение</td></tr>
+        <tr><td colspan="2" class="muted">… още 6</td></tr>
+      </table>
+      <div style="margin:10px 0 4px"><span class="badge okb">Съвместими · 10</span></div>
+      <table>
+        <tr><td style="width:24%" class="mono">всички услуги</td><td>Адресите са променени на <span class="mono">/v4/…</span>; <span class="mono">/v3/…</span> остава активен със старите версии за определено време</td></tr>
+        <tr><td class="mono">CDP35, CDP36</td><td>Условията са обединени</td></tr>
+        <tr><td colspan="2" class="muted">… още 8</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="shot">
+  <h3>3 · Message tester</h3>
+  <p class="note">Runs entirely in the browser: the message is never sent anywhere. Structure, code lists and conditions are checked against the chosen environment's version; each finding links to the element.</p>
+  <div class="vd vd-frame">
+    <div class="top"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="disp" style="font-size:15px">НЗИС · Разработчици</span>
+      <nav><span>Спецификации</span><span>Номенклатури</span><span>Схеми</span><span>Промени</span><span>Ръководства</span><span class="on">Инструменти</span></nav><span style="flex:1"></span><span class="search">Търсене…  ⌘K</span></div>
+    <div style="background:#fff8e6;border-bottom:1px solid #f1dfb0;padding:6px 16px;font-size:12px">🔒 Съобщението се проверява само във Вашия браузър и не се изпраща никъде. Използвайте синтетични данни – никога данни на реални пациенти.</div>
+    <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="display:flex;gap:8px;margin-bottom:8px"><span class="field" style="color:var(--ink)">Е-рецепта · P001 ▾</span><span class="field" style="color:var(--ink)">Тестова 1.5.1 ▾</span><span style="flex:1"></span><span class="btnp">Провери</span></div>
+<div class="code mono">&lt;nhis:message …&gt;
+  &lt;nhis:header&gt;…&lt;/nhis:header&gt;
+  &lt;nhis:contents&gt;
+    &lt;nhis:prescription&gt;
+      &lt;nhis:lrn value="7c1e…"/&gt;
+      &lt;nhis:authoredOn value="2026-10-14"/&gt;
+      &lt;nhis:category value="T2"/&gt;
+      &lt;nhis:financingSource value="2"/&gt;
+      …</div>
+      </div>
+      <div>
+        <div class="disp" style="color:var(--g7);margin-bottom:6px">Резултат · 2 грешки</div>
+        <div class="res"><b>prescription.isProtocolBased</b> липсва<br><span class="muted">Задължително при категория T2 или T3 —</span> <a>CDP01</a></div>
+        <div class="res"><b>prescription.basedOn</b> липсва<br><span class="muted">Задължително при категория T2, T3, T6 или T7 —</span> <a>CDP22</a></div>
+        <div class="resok">Структура (XSD) — без грешки</div>
+        <div class="resok">Номенклатури — всички стойности са валидни</div>
+      </div>
+    </div>
+  </div>
+</div>
