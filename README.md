@@ -26,6 +26,7 @@ Requires Node 24 (`.nvmrc`).
 
 ```bash
 npm ci
+npm run fixtures:fetch   # downloads the public e-Prescription workbook used by the regression test
 npm run lint
 npm test
 ```

@@ -21,6 +21,7 @@
     },
     "scripts": {
         "lint": "eslint .",
-        "test": "npm test --workspaces --if-present"
+        "test": "npm test --workspaces --if-present",
+        "fixtures:fetch": "node scripts/fetch-public-fixtures.js"
     }
 }

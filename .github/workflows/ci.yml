@@ -26,5 +26,8 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      # The regression test reads the published e-Prescription workbook; in CI a missing fixture fails the run.
+      - name: Fetch public fixtures
+        run: npm run fixtures:fetch
       - name: Unit tests
         run: npm test
