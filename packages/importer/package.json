@@ -1,0 +1,40 @@
+{
+    "name": "@health-dev-portal/importer",
+    "version": "0.1.0",
+    "description": "Reads the НЗИС specification workbooks into the specification model and reports every anomaly.",
+    "license": "EUPL-1.2",
+    "private": true,
+    "type": "commonjs",
+    "engines": {
+        "node": ">=24"
+    },
+    "bin": {
+        "hdp-import-module": "./bin/import-module.js"
+    },
+    "exports": {
+        "./module": "./importer/module-importer.js",
+        "./reader": "./read/workbook-reader.js",
+        "./report": "./report/format.js"
+    },
+    "imports": {
+        "#cells": "./interpret/cells.js",
+        "#change-notes": "./interpret/change-notes.js",
+        "#colours": "./read/colours.js",
+        "#legend": "./structure/legend.js",
+        "#message-tree": "./structure/message-tree.js",
+        "#messages-sheet": "./interpret/messages-sheet.js",
+        "#module-importer": "./importer/module-importer.js",
+        "#raw": "./read/raw.js",
+        "#report": "./report/format.js",
+        "#scripts": "./interpret/scripts.js",
+        "#side-sheets": "./interpret/side-sheets.js",
+        "#workbook-reader": "./read/workbook-reader.js"
+    },
+    "dependencies": {
+        "@health-dev-portal/spec-model": "*",
+        "exceljs": "4.4.0"
+    },
+    "scripts": {
+        "test": "node --test \"test/**/*.test.js\""
+    }
+}
