@@ -1,0 +1,26 @@
+{
+    "name": "health-dev-portal",
+    "version": "0.0.0",
+    "description": "The developer portal of the Bulgarian National Health Information System (НЗИС).",
+    "license": "EUPL-1.2",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Belleal/health-dev-portal.git"
+    },
+    "engines": {
+        "node": ">=24"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.12.0",
+        "globals": "^17.13.0"
+    },
+    "scripts": {
+        "lint": "eslint .",
+        "test": "npm test --workspaces --if-present"
+    }
+}

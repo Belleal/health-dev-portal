@@ -9,3 +9,6 @@ node_modules/
 .idea/
 .vscode/
 .DS_Store
+
+# Public workbooks downloaded by `npm run fixtures:fetch` (never committed: see CLAUDE.md, "Data rules")
+.fixtures/
