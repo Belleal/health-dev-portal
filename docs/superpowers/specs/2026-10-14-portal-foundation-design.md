@@ -5,7 +5,7 @@
 | **Status** | Draft for review |
 | **Date** | 2026-10-14 |
 | **Scope** | Parts 1 and 2 of 7 (see §1) |
-| **Tracking** | HEL-1 (design); data defects found on the way: HEL-2 … HEL-11 |
+| **Tracking** | HEL-1 (design); data defects found on the way: HEL-2 … HEL-12 |
 | **Framework** | [ti-engine](https://github.com/Belleal/ti-engine) — `core`, `web-framework`, `web-content`, `cloudflare` |
 | **Mockups** | [`mockups/`](mockups/) — HTML fragments from the design sessions (see §9) |
 
@@ -183,9 +183,9 @@ Development versions are never public.
 ### 4.2 Messages
 
 Code (`P001`), names in both languages, endpoint address, request or response, sender and recipient, the
-request/response pairing, and an explicit lifecycle: `in-development`, `active`, `withdrawn`. "Changed in this version"
-is not stored; it is computed by comparing versions — this replaces the workbook's tab colours, which only 10 of 25
-message sheets carry (§5.4).
+request/response pairing, and an explicit lifecycle: `in-development`, `active`, `withdrawn`, read from the
+workbook's tab colour (§5.4). "Changed in this version" is computed by comparing versions; the tab colour's claim is
+kept beside it as a cross-check.
 
 ### 4.3 Elements
 
@@ -219,9 +219,10 @@ descriptions in both languages.
 ### 4.6 Code lists
 
 Per-list column definitions (e.g. `NHIF Code` on CL006), entries with key, descriptions and display values in both
-languages and `Since` / `Valid Until`, a source note (e.g. a FHIR code system), and whether an external register
-maintains the list (CL009 from НСЦРЛП, CL011 ICD). CL009 and CL011 are imported once; how they are maintained
-afterwards is decided later.
+languages and `Since` / `Valid Until` — which hold **nomenclature versions** (`v1.0.0`), not dates — a source note
+(e.g. a FHIR code system), and whether an external register maintains the list (CL009 from НСЦРЛП, CL011 ICD). The
+workbook's index sheet "Номенклатури" adds a status ("В УПОТРЕБА"), a "dynamic" flag and a visibility column per
+list. CL009 and CL011 are imported once; how they are maintained afterwards is decided later.
 
 ### 4.7 Change records
 
@@ -261,9 +262,14 @@ e-Prescription 1.5.1 (28 sheets) and nomenclatures 1.5.33 (185 sheets):
   Default Value, Rules, Conditions, Code Lists, Field Name / Tag, Attribute, description.
 - **Meaning carried by formatting:** nesting depth is the cell **indentation**, repeated by leading asterisks
   (`*Prescription`, `**Medication Group`); the row kind is the **fill colour** (legend: group `#BDD7EE`, polymorphic
-  `#FCE4D6`, attribute `#FFF2CC`, field none); groups close with "END of …" rows; change-note categories are the
-  **font colour** (breaking `#C65911`, dropped plan `#C00000`, default non-breaking); message status is the **tab
-  colour**.
+  `#FCE4D6`, attribute `#FFF2CC`, field none or white); groups close with "END of …" rows (grey `#F2F2F2`), though
+  not every group has one, so indentation is authoritative; change-note categories are the **font colour** (breaking
+  `#C65911`, dropped plan `#C00000`, default non-breaking); message status is the **tab colour** (working and
+  unchanged `#70AD47`, working and changed `#FFC000`, not yet working `#ED7D31`, removed `#C00000`).
+- **Tab colours are often theme colours** (`{ theme: 9 }` rather than `#70AD47`) and resolve only through the
+  workbook's own theme part. In e-Prescription 1.5.1 all 23 message sheets carry one: 19 working and unchanged, P011
+  and P012 removed, P021 and P022 not yet working — exactly what the 1.5.0 and 1.5.1 change notes say. (An earlier
+  reading through openpyxl, which cannot resolve theme colours, wrongly found only 10 of them coloured.)
 - Code lists: `Key`, `Description BG/EN`, `Display value BG/EN`, list-specific columns, `Since`, `Valid Until`;
   change notes carry test and production dates.
 
@@ -292,8 +298,9 @@ Five pure stages, each tested on its own:
 
 ### 5.4 Status, history and re-import
 
-- "Changed" is computed. **Red tabs** become `withdrawn`, flagged for confirmation (P011 and P012, removed in 1.5.0).
-  Other tab colours are ignored.
+- The **tab colour** sets the lifecycle: green and yellow → `active`, orange → `in-development`, red → `withdrawn`
+  (P011 and P012, removed in 1.5.0). An unknown or missing colour is a warning. "Changed" is computed; where the tab
+  colour disagrees with the computed difference, the report says so.
 - Historical change notes are imported as text entries in their categories. Differences the importer **detects**
   between slots are shown in the report for review, not merged into the notes.
 - Importing the same workbook twice changes nothing; a newer workbook replaces its slot's content.
@@ -311,10 +318,22 @@ XSD keeps its exact name and shape.
 - The staff upload page on the deployed portal: the same stages, the report, then a write on confirmation and a release
   awaiting approval (§7.1).
 
-### 5.7 First thing to measure
+### 5.7 Measured: exceljs
 
-That `exceljs` exposes indentation, fills, font colours and tab colours as openpyxl did when the template was
-measured. Measured in the first task of the implementation plan, not assumed.
+Measured on 2026-10-19 with exceljs 4.4.0 against both public workbooks:
+
+- Indentation is `alignment.indent` (absent at depth 0); fills are `fill.fgColor.argb` on `pattern` fills; font and
+  tab colours are `{ argb }` or `{ theme, tint }`; the theme part is reachable as raw XML. No cell is rich text or a
+  formula; 31 are numbers (fixed values such as `4`), so cell values are converted to text.
+- **e-Prescription 1.5.1** reads in ~0.15 s.
+- **Nomenclatures 1.5.33** reads in 2.1 s and **751 MB** of memory — too much for an upload in a container, so code lists
+  are read with exceljs' streaming reader.
+- A prototype of §5.3's tree rules over all 23 e-Prescription message sheets found no duplicate identity, no
+  indentation jump, no asterisk disagreement, no field without a tag and no attribute outside a field; one constraint
+  format beyond the four expected (`YYMMDD`, for expiry dates); and **30 requirement cells holding a Cyrillic `О`**
+  (HEL-12) — folded to Latin with a warning, so the workbook still imports.
+- **Look-alike folding** applies only where the result is entirely Latin: `О`, `Т3`, `Е003` fold; a genuine Bulgarian
+  word in a fixed value is left alone.
 
 ---
 
@@ -401,8 +420,9 @@ paths**; a path above that level has one value shared by every occurrence. `FOR 
 A release puts a spec version into a slot. In parts 1–2: a staff member uploads the workbook, reviews the import
 report and fills in the release form (slot, summary in both languages, and for production the planned go-live date set
 by the notice period, plus whether the replaced version stays as previous production and until when). **The release
-waits for the approver (solution architect) before anything is published**, and an approver cannot approve a release
-they uploaded themselves — change control needs two people. Part 3 adds promotion from development and
+waits for the approver (solution architect) before anything is published**. Whether an approver may approve a release
+they uploaded themselves is a **setting, off by default** (self-approval allowed) while the team is small; switching it
+on makes change control need two people. Part 3 adds promotion from development and
 editing; the release record stays the same.
 
 ### 7.2 Production timeline (manual)
@@ -625,4 +645,4 @@ Space" may not be migratable); XLSX export.
 | Entra ID app registration for staff sign-in | Information Services IT |
 | S3-compatible service in the data centre | Operations |
 | Brand assets | Information Services |
-| Data defects in the current sources (HEL-2 … HEL-11) | Spec team |
+| Data defects in the current sources (HEL-2 … HEL-12) | Spec team |
