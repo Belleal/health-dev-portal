@@ -20,7 +20,7 @@
  * enough to reason about: every element kind, an attribute row, a polymorphic element and an END row.
  */
 
-const { element, endRow } = require( "./raw-builders" );
+const { element, endRow, messageSheet, row, sheet } = require( "./raw-builders" );
 
 const prescriptionRows = () => [
     element( 3, 0, "group", { name: "Header", req: "R", card: "1..1", tag: "header" } ),
@@ -47,4 +47,46 @@ const confirmationRows = () => [
     element( 6, 1, "field", { name: "Prescription NRN", req: "R", card: "1..1", type: "String", constraint: "min=12, max=12, chars=an", tag: "nrnPrescription", attribute: "value" } )
 ];
 
-module.exports = { prescriptionRows, confirmationRows };
+const MESSAGES_HEADER = [ "Съобщение", "Име*", "Класификация", "Адрес", "Тип", "Налично в Release**", "Изпращач", "Получател" ];
+
+// A whole module workbook shaped like e-Prescription's: index, three messages, change notes, conditions, dictionary.
+// It imports with no anomaly at all, so any test that adds one defect sees exactly that defect.
+const moduleSheets = () => [
+    sheet( "Съобщения", [
+        row( 1, [ "Услуги, предоставяни от НЗИС за външни софтуерни системи" ] ),
+        row( 3, MESSAGES_HEADER ),
+        row( 4, [ "Заявка за създаване на Е-рецепта", "P001", "ePrescription Issue Request", "/v4/eprescription/doctor/issue", "Request", "1.2", "външна система", "НЗИС" ] ),
+        row( 5, [ "Потвърждение за създаване на Е-рецепта", "P002", "ePrescription Issue Confirmation", "---", "Response", "1.2", "НЗИС", "външна система" ] ),
+        row( 6, [ "Съобщение за грешка", "P099", "ePrescription Error", "---", "Response", "1.0", "НЗИС", "външна система" ] ),
+        // The real sheet ends with a footnote merged across every column, so its text appears in the code column too.
+        row( 8, Array( 8 ).fill( "** \"Налично в Release\" специфицира версията на API софтуера." ) )
+    ] ),
+    messageSheet( "P001", prescriptionRows() ),
+    messageSheet( "P002", confirmationRows() ),
+    messageSheet( "P099", confirmationRows() ),
+    sheet( "Change Notes", [
+        row( 1, [ "Версия 1.0.0" ] ),
+        row( 2, [ "Създадени съобщения P001, P002 и P099" ] ),
+        row( 3, [ "Версия 1.1.0" ] ),
+        row( 4, [ "Добавено поле \"allowedRepeatsNumber\" в P001" ], { fontColour: "C65911" } ),
+        row( 5, [ "Отпаднало поле \"note\"" ], { fontColour: "C00000" } )
+    ] ),
+    sheet( "Conditions", [
+        row( 1, [ "Condition ID", "Condition Logic" ] ),
+        row( 3, [ "CDP01", "IF 'prescription.category'.value = 'T2' OR 'T3'" ] ),
+        row( 4, [ null, "THEN 'prescription.isProtocolBased'.required = 'R'" ] ),
+        row( 5, [ null, "ELSE 'prescription.isProtocolBased'.required = 'O'" ] ),
+        row( 7, [ "CDP19", "IF 'prescription.category'.value = 'T3'" ] ),
+        row( 8, [ null, "THEN 'prescription.group'.cardinality = '1..3'" ] ),
+        row( 10, [ "CDP21", "IF 'prescription.dispensationType'.value = '2'" ] ),
+        row( 11, [ null, "THEN 'prescription.allowedRepeatsNumber'.required = 'R'" ] ),
+        row( 13, [ "CDP29", "IF 'prescription.category'.value = 'T2' OR 'T3'" ] ),
+        row( 14, [ null, "THEN 'prescription.group.medication'.cardinality = '1..3'" ] )
+    ] ),
+    sheet( "Dictionary", [
+        row( 1, [ "Abbreviation", "Name", "Описание" ] ),
+        row( 2, [ "PMI", "Personal Medical Identifier", "УИН на лекар" ] )
+    ] )
+];
+
+module.exports = { prescriptionRows, confirmationRows, moduleSheets };
