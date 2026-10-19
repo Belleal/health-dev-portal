@@ -70,6 +70,16 @@ describe( "readChangeNotes", () => {
         assert.equal( result.latest.version, "1.3.0" );
     } );
 
+    it( "reads a heading that ends with a period, and still refuses a four-part version", () => {
+        // CodeRabbit on #4: "Версия 1.5.1." was filed as a note, leaving the workbook at the previous version.
+        const result = readChangeNotes( sheet( "Change Notes", [
+            row( 1, [ "Версия 1.5.1." ] ),
+            row( 2, [ "Версия 1.2.3.4" ] )
+        ] ) );
+        assert.deepEqual( result.versions.map( ( version ) => version.version ), [ "1.5.1" ] );
+        assert.equal( result.versions[ 0 ].notes[ 0 ].text, "Версия 1.2.3.4" );
+    } );
+
     it( "takes the highest version and warns when headings are out of order", () => {
         const result = readChangeNotes( sheet( "Change Notes", [
             row( 1, [ "Версия 1.1.0" ] ),

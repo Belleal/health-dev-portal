@@ -36,6 +36,8 @@ const FIXTURES = Object.freeze( [ {
     sha256: "6b53e64b01526ee4cee9ba47e4a6be1a6854115ecc7b9a378f35ca66a1a4b7ed"
 } ] );
 
+const DOWNLOAD_TIMEOUT_MS = 60000;
+
 const digest = ( buffer ) => crypto.createHash( "sha256" ).update( buffer ).digest( "hex" );
 
 async function fetchFixture( fixture ) {
@@ -44,7 +46,8 @@ async function fetchFixture( fixture ) {
         console.log( `${ fixture.file }: present` );
         return;
     }
-    const response = await fetch( fixture.url );
+    // One deadline for the request and the body together: a server sending slowly must fail the step, not hold it.
+    const response = await fetch( fixture.url, { signal: AbortSignal.timeout( DOWNLOAD_TIMEOUT_MS ) } );
     if ( !response.ok ) {
         throw new Error( `${ fixture.file }: HTTP ${ response.status } from ${ fixture.url }` );
     }

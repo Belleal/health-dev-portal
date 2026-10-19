@@ -48,8 +48,10 @@ const DEFAULT_ATTRIBUTE = "value";
 // Folding catches look-alikes only; a tag holding any other non-Latin letter (a Cyrillic к, a Bulgarian word) would
 // publish a tag NHIS never sends. Space is left to isValidPart, which refuses it as invalid-tag.
 const NOT_LATIN = /[^\x20-\x7E]/;
-// The columns that make a row an element: a row with any of them and no name would vanish from the tree.
-const ELEMENT_COLUMNS = Object.freeze( [ "requirement", "cardinality", "dataType", "tag" ] );
+// The columns that make a row an element. A row with any of them is an element: without a name it would vanish from
+// the tree, and with a name but no R/C/O it would be dropped as a note (CodeRabbit on #4).
+const ELEMENT_COLUMNS = Object.freeze( [ "requirement", "cardinality", "dataType", "constraint", "fixedValue", "defaultValue",
+    "rules", "conditions", "codeList", "tag", "attribute" ] );
 
 function mapColumns( header, sheetName, anomalies ) {
     const titles = columnMap( header );
@@ -109,7 +111,7 @@ function readRow( row, columns, source, anomalies ) {
     const tagText = code( "tag" );
     // A name and nothing else is a note typed into the sheet, not an element; reading it as one would block the import
     // on an invalid requirement (Review Focus 2).
-    if ( !requirementText && !cardinalityText && isNone( tagText ) ) {
+    if ( ELEMENT_COLUMNS.every( ( key ) => isNone( text( key ) ) ) ) {
         anomalies.push( createAnomaly( "note-row", at( "name" ), { text: text( "name" ) } ) );
         return null;
     }
@@ -207,16 +209,21 @@ function closeGroup( open, name, source, anomalies ) {
     anomalies.push( createAnomaly( "unexpected-end-row", source, { name: name } ) );
 }
 
+function numberSubtree( node, ordinal ) {
+    if ( node.identity ) {
+        node.identity = withVariant( node.identity, ordinal );
+    }
+    node.children.forEach( ( child ) => numberSubtree( child, ordinal ) );
+}
+
 function identify( nodes, parentPath, parentField, anomalies ) {
     for ( const node of nodes ) {
         if ( node.kind === ELEMENT_KIND.POLYMORPHIC ) {
-            // Variants are fields at the polymorphic element's own level; they share a tag, so they are numbered.
+            // Variants are fields at the polymorphic element's own level; they share a tag, so they are numbered — and so is
+            // everything under each, or two variants' "name" attribute rows would share one identity and a valid workbook
+            // would be refused (CodeRabbit on #4, design record §4.3).
             identify( node.children, parentPath, null, anomalies );
-            node.children.forEach( ( variant, index ) => {
-                if ( variant.identity ) {
-                    variant.identity = withVariant( variant.identity, index + 1 );
-                }
-            } );
+            node.children.forEach( ( variant, index ) => numberSubtree( variant, index + 1 ) );
             const first = node.children.find( ( variant ) => variant.path );
             node.path = first ? first.path : null;
             node.identity = first ? withAttribute( first.path, first.attribute || DEFAULT_ATTRIBUTE ) : null;
@@ -290,7 +297,7 @@ module.exports.buildMessageTree = ( sheet ) => {
         const source = { sheet: sheet.name, row: row.number };
         if ( !name ) {
             // A row with element values and no name would vanish without a word (final review); 0 such rows in 1.5.1.
-            if ( ELEMENT_COLUMNS.some( ( key ) => cellAt( row, columns[ key ] ).text ) ) {
+            if ( ELEMENT_COLUMNS.some( ( key ) => !isNone( cellAt( row, columns[ key ] ).text ) ) ) {
                 anomalies.push( createAnomaly( "missing-name", source ) );
             }
             continue;

@@ -22,7 +22,9 @@ const { DEFAULT_NOTE_FONTS, NOTE_FONTS, matchLegend } = require( "#legend" );
 
 // Lenient on purpose: a newest heading typed "версия 1.2" or "Version 1.2.0" used to be filed as a note, leaving the
 // workbook at its previous version with no anomaly (final review). It is read, and a warning says it was not in form.
-const VERSION_HEADING = /^(?:версия|version)\s*:?\s*v?(\d+(?:\.\d+){0,2})(?![\d.])/iu;
+// The lookahead refuses only a further numeric part, so "Версия 1.5.1." still reads while "1.2.3.4" does not
+// (CodeRabbit on #4).
+const VERSION_HEADING = /^(?:версия|version)\s*:?\s*v?(\d+(?:\.\d+){0,2})(?!\.?\d)/iu;
 const CANONICAL_HEADING = /^Версия \d+\.\d+\.\d+/u;
 
 const normalise = ( version ) => {

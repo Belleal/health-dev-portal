@@ -36,18 +36,20 @@ const MESSAGE_CODE = /^[A-Z]\d{3}$/;
 
 const DIRECTIONS = Object.freeze( { Request: MESSAGE_DIRECTION.REQUEST, Response: MESSAGE_DIRECTION.RESPONSE } );
 
+// The x99 response is the module's error message: it answers every request and pairs with none.
+const isErrorMessage = ( message ) => message.direction === MESSAGE_DIRECTION.RESPONSE && message.code.endsWith( "99" );
+
 function pair( messages, anomalies ) {
     messages.forEach( ( message, index ) => {
         const next = messages[ index + 1 ];
-        if ( message.direction === MESSAGE_DIRECTION.REQUEST && next && next.direction === MESSAGE_DIRECTION.RESPONSE ) {
+        // A request without its own response, listed just before P099, must stay unpaired (CodeRabbit on #4).
+        if ( message.direction === MESSAGE_DIRECTION.REQUEST && next && next.direction === MESSAGE_DIRECTION.RESPONSE && !isErrorMessage( next ) ) {
             message.pairedWith = next.code;
             next.pairedWith = message.code;
         }
     } );
     for ( const message of messages ) {
-        // The x99 response is the module's error message: it answers every request and pairs with none.
-        const errorMessage = message.direction === MESSAGE_DIRECTION.RESPONSE && message.code.endsWith( "99" );
-        if ( !message.pairedWith && !errorMessage ) {
+        if ( !message.pairedWith && !isErrorMessage( message ) ) {
             anomalies.push( createAnomaly( "unpaired-message", message.source, { code: message.code } ) );
         }
     }

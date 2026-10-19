@@ -62,6 +62,23 @@ describe( "readMessageIndex", () => {
         assert.deepEqual( types( result ), [ "mixed-script-word", "unknown-direction", "unpaired-message", "unpaired-message", "unpaired-message" ] );
     } );
 
+    it( "never pairs a request with the x99 error message", () => {
+        // CodeRabbit on #4: a request without its own response, listed just before P099, took P099 as its partner.
+        const header = index().rows[ 1 ];
+        const result = readMessageIndex( sheet( "Съобщения", [
+            header,
+            row( 4, [ "Заявка", "P001", "Issue", "/v4/x", "Request", "", "", "" ] ),
+            row( 5, [ "Отговор", "P002", "Result", "---", "Response", "", "", "" ] ),
+            row( 6, [ "Заявка", "P003", "Fetch", "/v4/y", "Request", "", "", "" ] ),
+            row( 7, [ "Грешка", "P099", "Error", "---", "Response", "", "", "" ] )
+        ] ) );
+        const byCode = ( code ) => result.messages.find( ( message ) => message.code === code );
+        assert.equal( byCode( "P003" ).pairedWith, null );
+        assert.equal( byCode( "P099" ).pairedWith, null );
+        assert.deepEqual( types( result ), [ "unpaired-message" ] );
+        assert.equal( result.anomalies[ 0 ].details.code, "P003" );
+    } );
+
     it( "blocks a message listed twice", () => {
         // A copied index row whose code was left as P001 gave P001 twice and dropped the new message (final review).
         const header = index().rows[ 1 ];

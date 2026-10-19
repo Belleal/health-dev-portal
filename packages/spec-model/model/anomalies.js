@@ -79,7 +79,8 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "empty-group": { level: WARNING, text: "Group {identity} has no elements." },
     "single-variant": { level: WARNING, text: "Polymorphic element {identity} has {count} variant(s); it needs at least two." },
     // Side sheets
-    "empty-condition": { level: WARNING, text: "Condition {id} has no text." }
+    "empty-condition": { level: WARNING, text: "Condition {id} has no text." },
+    "duplicate-condition": { level: BLOCKING, text: "Condition {id} is defined twice (rows {firstRow} and {row}); the first is kept." }
 } );
 
 /**

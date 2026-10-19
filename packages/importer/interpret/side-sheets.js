@@ -36,6 +36,7 @@ module.exports.readConditions = ( sheet ) => {
         return { conditions: [], anomalies: anomalies };
     }
     const collected = [];
+    const firstRows = new Map();
     let current = null;
     for ( const row of sheet.rows ) {
         if ( row.number <= header.number ) {
@@ -45,7 +46,14 @@ module.exports.readConditions = ( sheet ) => {
         const line = cellAt( row, 2 ).text;
         if ( id ) {
             current = { id: id, lines: [], source: { sheet: sheet.name, row: row.number } };
-            collected.push( current );
+            // A copied block leaves one ID pointing at two texts; the first is kept and the repeat blocks, as a repeated
+            // message code does (CodeRabbit on #4). Its lines go into a condition that is not collected.
+            if ( firstRows.has( id ) ) {
+                anomalies.push( createAnomaly( "duplicate-condition", current.source, { id: id, firstRow: firstRows.get( id ), row: row.number } ) );
+            } else {
+                firstRows.set( id, row.number );
+                collected.push( current );
+            }
         }
         if ( line && current ) {
             current.lines.push( line );

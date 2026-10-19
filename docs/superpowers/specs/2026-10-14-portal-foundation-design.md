@@ -202,8 +202,9 @@ Each message has a tree of elements. An element has:
 - its **binding to a common-schema type**.
 
 **Identity across versions** is the tag path plus the attribute, e.g.
-`contents/prescription/group/medication/medicationCode@name`. Comparison and changelog generation rely on it; the
-studio preserves it when an element is edited.
+`contents/prescription/group/medication/medicationCode@name`. Polymorphic variants share their tag, so each variant
+**and every identity under it** carries the variant's ordinal: `…/doseQuantityCode@value#1`, `…/doseQuantityCode@name#1`.
+Comparison and changelog generation rely on it; the studio preserves it when an element is edited.
 
 ### 4.4 Common-schema types
 

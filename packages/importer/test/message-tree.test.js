@@ -256,6 +256,41 @@ describe( "buildMessageTree", () => {
         assert.equal( flatten( tree.elements ).length, 2 );
     } );
 
+    it( "reads a row with any element column as an element, not a note", () => {
+        // CodeRabbit on #4: a name with only a data type or a code list was dropped as a note, with a warning only.
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            element( 4, 1, "field", { name: "LRN", req: "R", card: "1..1", tag: "lrn", attribute: "value" } ),
+            element( 5, 1, "field", { name: "Typed", type: "String" } ),
+            element( 6, 1, "field", { name: "Coded", codeList: "CL007" } )
+        ] ) );
+        assert.ok( !types( tree ).includes( "note-row" ) );
+        assert.ok( tree.anomalies.some( ( anomaly ) => anomaly.type === "invalid-requirement" && anomaly.row === 5 ) );
+        assert.ok( tree.anomalies.some( ( anomaly ) => anomaly.type === "invalid-requirement" && anomaly.row === 6 ) );
+    } );
+
+    it( "numbers every identity under a polymorphic variant with the variant's ordinal", () => {
+        // CodeRabbit on #4 (and the final review): two Codeable Concept variants with a name attribute each shared
+        // …@name, so a valid workbook was refused as duplicate-identity.
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            element( 4, 1, "polymorphic", { name: "Unit", req: "R", card: "1..1", type: "---", tag: "---" } ),
+            element( 5, 2, "field", { name: "As UCUM", req: "R", card: "1..1", type: "Codeable Concept", tag: "unit", attribute: "value" } ),
+            element( 6, 3, "attribute", { name: "UCUM Name", req: "O", card: "0..1", tag: "unit", attribute: "name" } ),
+            element( 7, 2, "field", { name: "As Form", req: "R", card: "1..1", type: "Codeable Concept", tag: "unit", attribute: "value" } ),
+            element( 8, 3, "attribute", { name: "Form Name", req: "O", card: "0..1", tag: "unit", attribute: "name" } )
+        ] ) );
+        assert.deepEqual( tree.anomalies, [] );
+        assert.deepEqual( flatten( tree.elements ).map( ( node ) => node.identity ), [
+            "contents",
+            "contents/unit@value",
+            "contents/unit@value#1",
+            "contents/unit@name#1",
+            "contents/unit@value#2",
+            "contents/unit@name#2"
+        ] );
+    } );
+
     it( "finds a header row below a title", () => {
         const tree = buildMessageTree( sheet( "P001", [
             row( 1, [ "Заявка за създаване на Е-рецепта" ] ),

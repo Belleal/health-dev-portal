@@ -48,6 +48,20 @@ describe( "side sheets", () => {
         assert.equal( result.conditions[ 0 ].text, "" );
     } );
 
+    it( "blocks a condition ID used twice, keeping the first", () => {
+        // CodeRabbit on #4: a copied block left one ID pointing at two texts, and nothing said which one applies.
+        const result = readConditions( sheet( "Conditions", [
+            row( 1, [ "Condition ID", "Condition Logic" ] ),
+            row( 3, [ "CDP01", "IF 'a'.value = '1'" ] ),
+            row( 5, [ "CDP01", "IF 'b'.value = '2'" ] ),
+            row( 6, [ null, "THEN 'b'.required = 'R'" ] )
+        ] ) );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "duplicate-condition" ] );
+        assert.equal( result.anomalies[ 0 ].level, "blocking" );
+        assert.deepEqual( result.anomalies[ 0 ].details, { id: "CDP01", firstRow: 3, row: 5 } );
+        assert.deepEqual( result.conditions.map( ( condition ) => condition.text ), [ "IF 'a'.value = '1'" ] );
+    } );
+
     it( "reads the dictionary", () => {
         const result = readDictionary( named( "Dictionary" ) );
         assert.deepEqual( result.anomalies, [] );
