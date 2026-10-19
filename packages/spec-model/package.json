@@ -18,6 +18,7 @@
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
         "#kinds": "./model/kinds.js"
