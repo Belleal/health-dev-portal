@@ -225,6 +225,60 @@ languages and `Since` / `Valid Until` — which hold **nomenclature versions** (
 workbook's index sheet "Номенклатури" adds a status ("В УПОТРЕБА"), a "dynamic" flag and a visibility column per
 list. CL009 and CL011 are imported once; how they are maintained afterwards is decided later.
 
+Measured on nomenclatures 1.5.33 (2026-10-19):
+
+- **Sheet layout.** A title row `CLxxx - <name>` (Bulgarian only; no list has an English name), optional note rows
+  (`Източник: …`, `FHIR: …`, `Важно: …`), a column-group row (`Entity` / `Meta Data` / `System Data`), then the
+  header row, found on rows 3 to 6.
+- **Header layouts.** 63 distinct layouts, which reduce to one set of column roles under different titles:
+  - descriptions: `Description BG` / `Description EN`, or `Description` / `Language EN`;
+  - display values: `Display value BG` / `Display value EN`, in either case, or `Display Value (Bulgarian)` /
+    `Display Value (English)` (CL999).
+
+  Every other column is list-specific. CL007 has a list-specific `Description` beside `Description BG`.
+- **Statuses.** The index gives six:
+
+  | Status | Lists |
+  |---|---|
+  | `В УПОТРЕБА` (in use) | 173 |
+  | `ПРЕМАХНАТА` (removed) | 3 |
+  | `ЗА РЕВИЗИЯ` (under revision) | 1 |
+  | `РЕЗЕРВИРАНА` (reserved) | 2 |
+  | `В РАЗРАБОТКА` (in development) | 2 |
+  | `ЗА ДОПЪЛВАНЕ` (incomplete) | 1 |
+
+  "Dynamic" is `true` for 6 lists. The visibility column is empty throughout.
+- **Index and sheets.**
+  - CL068 is listed as removed and has no sheet.
+  - Two sheets, CLS01 and CLS02, are not listed. They are relation tables, not code lists, and are not imported.
+- **Entries.**
+  - 59,343 entries in 181 lists: 59,360 keyed rows, of which 17 repeat a key. CL011 alone holds 39,005.
+  - Placeholder rows (`...`, `---`), footnotes typed into the Key column, and keyless rows are not entries. CL122 is
+    entirely keyless: it is a relation table, reserved.
+  - Two lists repeat a key (HEL-15).
+- **Versions.** Of the 59,311 filled `Since` / `Valid Until` cells:
+  - 58,933 are in the form `v1.2.3`;
+  - 252 are versions in another form (`v.1.5.21`, `1.5.16`);
+  - 124 are dates (`10.10.2023`);
+  - 2 are neither.
+- **Fills.** A red fill on a key marks some withdrawn entries but not all: 98 entries with a `Valid Until` have no fill.
+  So `Valid Until`, not colour, says an entry is withdrawn.
+
+### 4.6.1 Business rules
+
+A rule has an ID (`RL001`), a definition (Bulgarian only, often several lines), a source note, the error code it returns
+(a CL999 key) and the rules version it was added in. As on a module's message tabs, **the ID cell's fill gives the
+rule's status**:
+
+| Fill | Status | Rules in 1.1.1 |
+|---|---|---|
+| green `70AD47` | active | 87 |
+| yellow `FFC000` | active, changed in this version | 1 |
+| red `C00000` | withdrawn; the definition is cleared | 9 |
+
+The prevention workbook (`PR001`) is a relation table keyed by a code list, not a set of rules. It waits for its own
+design.
+
 ### 4.7 Change records
 
 An entry belongs to a spec version and has a category (`breaking`, `dropped-plan`, `non-breaking`), a target (message,
@@ -289,10 +343,13 @@ Five pure stages, each tested on its own:
 3. **Interpret** — cardinality and R/C/O; constraint text into parts; references collected; conditions parsed into the
    language of §6, their paths resolved to elements.
 4. **Link** — code lists against the same slot's nomenclatures, rules against the rules spec, XSD type names from the
-   imported schemas.
+   imported schemas. Linking also checks each rule's error code against CL999. A reference to a removed list or a
+   withdrawn rule is a warning: the target exists but should no longer be used.
 5. **Report** — every anomaly with sheet, row and cell, at one of two levels:
-   - **blocking** — nothing is written; the source is fixed and re-imported (tree cannot be built; reference to a code
-     list or condition that does not exist; two elements with the same identity);
+   - **blocking** — nothing is written; the source is fixed and re-imported. Examples:
+     - the tree cannot be built;
+     - a reference to a code list, rule or condition that does not exist;
+     - two elements with the same identity, or two entries of one list with the same key;
    - **warning** — imported, and listed on a staff "data quality" page (indentation and asterisks disagree; a Cyrillic
      look-alike in a key, code or compared value; a word mixing scripts; an unknown fill; an unresolved condition path;
      a free-text effect).
@@ -335,6 +392,24 @@ Measured on 2026-10-19 with exceljs 4.4.0 against both public workbooks:
   (HEL-12) — folded to Latin with a warning, so the workbook still imports.
 - **Look-alike folding** applies only where the result is entirely Latin: `О`, `Т3`, `Е003` fold; a genuine Bulgarian
   word in a fixed value is left alone.
+
+The streaming reader, measured on nomenclatures 1.5.33:
+
+- **What it gives:**
+  - cell values;
+  - fills, fonts and indentation through the cached styles;
+  - colours as `{ argb }` or `{ theme }` (1,005 change-note fonts are `{ theme: 1 }`).
+- **What it does not give:**
+  - **No theme part:** the reader skips it. It is read separately, from the same bytes, with jszip (19 ms), so theme
+    colours resolve as they do in the full reader.
+  - **No tab colours:** a code list carries its status in the index sheet, so none is needed.
+  - **No merged ranges:** covered cells carry no value in the file, so they read as empty, which is what the full
+    reader now does too.
+- **Order and temporary files:** sheets arrive in the order of the zip archive, not of the tabs (CL178 comes first).
+  Because 1.5.33 stores its shared strings after its worksheets, the reader **spools every worksheet to a temporary
+  file** before parsing it. The container therefore needs a writable temporary directory (plan 8).
+- **Cost:** reading every sheet into raw rows one at a time and keeping the whole model took **2.2 s and 321 MB** at
+  peak, against the full reader's 751 MB.
 
 ---
 
@@ -639,6 +714,7 @@ Space" may not be migratable); XLSX export.
 | Item | Owner |
 |---|---|
 | Repetition semantics of conditions (HEL-9) | NHIS backend team |
+| Which spelling the backend holds for code-list keys with Cyrillic look-alikes, e.g. CL022 `10-0А0` (HEL-15) | NHIS backend team |
 | Server-log retention (90 days assumed) | DPO |
 | Copyright holder of the code (README names "the contributors") | Information Services legal |
 | Source workbooks for every spec and slot — the shared OneDrive folder was still empty on 2026-10-14 | Spec team |
