@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+# Nothing here writes. `npm ci` runs dependency lifecycle scripts, so the token they could reach is read-only.
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # npm ci runs dependency lifecycle scripts and nothing here uses git afterwards, so the token is not kept.
+        with:
+          persist-credentials: false
+      # The Node version is written once, in .nvmrc.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      # The regression test reads the published e-Prescription workbook; in CI a missing fixture fails the run.
+      - name: Fetch public fixtures
+        run: npm run fixtures:fetch
+      - name: Unit tests
+        run: npm test

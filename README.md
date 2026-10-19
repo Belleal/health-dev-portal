@@ -19,3 +19,23 @@ Copyright © 2026 the health-dev-portal contributors.
   ([`LICENSE-CONTENT`](LICENSE-CONTENT), SPDX `CC-BY-4.0`).
 
 Where a file does not say otherwise, code is EUPL-1.2 and prose is CC BY 4.0.
+
+## Development
+
+Requires Node 24 (`.nvmrc`).
+
+```bash
+npm ci
+npm run fixtures:fetch   # downloads the public e-Prescription workbook used by the regression test
+npm run lint
+npm test
+```
+
+### Importing a module workbook
+
+```bash
+npx hdp-import-module --spec e-prescription --json model.json "path/to/НЗИС Е-Рецепта - API Спецификация v1.5.1.xlsx"
+```
+
+The report lists every anomaly with its sheet and cell. Exit code 0: accepted; 1: refused (a blocking anomaly) or the
+file could not be read; 2: wrong arguments.

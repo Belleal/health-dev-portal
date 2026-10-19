@@ -1,0 +1,10 @@
+# CodeRabbit configuration. This file takes precedence over the repository's settings in the CodeRabbit UI.
+reviews:
+  profile: assertive
+  path_filters:
+    # Design mockups are HTML fragments for the design companion, kept as a record, not shipped.
+    - "!docs/superpowers/specs/mockups/**"
+  finishing_touches:
+    # Tests are written with the code they cover, against `node --test`, not generated onto a branch.
+    unit_tests:
+      enabled: false
