@@ -62,6 +62,33 @@ describe( "readMessageIndex", () => {
         assert.deepEqual( types( result ), [ "mixed-script-word", "unknown-direction", "unpaired-message", "unpaired-message", "unpaired-message" ] );
     } );
 
+    it( "blocks a message listed twice", () => {
+        // A copied index row whose code was left as P001 gave P001 twice and dropped the new message (final review).
+        const header = index().rows[ 1 ];
+        const result = readMessageIndex( sheet( "Съобщения", [
+            header,
+            row( 4, [ "Заявка", "P001", "Issue", "/v4/x", "Request", "", "", "" ] ),
+            row( 5, [ "Отговор", "P002", "Result", "---", "Response", "", "", "" ] ),
+            row( 6, [ "Заявка", "P001", "Fetch", "/v4/y", "Request", "", "", "" ] ),
+            row( 7, [ "Отговор", "P004", "Result", "---", "Response", "", "", "" ] )
+        ] ) );
+        assert.deepEqual( types( result ).filter( ( type ) => type !== "unpaired-message" ), [ "duplicate-message" ] );
+        assert.equal( result.anomalies.find( ( anomaly ) => anomaly.type === "duplicate-message" ).level, "blocking" );
+        assert.deepEqual( result.messages.map( ( message ) => message.code ), [ "P001", "P002", "P004" ] );
+    } );
+
+    it( "blocks a message row whose code is mistyped instead of skipping it", () => {
+        const header = index().rows[ 1 ];
+        const result = readMessageIndex( sheet( "Съобщения", [
+            header,
+            row( 4, [ "Заявка", "P001", "Issue", "/v4/x", "Request", "", "", "" ] ),
+            row( 5, [ "Отговор", "P002", "Result", "---", "Response", "", "", "" ] ),
+            row( 6, [ "Заявка", "P0O3", "Fetch", "/v4/y", "Request", "", "", "" ] )
+        ] ) );
+        assert.deepEqual( types( result ), [ "malformed-message-code" ] );
+        assert.equal( result.anomalies[ 0 ].level, "blocking" );
+    } );
+
     it( "blocks a sheet without its header or a column", () => {
         assert.deepEqual( types( readMessageIndex( sheet( "Съобщения", [ row( 1, [ "Нещо друго" ] ) ] ) ) ), [ "missing-header-row" ] );
         const result = readMessageIndex( sheet( "Съобщения", [ row( 3, [ "Съобщение", "Име*", "Класификация", "Адрес", "Тип", "Изпращач" ] ) ] ) );

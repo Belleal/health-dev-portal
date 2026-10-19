@@ -32,18 +32,54 @@ module.exports.ROW_FILLS = Object.freeze( {
 /**
  * Fills that mean "no fill": 40 field rows of e-Prescription 1.5.1 are filled white.
  *
- * @type {ReadonlyArray<string>}
+ * @type {Readonly<Object<string, boolean>>}
  * @public
  */
-module.exports.NEUTRAL_FILLS = Object.freeze( [ "FFFFFF" ] );
+module.exports.NEUTRAL_FILLS = Object.freeze( { "FFFFFF": true } );
 
 /**
  * The grey of "END of …" rows.
  *
- * @type {string}
+ * @type {Readonly<Object<string, boolean>>}
  * @public
  */
-module.exports.END_FILL = "F2F2F2";
+module.exports.END_FILLS = Object.freeze( { "F2F2F2": true } );
+
+/**
+ * Font colours of a change note that mean "no colour": black, set directly or through the theme.
+ *
+ * @type {Readonly<Object<string, boolean>>}
+ * @public
+ */
+module.exports.DEFAULT_NOTE_FONTS = Object.freeze( { "000000": true } );
+
+// Two steps per channel: a colour picked from Excel's theme palette resolves within a step or two of the swatch the
+// legend was written in — FBE5D6 for FCE4D6, C55A11 for C65911 (measured in the final review). The legend's entries
+// are much further apart than that.
+const TOLERANCE = 2;
+
+const channels = ( hex ) => [ 0, 2, 4 ].map( ( index ) => parseInt( hex.slice( index, index + 2 ), 16 ) );
+
+/**
+ * Finds a colour's entry in one of the legend tables, exactly or within two steps per channel.
+ *
+ * @method
+ * @param {string|null} colour Six upper-case hex digits, `null`, or the reader's `UNRESOLVED` marker.
+ * @param {Readonly<Object<string, *>>} table
+ * @returns {*} The entry, or `null` when there is none.
+ * @public
+ */
+module.exports.matchLegend = ( colour, table ) => {
+    if ( typeof colour !== "string" || !/^[0-9A-F]{6}$/.test( colour ) ) {
+        return null;
+    }
+    if ( Object.hasOwn( table, colour ) ) {
+        return table[ colour ];
+    }
+    const target = channels( colour );
+    const key = Object.keys( table ).find( ( candidate ) => channels( candidate ).every( ( value, index ) => Math.abs( value - target[ index ] ) <= TOLERANCE ) );
+    return key === undefined ? null : table[ key ];
+};
 
 /**
  * Tab colours of the legend: the message's lifecycle and whether the tab claims it changed in this version.

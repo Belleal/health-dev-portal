@@ -21,6 +21,15 @@
 const THEME_ORDER = Object.freeze( [ "lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink" ] );
 
 /**
+ * What the reader records for a colour that is set but cannot be resolved (an indexed palette entry, a missing theme
+ * slot). It matches no legend entry, so it is reported rather than read as "no colour".
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.UNRESOLVED = "unresolved";
+
+/**
  * Reads the colour scheme of a workbook's theme part.
  *
  * @method

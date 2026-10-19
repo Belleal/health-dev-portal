@@ -17,7 +17,7 @@
 
 const ExcelJS = require( "exceljs" );
 const { EMPTY_CELL } = require( "#raw" );
-const { parseThemeColours, resolveColour } = require( "#colours" );
+const { UNRESOLVED, parseThemeColours, resolveColour } = require( "#colours" );
 
 /**
  * @typedef {Object} RawCell
@@ -72,12 +72,19 @@ function cellText( value ) {
     return "";
 }
 
+// A colour that is set but cannot be resolved is marked, never read as no colour: an indexed fill would otherwise turn a
+// group row into a plain field without a word (final review).
+const colourOf = ( colour, themeColours ) => ( colour ? resolveColour( colour, themeColours ) || UNRESOLVED : null );
+
 function toRawCell( cell, themeColours ) {
     const patterned = cell.fill && cell.fill.type === "pattern" && cell.fill.pattern !== "none";
+    // exceljs gives every cell a merge covers the first cell's value. Read that way, a note merged across a row became
+    // an element with an invalid requirement, and a condition ID merged down its lines split it into several.
+    const covered = cell.type === ExcelJS.ValueType.Merge && cell.master !== cell;
     return Object.freeze( {
-        text: cellText( cell.value ),
-        fill: patterned ? resolveColour( cell.fill.fgColor, themeColours ) : null,
-        fontColour: cell.font && cell.font.color ? resolveColour( cell.font.color, themeColours ) : null,
+        text: covered ? "" : cellText( cell.value ),
+        fill: patterned ? colourOf( cell.fill.fgColor, themeColours ) : null,
+        fontColour: cell.font ? colourOf( cell.font.color, themeColours ) : null,
         indent: cell.alignment && Number.isInteger( cell.alignment.indent ) ? cell.alignment.indent : 0
     } );
 }
@@ -93,7 +100,7 @@ function toRawSheet( worksheet, themeColours ) {
     } );
     return Object.freeze( {
         name: worksheet.name,
-        tabColour: resolveColour( worksheet.properties.tabColor, themeColours ),
+        tabColour: colourOf( worksheet.properties.tabColor, themeColours ),
         rows: Object.freeze( rows )
     } );
 }

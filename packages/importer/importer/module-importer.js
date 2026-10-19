@@ -21,7 +21,7 @@ const { buildMessageTree } = require( "#message-tree" );
 const { readMessageIndex } = require( "#messages-sheet" );
 const { readChangeNotes } = require( "#change-notes" );
 const { readConditions, readDictionary } = require( "#side-sheets" );
-const { TAB_STATUS } = require( "#legend" );
+const { TAB_STATUS, matchLegend } = require( "#legend" );
 
 const SHEETS = Object.freeze( {
     messages: "Съобщения",
@@ -32,6 +32,28 @@ const SHEETS = Object.freeze( {
 
 const MESSAGE_SHEET = /^[A-Z]\d{3}$/;
 const FILE_VERSION = /v(\d+\.\d+\.\d+)/i;
+
+const flatten = ( elements ) => elements.flatMap( ( node ) => [ node, ...flatten( node.children ) ] );
+
+// Sheets are matched by trimmed name, so two that differ only in spaces ("P002" and a stale "P002 ") are ambiguous:
+// whichever came first in tab order would be read, silently (final review).
+function ambiguousSheets( workbook ) {
+    const byName = new Map();
+    for ( const candidate of workbook.sheets ) {
+        const name = candidate.name.trim();
+        byName.set( name, [ ...( byName.get( name ) || [] ), candidate.name ] );
+    }
+    return [ ...byName.values() ].filter( ( names ) => names.length > 1 )
+        .map( ( names ) => createAnomaly( "ambiguous-sheet", {}, { sheets: names.map( ( name ) => JSON.stringify( name ) ).join( ", " ) } ) );
+}
+
+// Design record §5.3: a reference to a condition that does not exist blocks; both sides are in this workbook.
+function undefinedConditions( messages, conditions ) {
+    const defined = new Set( conditions.map( ( condition ) => condition.id ) );
+    return messages.flatMap( ( message ) => flatten( message.elements ) )
+        .flatMap( ( node ) => node.conditions.filter( ( id ) => !defined.has( id ) )
+            .map( ( id ) => createAnomaly( "unknown-condition", node.source, { identity: node.identity || node.name.en, id: id } ) ) );
+}
 
 /**
  * Imports one module specification workbook into a module version (design record §4, §5).
@@ -51,7 +73,7 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     if ( !options || typeof options.spec !== "string" || options.spec === "" ) {
         throw new TypeError( "importModuleWorkbook needs options.spec, the module's key." );
     }
-    const anomalies = [];
+    const anomalies = [ ...ambiguousSheets( workbook ) ];
     const sheetNamed = ( name ) => workbook.sheets.find( ( candidate ) => candidate.name.trim() === name ) || null;
     const required = ( name ) => {
         const found = sheetNamed( name );
@@ -71,7 +93,7 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
             anomalies.push( createAnomaly( "message-without-sheet", entry.source, { code: entry.code } ) );
             return { ...entry, lifecycle: null, changedInVersion: null, elements: [] };
         }
-        const status = messageSheet.tabColour && Object.hasOwn( TAB_STATUS, messageSheet.tabColour ) ? TAB_STATUS[ messageSheet.tabColour ] : null;
+        const status = matchLegend( messageSheet.tabColour, TAB_STATUS );
         if ( !status ) {
             anomalies.push( createAnomaly( "unknown-tab-colour", { sheet: messageSheet.name }, { colour: messageSheet.tabColour || "none" } ) );
         }
@@ -93,9 +115,9 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     }
 
     const notesSheet = required( SHEETS.changeNotes );
-    const notes = notesSheet ? readChangeNotes( notesSheet ) : { versions: [], anomalies: [] };
+    const notes = notesSheet ? readChangeNotes( notesSheet ) : { versions: [], latest: null, anomalies: [] };
     anomalies.push( ...notes.anomalies );
-    const latest = notes.versions[ notes.versions.length - 1 ] || null;
+    const latest = notes.latest;
     if ( !latest ) {
         anomalies.push( createAnomaly( "missing-version", notesSheet ? { sheet: notesSheet.name } : {} ) );
     }
@@ -107,6 +129,10 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     const conditionsSheet = required( SHEETS.conditions );
     const conditions = conditionsSheet ? readConditions( conditionsSheet ) : { conditions: [], anomalies: [] };
     anomalies.push( ...conditions.anomalies );
+    // Without the sheet every reference would be reported on top of the missing sheet; the missing sheet says it all.
+    if ( conditionsSheet ) {
+        anomalies.push( ...undefinedConditions( messages, conditions.conditions ) );
+    }
 
     // Not every module has a dictionary, so its absence is not an anomaly.
     const dictionarySheet = sheetNamed( SHEETS.dictionary );

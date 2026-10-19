@@ -79,6 +79,18 @@ describe( "validateMessageTree", () => {
         assert.deepEqual( types( validateMessageTree( tree ) ), [ "empty-group", "single-variant" ] );
     } );
 
+    it( "blocks an element under a field, and anything under an attribute", () => {
+        // A field holds only attribute rows; anything else under it is indented one level too deep (final review).
+        const field = node( { children: [ node( { identity: "contents/x/y@value", name: { bg: null, en: "Y" }, source: { sheet: "P001", row: 6 } } ) ] } );
+        const [ anomaly ] = validateMessageTree( [ field ] );
+        assert.equal( anomaly.type, "field-with-elements" );
+        assert.equal( anomaly.level, "blocking" );
+        assert.equal( anomaly.row, 6 );
+        const attribute = node( { identity: "contents/x@name", kind: "attribute", children: [ node( { identity: null } ) ] } );
+        assert.deepEqual( types( validateMessageTree( [ attribute ] ) ), [ "attribute-with-children" ] );
+        assert.deepEqual( validateMessageTree( [ node( { children: [ node( { identity: "contents/x@name", kind: "attribute" } ) ] } ) ] ), [] );
+    } );
+
     it( "skips checks that need a value the row did not have", () => {
         assert.deepEqual( validateMessageTree( [ node( { identity: null, cardinality: null } ) ] ), [] );
     } );

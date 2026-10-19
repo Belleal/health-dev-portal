@@ -18,16 +18,52 @@
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
 const { CHANGE_CATEGORY } = require( "@health-dev-portal/spec-model/kinds" );
 const { cellAt } = require( "#raw" );
-const { NOTE_FONTS } = require( "#legend" );
+const { DEFAULT_NOTE_FONTS, NOTE_FONTS, matchLegend } = require( "#legend" );
 
-const VERSION_HEADING = /^Версия\s+(\d+\.\d+\.\d+)/;
+// Lenient on purpose: a newest heading typed "версия 1.2" or "Version 1.2.0" used to be filed as a note, leaving the
+// workbook at its previous version with no anomaly (final review). It is read, and a warning says it was not in form.
+const VERSION_HEADING = /^(?:версия|version)\s*:?\s*v?(\d+(?:\.\d+){0,2})(?![\d.])/iu;
+const CANONICAL_HEADING = /^Версия \d+\.\d+\.\d+/u;
+
+const normalise = ( version ) => {
+    const parts = version.split( "." );
+    while ( parts.length < 3 ) {
+        parts.push( "0" );
+    }
+    return parts.join( "." );
+};
+
+const compareVersions = ( a, b ) => {
+    const left = a.split( "." ).map( Number );
+    const right = b.split( "." ).map( Number );
+    for ( let index = 0; index < 3; index++ ) {
+        if ( left[ index ] !== right[ index ] ) {
+            return left[ index ] - right[ index ];
+        }
+    }
+    return 0;
+};
+
+function categoryOf( cell, source, anomalies ) {
+    const category = matchLegend( cell.fontColour, NOTE_FONTS );
+    if ( category ) {
+        return category;
+    }
+    // A colour outside the legend may be a breaking change painted in a near shade; it must not pass as non-breaking
+    // without a word.
+    if ( cell.fontColour && !matchLegend( cell.fontColour, DEFAULT_NOTE_FONTS ) ) {
+        anomalies.push( createAnomaly( "unknown-note-colour", source, { colour: cell.fontColour } ) );
+    }
+    return CHANGE_CATEGORY.NON_BREAKING;
+}
 
 /**
- * Reads the "Change Notes" sheet: version headings in order, each note categorised by its font colour.
+ * Reads the "Change Notes" sheet: version headings in order, each note categorised by its font colour, and the
+ * workbook's version — the highest heading, not merely the last.
  *
  * @method
  * @param {import( "#workbook-reader" ).RawSheet} sheet
- * @returns {{versions: import( "@health-dev-portal/spec-model/definitions" ).ChangeVersion[], anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}}
+ * @returns {{versions: import( "@health-dev-portal/spec-model/definitions" ).ChangeVersion[], latest: import( "@health-dev-portal/spec-model/definitions" ).ChangeVersion|null, anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}}
  * @public
  */
 module.exports.readChangeNotes = ( sheet ) => {
@@ -42,7 +78,10 @@ module.exports.readChangeNotes = ( sheet ) => {
         const source = { sheet: sheet.name, row: row.number };
         const heading = VERSION_HEADING.exec( cell.text );
         if ( heading ) {
-            current = { version: heading[ 1 ], notes: [], source: source };
+            current = { version: normalise( heading[ 1 ] ), notes: [], source: source };
+            if ( !CANONICAL_HEADING.test( cell.text ) ) {
+                anomalies.push( createAnomaly( "non-canonical-version-heading", source, { text: cell.text, version: current.version } ) );
+            }
             versions.push( current );
             continue;
         }
@@ -50,8 +89,22 @@ module.exports.readChangeNotes = ( sheet ) => {
             anomalies.push( createAnomaly( "notes-before-version", source ) );
             continue;
         }
-        const category = cell.fontColour && Object.hasOwn( NOTE_FONTS, cell.fontColour ) ? NOTE_FONTS[ cell.fontColour ] : CHANGE_CATEGORY.NON_BREAKING;
-        current.notes.push( { category: category, text: cell.text, source: source } );
+        current.notes.push( { category: categoryOf( cell, source, anomalies ), text: cell.text, source: source } );
     }
-    return { versions: versions, anomalies: anomalies };
+
+    let latest = null;
+    let disorder = null;
+    versions.forEach( ( entry, index ) => {
+        if ( index > 0 && !disorder && compareVersions( entry.version, versions[ index - 1 ].version ) <= 0 ) {
+            disorder = { entry: entry, previous: versions[ index - 1 ] };
+        }
+        if ( !latest || compareVersions( entry.version, latest.version ) > 0 ) {
+            latest = entry;
+        }
+    } );
+    if ( disorder ) {
+        anomalies.push( createAnomaly( "versions-out-of-order", disorder.entry.source,
+            { version: disorder.entry.version, previous: disorder.previous.version, latest: latest.version } ) );
+    }
+    return { versions: versions, latest: latest, anomalies: anomalies };
 };

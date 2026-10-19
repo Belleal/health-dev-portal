@@ -41,6 +41,46 @@ describe( "readChangeNotes", () => {
         assert.equal( result.versions[ 0 ].notes[ 0 ].category, "non-breaking" );
     } );
 
+    it( "categorises a note colour picked from the theme palette", () => {
+        // "Orange, Accent 2, Darker 25%" resolves to C55A11; the legend's breaking colour is C65911 (final review).
+        const result = readChangeNotes( sheet( "Change Notes", [ row( 1, [ "Версия 2.0.0" ] ), row( 2, [ "Note" ], { fontColour: "C55A11" } ) ] ) );
+        assert.deepEqual( result.anomalies, [] );
+        assert.equal( result.versions[ 0 ].notes[ 0 ].category, "breaking" );
+    } );
+
+    it( "warns about a note colour outside the legend", () => {
+        const result = readChangeNotes( sheet( "Change Notes", [
+            row( 1, [ "Версия 2.0.0" ] ),
+            row( 2, [ "Red note" ], { fontColour: "FF0000" } ),
+            row( 3, [ "Palette note" ], { fontColour: "unresolved" } )
+        ] ) );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "unknown-note-colour", "unknown-note-colour" ] );
+        assert.equal( result.versions[ 0 ].notes[ 0 ].category, "non-breaking" );
+    } );
+
+    it( "reads a heading not in the template's form, with a warning", () => {
+        // A newest heading typed "версия 1.2" used to be filed as a note, leaving the workbook at the old version.
+        const result = readChangeNotes( sheet( "Change Notes", [
+            row( 1, [ "Версия 1.0.0" ] ),
+            row( 2, [ "версия 1.2" ] ),
+            row( 3, [ "Version 1.3.0" ] )
+        ] ) );
+        assert.deepEqual( result.versions.map( ( version ) => version.version ), [ "1.0.0", "1.2.0", "1.3.0" ] );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "non-canonical-version-heading", "non-canonical-version-heading" ] );
+        assert.equal( result.latest.version, "1.3.0" );
+    } );
+
+    it( "takes the highest version and warns when headings are out of order", () => {
+        const result = readChangeNotes( sheet( "Change Notes", [
+            row( 1, [ "Версия 1.1.0" ] ),
+            row( 2, [ "Newer note" ] ),
+            row( 3, [ "Версия 1.0.0" ] ),
+            row( 4, [ "Older note" ] )
+        ] ) );
+        assert.equal( result.latest.version, "1.1.0" );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "versions-out-of-order" ] );
+    } );
+
     it( "warns about a note before any version heading", () => {
         const result = readChangeNotes( sheet( "Change Notes", [ row( 1, [ "Stray note" ] ), row( 2, [ "Версия 1.0.0" ] ) ] ) );
         assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "notes-before-version" ] );

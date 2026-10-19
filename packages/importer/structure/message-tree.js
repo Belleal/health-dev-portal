@@ -23,7 +23,7 @@ const { validateMessageTree } = require( "@health-dev-portal/spec-model/validati
 const { cellAt, columnMap, findRow } = require( "#raw" );
 const { isNone, noneToNull, parseCardinality, parseConstraint, parseReferenceList, parseRequirement } = require( "#cells" );
 const { findMixedScriptWords, foldLookAlikes } = require( "#scripts" );
-const { END_FILL, NEUTRAL_FILLS, ROW_FILLS } = require( "#legend" );
+const { END_FILLS, NEUTRAL_FILLS, ROW_FILLS, matchLegend } = require( "#legend" );
 
 const COLUMNS = Object.freeze( {
     name: "Name",
@@ -45,6 +45,11 @@ const DESCRIPTION_HEADER = /^Описание/;
 const END_ROW = /^END of\s+(.+)$/;
 const LEADING_STARS = /^\*+/;
 const DEFAULT_ATTRIBUTE = "value";
+// Folding catches look-alikes only; a tag holding any other non-Latin letter (a Cyrillic к, a Bulgarian word) would
+// publish a tag NHIS never sends. Space is left to isValidPart, which refuses it as invalid-tag.
+const NOT_LATIN = /[^\x20-\x7E]/;
+// The columns that make a row an element: a row with any of them and no name would vanish from the tree.
+const ELEMENT_COLUMNS = Object.freeze( [ "requirement", "cardinality", "dataType", "tag" ] );
 
 function mapColumns( header, sheetName, anomalies ) {
     const titles = columnMap( header );
@@ -64,14 +69,28 @@ function mapColumns( header, sheetName, anomalies ) {
 }
 
 function kindOf( fill, source, anomalies ) {
-    if ( fill === null || NEUTRAL_FILLS.includes( fill ) ) {
+    if ( fill === null || matchLegend( fill, NEUTRAL_FILLS ) ) {
         return ELEMENT_KIND.FIELD;
     }
-    if ( Object.hasOwn( ROW_FILLS, fill ) ) {
-        return ROW_FILLS[ fill ];
+    const kind = matchLegend( fill, ROW_FILLS );
+    if ( kind ) {
+        return kind;
     }
-    anomalies.push( createAnomaly( fill === END_FILL ? "end-fill-on-data-row" : "unknown-fill", source, { colour: fill } ) );
+    anomalies.push( createAnomaly( matchLegend( fill, END_FILLS ) ? "end-fill-on-data-row" : "unknown-fill", source, { colour: fill } ) );
     return ELEMENT_KIND.FIELD;
+}
+
+// A tag or attribute must be Latin and a valid identity part; reports which rule it breaks.
+function checkPart( value, source, anomalies ) {
+    if ( NOT_LATIN.test( value ) ) {
+        anomalies.push( createAnomaly( "non-latin-tag", source, { tag: value } ) );
+        return false;
+    }
+    if ( !isValidPart( value ) ) {
+        anomalies.push( createAnomaly( "invalid-tag", source, { tag: value } ) );
+        return false;
+    }
+    return true;
 }
 
 function readRow( row, columns, source, anomalies ) {
@@ -212,8 +231,7 @@ function identify( nodes, parentPath, parentField, anomalies ) {
                 anomalies.push( createAnomaly( "attribute-tag-mismatch", node.source, { tag: node.tag, fieldTag: parentField.tag } ) );
             }
             const attribute = node.attribute || DEFAULT_ATTRIBUTE;
-            if ( !isValidPart( attribute ) ) {
-                anomalies.push( createAnomaly( "invalid-tag", node.source, { tag: attribute } ) );
+            if ( !checkPart( attribute, node.source, anomalies ) ) {
                 continue;
             }
             node.path = parentField.path;
@@ -224,8 +242,7 @@ function identify( nodes, parentPath, parentField, anomalies ) {
             anomalies.push( createAnomaly( "missing-tag", node.source ) );
             continue;
         }
-        if ( !isValidPart( node.tag ) ) {
-            anomalies.push( createAnomaly( "invalid-tag", node.source, { tag: node.tag } ) );
+        if ( !checkPart( node.tag, node.source, anomalies ) ) {
             continue;
         }
         node.path = joinPath( parentPath, node.tag );
@@ -235,8 +252,7 @@ function identify( nodes, parentPath, parentField, anomalies ) {
             continue;
         }
         const attribute = node.attribute || DEFAULT_ATTRIBUTE;
-        if ( !isValidPart( attribute ) ) {
-            anomalies.push( createAnomaly( "invalid-tag", node.source, { tag: attribute } ) );
+        if ( !checkPart( attribute, node.source, anomalies ) ) {
             continue;
         }
         node.identity = withAttribute( node.path, attribute );
@@ -271,10 +287,14 @@ module.exports.buildMessageTree = ( sheet ) => {
             continue;
         }
         const name = cellAt( row, columns.name ).text;
+        const source = { sheet: sheet.name, row: row.number };
         if ( !name ) {
+            // A row with element values and no name would vanish without a word (final review); 0 such rows in 1.5.1.
+            if ( ELEMENT_COLUMNS.some( ( key ) => cellAt( row, columns[ key ] ).text ) ) {
+                anomalies.push( createAnomaly( "missing-name", source ) );
+            }
             continue;
         }
-        const source = { sheet: sheet.name, row: row.number };
         // An END row is the capitalised marker with nothing else on the row; a field always has R/C/O and a tag.
         const end = END_ROW.exec( name );
         if ( end && !cellAt( row, columns.requirement ).text && isNone( cellAt( row, columns.tag ).text ) ) {

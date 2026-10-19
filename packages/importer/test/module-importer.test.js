@@ -110,6 +110,29 @@ describe( "importModuleWorkbook", () => {
         assert.deepEqual( result.version.messages.map( ( message ) => message.pairedWith ), [ "R002", "R001" ] );
     } );
 
+    it( "blocks two sheets whose names are equal once trimmed", () => {
+        // "P002" and a stale "P002 " both present: whichever came first in tab order was used, silently (final review).
+        const result = importModuleWorkbook( workbook( [ ...moduleSheets(), messageSheet( "P002 ", confirmationRows() ) ] ), { spec: "e" } );
+        assert.deepEqual( types( result ), [ "ambiguous-sheet" ] );
+        assert.equal( result.anomalies[ 0 ].level, "blocking" );
+    } );
+
+    it( "takes the highest version when the change notes run newest first", () => {
+        const notes = sheet( "Change Notes", [ row( 1, [ "Версия 1.1.0" ] ), row( 2, [ "Newer" ] ), row( 3, [ "Версия 1.0.0" ] ), row( 4, [ "Older" ] ) ] );
+        const result = importModuleWorkbook( workbook( replace( moduleSheets(), "Change Notes", notes ) ), { spec: "e" } );
+        assert.equal( result.version.version, "1.1.0" );
+        assert.deepEqual( types( result ), [ "versions-out-of-order" ] );
+    } );
+
+    it( "blocks a reference to a condition the Conditions sheet does not define", () => {
+        // Design record §5.3 lists it as blocking, and both sides are in the same workbook.
+        const conditions = sheet( "Conditions", moduleSheets().find( ( candidate ) => candidate.name === "Conditions" ).rows.filter( ( candidate ) => candidate.number < 10 || candidate.number > 11 ) );
+        const result = importModuleWorkbook( workbook( replace( moduleSheets(), "Conditions", conditions ) ), { spec: "e" } );
+        assert.deepEqual( types( result ), [ "unknown-condition" ] );
+        assert.equal( result.anomalies[ 0 ].details.id, "CDP21" );
+        assert.equal( result.anomalies[ 0 ].level, "blocking" );
+    } );
+
     it( "requires a spec key", () => {
         assert.throws( () => importModuleWorkbook( workbook( moduleSheets() ), {} ), TypeError );
     } );

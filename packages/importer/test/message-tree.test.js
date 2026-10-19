@@ -159,6 +159,61 @@ describe( "buildMessageTree", () => {
         assert.ok( find( tree, "contents/effectiveDosePeriod/end@value" ) );
     } );
 
+    it( "blocks a field indented under another field", () => {
+        // One Increase Indent too many would otherwise give contents/date/lrn@value with no anomaly (final review).
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            element( 4, 1, "field", { name: "Date", req: "R", card: "1..1", tag: "date", attribute: "value" } ),
+            element( 5, 2, "field", { name: "Lrn", req: "R", card: "1..1", tag: "lrn", attribute: "value" } )
+        ] ) );
+        assert.deepEqual( types( tree ), [ "field-with-elements" ] );
+        assert.equal( tree.anomalies[ 0 ].level, "blocking" );
+        assert.equal( tree.anomalies[ 0 ].row, 5 );
+    } );
+
+    it( "blocks an element under an attribute row", () => {
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            element( 4, 1, "field", { name: "Code", req: "R", card: "1..1", tag: "code", attribute: "value" } ),
+            element( 5, 2, "attribute", { name: "Code Name", req: "O", card: "0..1", tag: "code", attribute: "name" } ),
+            element( 6, 3, "field", { name: "Extra", req: "O", card: "0..1", tag: "extra", attribute: "value" } )
+        ] ) );
+        assert.deepEqual( types( tree ), [ "attribute-with-children" ] );
+    } );
+
+    it( "blocks a row with values but no name", () => {
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            row( 4, [ "", "R", "1..1", "String", "", "", "", "", "", "", "lrn", "value" ], { indent: 1 } ),
+            element( 5, 1, "field", { name: "NRN", req: "R", card: "1..1", tag: "nrn", attribute: "value" } )
+        ] ) );
+        assert.deepEqual( types( tree ), [ "missing-name" ] );
+        assert.equal( tree.anomalies[ 0 ].level, "blocking" );
+    } );
+
+    it( "reads a legend fill picked from the theme palette", () => {
+        // "Orange, Accent 2, Lighter 80%" resolves to FBE5D6; the legend's polymorphic fill is FCE4D6 (final review).
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            row( 4, [ "Dose Quantity Unit", "R", "1..1", "---", "", "", "", "", "", "", "---", "" ], { fill: "FBE5D6", indent: 1 } ),
+            element( 5, 2, "field", { name: "As UCUM", req: "R", card: "1..1", tag: "doseQuantityCode", attribute: "value" } ),
+            element( 6, 2, "field", { name: "As Form", req: "R", card: "1..1", tag: "doseQuantityCode", attribute: "value" } )
+        ] ) );
+        assert.deepEqual( tree.anomalies, [] );
+        assert.equal( find( tree, "contents/doseQuantityCode@value" ).kind, "polymorphic" );
+    } );
+
+    it( "blocks a tag or attribute with letters outside Latin", () => {
+        // Folding catches look-alikes only; a Cyrillic к (not a look-alike) or a Bulgarian word must not pass as a tag.
+        const tree = buildMessageTree( messageSheet( "P001", [
+            element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),
+            element( 4, 1, "field", { name: "Kind", req: "R", card: "1..1", tag: "кind", attribute: "value" } ),
+            element( 5, 1, "field", { name: "LRN", req: "R", card: "1..1", tag: "lrn", attribute: "лрн" } )
+        ] ) );
+        assert.deepEqual( types( tree ), [ "non-latin-tag", "non-latin-tag" ] );
+        assert.ok( tree.anomalies.every( ( anomaly ) => anomaly.level === "blocking" ) );
+    } );
+
     it( "blocks two elements with one identity", () => {
         const tree = buildMessageTree( messageSheet( "P001", [
             element( 3, 0, "group", { name: "Contents", req: "R", card: "1..1", tag: "contents" } ),

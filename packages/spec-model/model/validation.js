@@ -22,7 +22,7 @@ const showCardinality = ( cardinality ) => `${ cardinality.min }..${ cardinality
 
 /**
  * Checks what only the whole tree can show: unique identities, cardinality ranges, conditional elements without a
- * condition, empty groups and polymorphic elements without variants.
+ * condition, elements under fields or attribute rows, empty groups and polymorphic elements without variants.
  *
  * @method
  * @param {import( "#definitions" ).ElementNode[]} elements The message's top-level elements.
@@ -53,6 +53,18 @@ module.exports.validateMessageTree = ( elements ) => {
         }
         if ( node.kind === ELEMENT_KIND.GROUP && node.children.length === 0 ) {
             anomalies.push( createAnomaly( "empty-group", node.source, { identity: node.identity } ) );
+        }
+        // A field holds only its attribute rows. Anything else under it is a row indented one level too deep, which would
+        // otherwise nest silently and change its identity — the contract between versions (final review).
+        if ( node.kind === ELEMENT_KIND.FIELD ) {
+            for ( const child of node.children.filter( ( candidate ) => candidate.kind !== ELEMENT_KIND.ATTRIBUTE ) ) {
+                anomalies.push( createAnomaly( "field-with-elements", child.source, { name: child.name.en, field: node.name.en } ) );
+            }
+        }
+        if ( node.kind === ELEMENT_KIND.ATTRIBUTE ) {
+            for ( const child of node.children ) {
+                anomalies.push( createAnomaly( "attribute-with-children", child.source, { name: child.name.en, attribute: node.name.en } ) );
+            }
         }
         if ( node.kind === ELEMENT_KIND.POLYMORPHIC && node.children.length < 2 ) {
             anomalies.push( createAnomaly( "single-variant", node.source, { identity: node.identity || node.name.en, count: node.children.length } ) );

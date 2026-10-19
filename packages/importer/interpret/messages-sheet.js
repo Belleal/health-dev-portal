@@ -81,6 +81,7 @@ module.exports.readMessageIndex = ( sheet ) => {
     }
 
     const messages = [];
+    const firstRows = new Map();
     for ( const row of sheet.rows ) {
         if ( row.number <= header.number ) {
             continue;
@@ -88,10 +89,20 @@ module.exports.readMessageIndex = ( sheet ) => {
         const source = { sheet: sheet.name, row: row.number };
         const codeText = cellAt( row, columns.code ).text;
         const code = foldLookAlikes( codeText );
-        // Rows below the list — the "Налично в Release" footnote, merged across every column — carry no code.
+        // Rows below the list — the "Налично в Release" footnote, merged across every column — carry no code. A row with
+        // a direction is a message, though: skipping its mistyped code would drop the message silently (final review).
         if ( !MESSAGE_CODE.test( code.folded ) ) {
+            if ( Object.hasOwn( DIRECTIONS, cellAt( row, columns.direction ).text ) ) {
+                anomalies.push( createAnomaly( "malformed-message-code", { ...source, column: columns.code }, { value: codeText } ) );
+            }
             continue;
         }
+        // A copied row whose code was left unchanged lists a message twice and leaves the new message's sheet unread.
+        if ( firstRows.has( code.folded ) ) {
+            anomalies.push( createAnomaly( "duplicate-message", { ...source, column: columns.code }, { code: code.folded, firstRow: firstRows.get( code.folded ), row: row.number } ) );
+            continue;
+        }
+        firstRows.set( code.folded, row.number );
         if ( code.letters.length ) {
             anomalies.push( createAnomaly( "look-alike-letter", { ...source, column: columns.code }, { value: codeText, letters: code.letters.join( ", " ), folded: code.folded } ) );
         }

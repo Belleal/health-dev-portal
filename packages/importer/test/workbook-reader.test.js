@@ -98,6 +98,38 @@ describe( "readWorkbook", () => {
         assert.ok( Object.isFrozen( workbook.sheets[ 0 ].rows[ 0 ].cells[ 0 ] ) );
     } );
 
+    it( "reads the cells a merge covers as empty, keeping the text in its first cell", async () => {
+        // exceljs gives every covered cell the first cell's value: a note merged across a row then read as an element
+        // with an invalid requirement, and a condition ID merged down its lines split it into several (final review).
+        const book = new ExcelJS.Workbook();
+        const sheet = book.addWorksheet( "P001" );
+        sheet.getCell( "A2" ).value = "Забележка";
+        sheet.mergeCells( "A2:M2" );
+        sheet.getCell( "A4" ).value = "CDP01";
+        sheet.mergeCells( "A4:A6" );
+        const raw = await readWorkbook( Buffer.from( await book.xlsx.writeBuffer() ) );
+        const at = ( number, column ) => {
+            const found = raw.sheets[ 0 ].rows.find( ( candidate ) => candidate.number === number );
+            return found ? cellAt( found, column ).text : "";
+        };
+        assert.equal( at( 2, 1 ), "Забележка" );
+        assert.equal( at( 2, 2 ), "" );
+        assert.equal( at( 2, 13 ), "" );
+        assert.equal( at( 4, 1 ), "CDP01" );
+        assert.equal( at( 5, 1 ), "" );
+        assert.equal( at( 6, 1 ), "" );
+    } );
+
+    it( "marks a colour it cannot resolve instead of reading it as none", async () => {
+        // An indexed palette colour read as "no fill" would turn a group row into a field without a word (final review).
+        const book = new ExcelJS.Workbook();
+        const cell = book.addWorksheet( "P001" ).getCell( "A1" );
+        cell.value = "Header";
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { indexed: 10 } };
+        const raw = await readWorkbook( Buffer.from( await book.xlsx.writeBuffer() ) );
+        assert.equal( cellAt( raw.sheets[ 0 ].rows[ 0 ], 1 ).fill, "unresolved" );
+    } );
+
     it( "reads a file path as well as a buffer", async () => {
         const file = path.join( fs.mkdtempSync( path.join( os.tmpdir(), "hdp-reader-" ) ), "sample.xlsx" );
         fs.writeFileSync( file, Buffer.from( await sampleBuffer() ) );
