@@ -16,6 +16,7 @@
         "./nomenclatures": "./importer/nomenclatures-importer.js",
         "./reader": "./read/workbook-reader.js",
         "./report": "./report/format.js",
+        "./rules": "./importer/rules-importer.js",
         "./stream-reader": "./read/stream-reader.js"
     },
     "imports": {
@@ -32,6 +33,8 @@
         "#raw": "./read/raw.js",
         "#raw-cell": "./read/raw-cell.js",
         "#report": "./report/format.js",
+        "#rules-importer": "./importer/rules-importer.js",
+        "#rules-sheet": "./interpret/rules-sheet.js",
         "#scripts": "./interpret/scripts.js",
         "#side-sheets": "./interpret/side-sheets.js",
         "#stream-reader": "./read/stream-reader.js",

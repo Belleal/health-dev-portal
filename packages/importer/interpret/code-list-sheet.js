@@ -17,7 +17,7 @@
 
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
 const { cellAt, findRow } = require( "#raw" );
-const { compareVersions, isNone, noneToNull, parseVersionCell } = require( "#cells" );
+const { compareVersions, isUsableKey, listRows, noneToNull, readVersionCell } = require( "#cells" );
 const { findMixedScriptWords, foldCode, foldLookAlikes } = require( "#scripts" );
 
 // Each role's titles, in order of preference. Nomenclatures 1.5.33 has 63 header layouts; these titles cover them all
@@ -35,7 +35,6 @@ const ROLES = Object.freeze( {
 
 const TITLE = /^CL[A-Z0-9]+\s*[-–]\s*(.*)$/u;
 const CODE_VALUE = /^[\x21-\x7E]+$/;
-const LISTED_ROWS = 10;
 
 // "Display Value BG" and "Display value BG" are one title; so are titles that differ only in spacing.
 const normaliseTitle = ( text ) => text.replace( /\s+/g, " " ).trim().toLowerCase();
@@ -59,27 +58,6 @@ function columnRoles( header ) {
     return { roles: roles, columns: columns };
 }
 
-// A footnote typed into the Key column ("* За лекари, завършили…"), a placeholder ("...", "---") and the keyless second
-// row of a merged key (CL006) are not entries: none of them is a key a message could carry.
-const usableKey = ( text ) => !isNone( text ) && /[\p{L}\p{N}]/u.test( text ) && !/\s/u.test( text );
-
-const listRows = ( rows ) => rows.slice( 0, LISTED_ROWS ).join( ", " ) + ( rows.length > LISTED_ROWS ? ", …" : "" );
-
-function readVersion( row, column, at, anomalies ) {
-    if ( !column ) {
-        return null;
-    }
-    const value = cellAt( row, column ).text;
-    const { version, form } = parseVersionCell( value );
-    if ( form === "lenient" ) {
-        anomalies.push( createAnomaly( "non-canonical-version", at( column ), { value: value, version: version } ) );
-    } else if ( form === "date" ) {
-        anomalies.push( createAnomaly( "date-instead-of-version", at( column ), { value: value } ) );
-    } else if ( form === "invalid" ) {
-        anomalies.push( createAnomaly( "invalid-version", at( column ), { value: value } ) );
-    }
-    return version;
-}
 
 // Plan 2, Decision 2: a list-specific column holds codes when every value in it, once folded, is printable ASCII
 // without whitespace. CL024's "CL022 Mapping" (01-00А) must fold with CL022's keys or point at keys that no longer
@@ -142,7 +120,7 @@ module.exports.readCodeListSheet = ( sheet ) => {
             continue;
         }
         const keyText = cellAt( row, 1 ).text;
-        if ( !usableKey( keyText ) ) {
+        if ( !isUsableKey( keyText ) ) {
             skipped.push( row.number );
             continue;
         }
@@ -166,8 +144,8 @@ module.exports.readCodeListSheet = ( sheet ) => {
             description: { bg: text( roles.descriptionBg ), en: text( roles.descriptionEn ) },
             display: { bg: text( roles.displayBg ), en: text( roles.displayEn ) },
             values: columns.map( ( column ) => noneToNull( cellAt( row, column.column ).text ) ),
-            since: readVersion( row, roles.since, at, anomalies ),
-            validUntil: readVersion( row, roles.validUntil, at, anomalies ),
+            since: roles.since ? readVersionCell( cellAt( row, roles.since ).text, at( roles.since ), anomalies ) : null,
+            validUntil: roles.validUntil ? readVersionCell( cellAt( row, roles.validUntil ).text, at( roles.validUntil ), anomalies ) : null,
             source: { sheet: sheet.name, row: row.number }
         };
         if ( entry.since && entry.validUntil && compareVersions( entry.validUntil, entry.since ) < 0 ) {

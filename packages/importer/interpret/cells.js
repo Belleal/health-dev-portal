@@ -15,6 +15,8 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
+const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
+
 const NONE = /^-+$/;
 
 const NUMERIC_TYPES = new Set( [ "Unsigned Int", "Positive Int", "Decimal", "Integer" ] );
@@ -188,3 +190,49 @@ module.exports.compareVersions = ( a, b ) => {
     }
     return 0;
 };
+
+/**
+ * Reads a version cell and reports, at its cell, a form the template does not use: `non-canonical-version`,
+ * `date-instead-of-version` or `invalid-version`.
+ *
+ * @method
+ * @param {string} text
+ * @param {{sheet: string, row: number, column: number}} source
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies Receives the warning, if any.
+ * @returns {string|null} The version without the `v`, or `null`.
+ * @public
+ */
+module.exports.readVersionCell = ( text, source, anomalies ) => {
+    const { version, form } = module.exports.parseVersionCell( text );
+    if ( form === "lenient" ) {
+        anomalies.push( createAnomaly( "non-canonical-version", source, { value: text, version: version } ) );
+    } else if ( form === "date" ) {
+        anomalies.push( createAnomaly( "date-instead-of-version", source, { value: text } ) );
+    } else if ( form === "invalid" ) {
+        anomalies.push( createAnomaly( "invalid-version", source, { value: text } ) );
+    }
+    return version;
+};
+
+/**
+ * Tells whether a key cell holds a key at all. A footnote typed into the key column ("* За лекари, завършили…"), a
+ * placeholder ("...", "---") and the keyless second row of a merged key (CL006) are not keys a message could carry.
+ *
+ * @method
+ * @param {string} text
+ * @returns {boolean}
+ * @public
+ */
+module.exports.isUsableKey = ( text ) => !module.exports.isNone( text ) && /[\p{L}\p{N}]/u.test( text ) && !/\s/u.test( text );
+
+const LISTED_ROWS = 10;
+
+/**
+ * Lists row numbers for a message: the first ten, then an ellipsis. CL122 alone has 3,323 keyless rows.
+ *
+ * @method
+ * @param {number[]} rows
+ * @returns {string}
+ * @public
+ */
+module.exports.listRows = ( rows ) => rows.slice( 0, LISTED_ROWS ).join( ", " ) + ( rows.length > LISTED_ROWS ? ", …" : "" );

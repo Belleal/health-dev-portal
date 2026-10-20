@@ -120,4 +120,18 @@ const nomenclatureSheets = ( ids = [ "CL001" ] ) => [
     ] )
 ];
 
-module.exports = { prescriptionRows, confirmationRows, moduleSheets, nomenclatureSheets };
+// A whole rules workbook: one active (green) rule per ID returning E002, and the change notes. It imports with no
+// anomaly at all.
+const rulesSheets = ( ids = [ "RL001" ] ) => [
+    sheet( "Change Notes", [
+        row( 1, [ "Версия 1.1.1" ] ),
+        ...ids.map( ( id, index ) => row( 2 + index, [ `Добавено правило ${ id }` ] ) )
+    ] ),
+    sheet( "Rules", [
+        row( 1, [ "ЗАБЕЛЕЖКА: Ако валидацията на което и да е правило в дадено съобщение е неуспешна, НЗИС ще върне съобщение за грешка." ] ),
+        row( 3, [ "Rule ID", "Definition", "Source", "Error Code", "Since" ] ),
+        ...ids.map( ( id, index ) => row( 4 + index, [ id, `Определение на ${ id }`, "---", "E002", "v1.1.1" ], { fill: "70AD47" } ) )
+    ] )
+];
+
+module.exports = { prescriptionRows, confirmationRows, moduleSheets, nomenclatureSheets, rulesSheets };
