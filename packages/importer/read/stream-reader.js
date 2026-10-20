@@ -94,23 +94,33 @@ function failureOf( stream, onFailure ) {
 // every race leaves a reaction on it, and over 1.5.33's 64,397 rows that took the peak from 297 MB to 481 MB.
 async function* untilFailure( iterable, failure ) {
     const iterator = iterable[ Symbol.asyncIterator ]();
-    while ( true ) {
-        if ( failure.error ) {
-            throw failure.error;
+    let finished = false;
+    try {
+        while ( true ) {
+            if ( failure.error ) {
+                throw failure.error;
+            }
+            const step = await new Promise( ( resolve, reject ) => {
+                const settle = ( outcome ) => ( value ) => {
+                    failure.waiting.delete( fail );
+                    outcome( value );
+                };
+                const fail = settle( reject );
+                failure.waiting.add( fail );
+                iterator.next().then( settle( resolve ), fail );
+            } );
+            if ( step.done ) {
+                finished = true;
+                return;
+            }
+            yield step.value;
         }
-        const step = await new Promise( ( resolve, reject ) => {
-            const settle = ( outcome ) => ( value ) => {
-                failure.waiting.delete( fail );
-                outcome( value );
-            };
-            const fail = settle( reject );
-            failure.waiting.add( fail );
-            iterator.next().then( settle( resolve ), fail );
-        } );
-        if ( step.done ) {
-            return;
+    } finally {
+        // A consumer that stops early, or a failure, closes the underlying iterator too (CodeRabbit on #6). Not awaited:
+        // after a failure its pending step may never settle, and waiting on it would bring the hang back.
+        if ( !finished && typeof iterator.return === "function" ) {
+            iterator.return().catch( () => {} );
         }
-        yield step.value;
     }
 }
 
@@ -139,14 +149,21 @@ module.exports.streamSheets = async function* ( source ) {
     const reader = new ExcelJS.stream.xlsx.WorkbookReader( through, {
         worksheets: "emit", sharedStrings: "cache", styles: "cache", hyperlinks: "ignore", entries: "ignore"
     } );
-    for await ( const worksheet of untilFailure( reader, failure ) ) {
-        const rows = [];
-        for await ( const row of untilFailure( worksheet, failure ) ) {
-            // The rows eachRow( { includeEmpty: false } ) visits in the full reader: a row that is only styled is skipped.
-            if ( row.hasValues ) {
-                rows.push( toRawRow( row, themeColours ) );
+    try {
+        for await ( const worksheet of untilFailure( reader, failure ) ) {
+            const rows = [];
+            for await ( const row of untilFailure( worksheet, failure ) ) {
+                // The rows eachRow( { includeEmpty: false } ) visits in the full reader: a row only styled is skipped.
+                if ( row.hasValues ) {
+                    rows.push( toRawRow( row, themeColours ) );
+                }
             }
+            yield Object.freeze( { name: worksheet.name, tabColour: null, rows: Object.freeze( rows ) } );
         }
-        yield Object.freeze( { name: worksheet.name, tabColour: null, rows: Object.freeze( rows ) } );
+    } finally {
+        // Whatever ended the read, the archive stops feeding the reader.
+        archive.unpipe( through );
+        archive.destroy();
+        through.destroy();
     }
 };

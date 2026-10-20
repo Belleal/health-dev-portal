@@ -94,6 +94,33 @@ describe( "streamSheets", () => {
         assert.deepEqual( ( await drain( streamSheets( await withSignatureInMedia() ) ) ).map( ( raw ) => raw.name ).sort(), [ "CL001", "Номенклатури" ] );
     } );
 
+    // CodeRabbit on #6: a consumer that stopped early — an importer fault mid-stream — closed only the wrapper, and
+    // the archive went on feeding a reader nobody read.
+    it( "closes the reader when the consumer stops early", async () => {
+        const prototype = ExcelJS.stream.xlsx.WorkbookReader.prototype;
+        const original = prototype[ Symbol.asyncIterator ];
+        let closed = 0;
+        prototype[ Symbol.asyncIterator ] = function () {
+            const iterator = original.call( this );
+            const close = iterator.return.bind( iterator );
+            iterator.return = ( value ) => {
+                closed++;
+                return close( value );
+            };
+            return iterator;
+        };
+        try {
+            const file = await writeWorkbook( [ sheet( "A", [ row( 1, [ "a" ] ) ] ), sheet( "B", [ row( 1, [ "b" ] ) ] ), sheet( "C", [ row( 1, [ "c" ] ) ] ) ] );
+            for await ( const raw of streamSheets( file ) ) {
+                assert.equal( raw.name, "A" );
+                break;
+            }
+            assert.equal( closed, 1 );
+        } finally {
+            prototype[ Symbol.asyncIterator ] = original;
+        }
+    } );
+
     it( "reads a workbook that has no shared-strings part", async () => {
         // Without the part the reader fell back to spooling and lost every sheet after the first.
         const bytes = await withoutSharedStrings( [ [ "Номенклатури", [ [ "ID" ] ] ], [ "CL001", [ [ "Key" ], [ "1" ] ] ], [ "Change Notes", [ [ "Версия 1.5.33" ] ] ] ] );

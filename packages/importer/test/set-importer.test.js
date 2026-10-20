@@ -79,4 +79,16 @@ describe( "importSet", () => {
         assert.match( report, /Rules were not linked: the rules workbook has no "Rules" sheet\./ );
         assert.match( report, /Set refused: 2 of 3 workbooks have blocking anomalies\.$/ );
     } );
+
+    // CodeRabbit on #6: rules imported without nomenclatures skipped the CL999 check, and the report said only "Set
+    // accepted".
+    it( "says when the rules' error codes were not checked, and why", async () => {
+        const rules = { source: await writeWorkbook( rulesSheets() ) };
+        const reportOf = async ( nomenclatures ) => formatSetReport( await importSet( { nomenclatures: nomenclatures, rules: rules } ) );
+        assert.match( await reportOf( undefined ), /Error codes were not checked: no nomenclatures workbook was given\./ );
+        assert.match( await reportOf( { source: await writeWorkbook( rulesSheets() ), fileName: "rules.xlsx" } ),
+            /Error codes were not checked: the nomenclatures workbook has no "Номенклатури" sheet\./ );
+        assert.match( await reportOf( { source: await writeWorkbook( nomenclatureSheets( [ "CL001" ] ) ) } ), /Error codes were not checked: the nomenclatures define no CL999\./ );
+        assert.doesNotMatch( await reportOf( { source: await writeWorkbook( nomenclatureSheets( [ "CL999" ] ) ) } ), /not checked/ );
+    } );
 } );

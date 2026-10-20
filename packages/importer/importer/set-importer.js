@@ -16,7 +16,7 @@
  */
 
 const path = require( "node:path" );
-const { linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
+const { ERROR_CODE_LIST, linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
 const { readWorkbook } = require( "#workbook-reader" );
 const { streamSheets } = require( "#stream-reader" );
 const { importModuleWorkbook } = require( "#module-importer" );
@@ -83,8 +83,9 @@ const defines = ( result, sheet ) => Boolean( result ) && !result.anomalies.some
  *
  * @method
  * @param {{nomenclatures?: SetInput, rules?: SetInput, modules?: Array<SetInput & {spec: string}>}} inputs
- * @returns {Promise<{nomenclatures: Object|null, rules: Object|null, modules: Object[], linked: {codeLists: boolean, rules: boolean}}>}
+ * @returns {Promise<{nomenclatures: Object|null, rules: Object|null, modules: Object[], linked: {codeLists: boolean, rules: boolean, errorCodes: boolean}}>}
  *     Each result is `{ version, anomalies }`, with the link anomalies added to the workbook they concern.
+ *     `linked.errorCodes` says whether the rules' error codes were checked against CL999.
  * @throws {UnreadableWorkbookError} "Cannot read <file>: …" when a workbook cannot be read.
  * @public
  */
@@ -95,8 +96,14 @@ module.exports.importSet = async ( inputs ) => {
     let rules = inputs.rules
         ? importRulesWorkbook( await reading( inputs.rules, () => readWorkbook( inputs.rules.source ) ), { fileName: fileNameOf( inputs.rules ) } )
         : null;
-    const linked = Object.freeze( { codeLists: defines( nomenclatures, INDEX_SHEET ), rules: defines( rules, RULES_SHEET ) } );
-    if ( linked.codeLists && linked.rules ) {
+    const codeLists = defines( nomenclatures, INDEX_SHEET );
+    const linked = Object.freeze( {
+        codeLists: codeLists,
+        rules: defines( rules, RULES_SHEET ),
+        // Without CL999 linkRules has nothing to check against; the report says so rather than "Set accepted" alone.
+        errorCodes: codeLists && defines( rules, RULES_SHEET ) && nomenclatures.version.codeLists.some( ( list ) => list.id === ERROR_CODE_LIST )
+    } );
+    if ( linked.errorCodes ) {
         rules = withLinks( rules, linkRules( rules.version, nomenclatures.version ) );
     }
     const modules = [];

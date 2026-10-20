@@ -71,4 +71,16 @@ describe( "hdp-import-set", () => {
             assert.match( result.stderr, /Usage: hdp-import-set/ );
         }
     } );
+
+    // CodeRabbit on #6: an empty value — `--nomenclatures="$UNSET"` — read as an option not given, so the set was
+    // imported without that workbook and could be accepted.
+    it( "exits 2 for an option given with an empty value, rather than importing without it", async () => {
+        const rules = await writeWorkbook( rulesSheets() );
+        for ( const args of [ [ "--rules", rules, "--nomenclatures=" ], [ "--rules", rules, "--nomenclatures", "" ], [ "--nomenclatures", rules, "--rules=" ], [ "--rules", rules, "--json=" ] ] ) {
+            const result = run( args );
+            assert.equal( result.status, 2, JSON.stringify( args ) );
+            assert.match( result.stderr, /Usage: hdp-import-set/ );
+            assert.equal( result.stdout, "", JSON.stringify( args ) );
+        }
+    } );
 } );
