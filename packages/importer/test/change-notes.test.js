@@ -96,4 +96,27 @@ describe( "readChangeNotes", () => {
         assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "notes-before-version" ] );
         assert.equal( result.versions.length, 1 );
     } );
+
+    const dated = ( ...rows ) => sheet( "Change Notes", [ row( 1, [ "Версия / промени", "Дата на тестова", "Дата на прод" ] ), ...rows ] );
+
+    it( "reads the staging and production dates of a dated sheet, and not its header as a note", () => {
+        const notes = readChangeNotes( dated(
+            row( 2, [ "Версия 1.5.29", "24.08.2026", "31.08.2026" ] ),
+            row( 3, [ "Добавена номенклатура CL180" ] ),
+            row( 4, [ "Версия 1.5.30", "2026-09-23" ] ) ) );
+        assert.deepEqual( notes.anomalies, [] );
+        assert.deepEqual( notes.versions.map( ( version ) => [ version.version, version.stagingDate, version.productionDate, version.notes.length ] ),
+            [ [ "1.5.29", "2026-08-24", "2026-08-31", 1 ], [ "1.5.30", "2026-09-23", null, 0 ] ] );
+    } );
+
+    it( "reports a date it cannot read, at its cell, and keeps the version", () => {
+        const notes = readChangeNotes( dated( row( 2, [ "Версия 1.5.29", "31.02.2026" ] ) ) );
+        assert.deepEqual( notes.anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.row, anomaly.column ] ), [ [ "invalid-date", 2, 2 ] ] );
+        assert.equal( notes.versions[ 0 ].stagingDate, null );
+    } );
+
+    it( "leaves both dates null on a sheet without date columns", () => {
+        const notes = readChangeNotes( sheet( "Change Notes", [ row( 1, [ "Версия 1.0.0" ] ), row( 2, [ "Добавено правило RL001" ] ) ] ) );
+        assert.deepEqual( [ notes.versions[ 0 ].stagingDate, notes.versions[ 0 ].productionDate ], [ null, null ] );
+    } );
 } );

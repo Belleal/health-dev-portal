@@ -21,7 +21,7 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { isNone, noneToNull, parseCardinality, parseConstraint, parseReferenceList, parseRequirement } = require( "#cells" );
+const { compareVersions, isNone, noneToNull, parseCardinality, parseConstraint, parseReferenceList, parseRequirement, parseVersionCell } = require( "#cells" );
 
 describe( "cells", () => {
 
@@ -84,5 +84,31 @@ describe( "cells", () => {
         assert.deepEqual( parseReferenceList( "CL007 see note", "codeList" ), { values: [ "CL007" ], invalid: [ "see", "note" ] } );
         assert.deepEqual( parseReferenceList( "---", "rule" ), { values: [], invalid: [] } );
         assert.throws( () => parseReferenceList( "X", "nope" ), TypeError );
+    } );
+
+    it( "reads a version cell in the template's form and in the forms the workbooks use", () => {
+        assert.deepEqual( parseVersionCell( "v1.5.28" ), { version: "1.5.28", form: "canonical" } );
+        assert.deepEqual( parseVersionCell( "v.1.5.21" ), { version: "1.5.21", form: "lenient" } );
+        assert.deepEqual( parseVersionCell( "1.5.16" ), { version: "1.5.16", form: "lenient" } );
+        assert.deepEqual( parseVersionCell( "" ), { version: null, form: "empty" } );
+        assert.deepEqual( parseVersionCell( "---" ), { version: null, form: "empty" } );
+    } );
+
+    it( "tells a date from a version (Review Focus 3)", () => {
+        // A prototype for plan 2 read "10.10.2023" as version 10.10.2023; 124 cells of nomenclatures 1.5.33 hold dates.
+        assert.deepEqual( parseVersionCell( "10.10.2023" ), { version: null, form: "date" } );
+        assert.deepEqual( parseVersionCell( "1.1.2024" ), { version: null, form: "date" } );
+    } );
+
+    it( "refuses what is neither", () => {
+        for ( const text of [ "f1267", "16.07", "v1.2", "v1.2.3.4" ] ) {
+            assert.deepEqual( parseVersionCell( text ), { version: null, form: "invalid" }, text );
+        }
+    } );
+
+    it( "compares versions part by part, as numbers", () => {
+        assert.ok( compareVersions( "1.5.9", "1.5.10" ) < 0 );
+        assert.ok( compareVersions( "1.5.21", "1.5.19" ) > 0 );
+        assert.equal( compareVersions( "1.0.0", "1.0.0" ), 0 );
     } );
 } );

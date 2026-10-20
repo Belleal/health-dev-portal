@@ -136,3 +136,55 @@ module.exports.parseReferenceList = ( text, kind ) => {
     }
     return { values: values, invalid: invalid };
 };
+
+// Tried in this order: a date such as 10.10.2023 also matches the lenient version form, and 124 cells of nomenclatures
+// 1.5.33 hold one where a version belongs (design record §4.6).
+const VERSION_FORMS = Object.freeze( [
+    [ "canonical", /^v(\d+)\.(\d+)\.(\d+)$/ ],
+    [ "date", /^\d{1,2}\.\d{1,2}\.\d{4}$/ ],
+    [ "lenient", /^v?\.?\s*(\d+)\.(\d+)\.(\d+)$/ ]
+] );
+
+/**
+ * Reads a `Since` / `Valid Until` cell, which holds a spec version (`v1.5.28`), and says in which form it was written:
+ * the template's, another form that is still a version (`v.1.5.21`, `1.5.16`), a date, or neither.
+ *
+ * @method
+ * @param {string} text
+ * @returns {{version: string|null, form: string}} `version` without the `v`; `form` is `empty`, `canonical`,
+ *     `lenient`, `date` or `invalid`.
+ * @public
+ */
+module.exports.parseVersionCell = ( text ) => {
+    const trimmed = text.trim();
+    if ( module.exports.isNone( trimmed ) ) {
+        return { version: null, form: "empty" };
+    }
+    for ( const [ form, pattern ] of VERSION_FORMS ) {
+        const match = pattern.exec( trimmed );
+        if ( match ) {
+            return { version: form === "date" ? null : match.slice( 1, 4 ).join( "." ), form: form };
+        }
+    }
+    return { version: null, form: "invalid" };
+};
+
+/**
+ * Compares two `x.y.z` versions part by part, as numbers.
+ *
+ * @method
+ * @param {string} a
+ * @param {string} b
+ * @returns {number} Negative when `a` is lower, positive when higher, 0 when equal.
+ * @public
+ */
+module.exports.compareVersions = ( a, b ) => {
+    const left = a.split( "." ).map( Number );
+    const right = b.split( "." ).map( Number );
+    for ( let index = 0; index < 3; index++ ) {
+        if ( left[ index ] !== right[ index ] ) {
+            return left[ index ] - right[ index ];
+        }
+    }
+    return 0;
+};
