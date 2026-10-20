@@ -89,4 +89,35 @@ const moduleSheets = () => [
     ] )
 ];
 
-module.exports = { prescriptionRows, confirmationRows, moduleSheets };
+// A code list's header as nomenclatures 1.5.33 writes it for most lists; test files keep their own copy, as constants in
+// a test file cannot be imported.
+const CODE_LIST_HEADER = Object.freeze( [ "Key", "Description BG", "Description EN", "Display value BG", "Display value EN", "NHIF Code", "Since", "Valid Until" ] );
+
+const LIST_NAMES = Object.freeze( { CL001: "Пол" } );
+const listName = ( id ) => LIST_NAMES[ id ] || `Номенклатура ${ id }`;
+
+// A whole nomenclatures workbook: the index, one sheet per list and dated change notes. It imports with no anomaly at
+// all, so any test that adds one defect sees exactly that defect. CL068 is listed as removed and has no sheet, as in
+// 1.5.33.
+const nomenclatureSheets = ( ids = [ "CL001" ] ) => [
+    sheet( "Номенклатури", [
+        row( 1, [ "Номенклатури използвани от НЗИС" ] ),
+        row( 5, [ "Номенклатура", "ID", "Статус", "Динамична", "Видимост", "Забележка" ] ),
+        ...ids.map( ( id, index ) => row( 6 + index, [ listName( id ), id, "В УПОТРЕБА", "false" ] ) ),
+        row( 6 + ids.length, [ "", "CL068", "ПРЕМАХНАТА" ] )
+    ] ),
+    ...ids.map( ( id ) => sheet( id, [
+        row( 1, [ `${ id } - ${ listName( id ) }` ] ),
+        row( 3, [ "Entity", "", "", "", "", "Meta Data", "System Data" ] ),
+        row( 4, CODE_LIST_HEADER ),
+        row( 5, [ "1", "Първи", "First", "Първи", "First", "---", "v1.5.33" ] ),
+        row( 6, [ "2", "Втори", "Second", "Втори", "Second", "---", "v1.5.33" ] )
+    ] ) ),
+    sheet( "Change Notes", [
+        row( 1, [ "Версия / промени", "Дата на тестова", "Дата на прод" ] ),
+        row( 2, [ "Версия 1.5.33", "07.10.2026" ] ),
+        row( 3, [ "Добавена номенклатура" ] )
+    ] )
+];
+
+module.exports = { prescriptionRows, confirmationRows, moduleSheets, nomenclatureSheets };

@@ -13,6 +13,7 @@
     },
     "exports": {
         "./module": "./importer/module-importer.js",
+        "./nomenclatures": "./importer/nomenclatures-importer.js",
         "./reader": "./read/workbook-reader.js",
         "./report": "./report/format.js",
         "./stream-reader": "./read/stream-reader.js"
@@ -27,12 +28,14 @@
         "#messages-sheet": "./interpret/messages-sheet.js",
         "#module-importer": "./importer/module-importer.js",
         "#nomenclature-index": "./interpret/nomenclature-index.js",
+        "#nomenclatures-importer": "./importer/nomenclatures-importer.js",
         "#raw": "./read/raw.js",
         "#raw-cell": "./read/raw-cell.js",
         "#report": "./report/format.js",
         "#scripts": "./interpret/scripts.js",
         "#side-sheets": "./interpret/side-sheets.js",
         "#stream-reader": "./read/stream-reader.js",
+        "#workbook-checks": "./importer/workbook-checks.js",
         "#workbook-reader": "./read/workbook-reader.js"
     },
     "dependencies": {
