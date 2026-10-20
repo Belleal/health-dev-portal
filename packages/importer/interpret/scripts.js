@@ -15,6 +15,8 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
+const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
+
 // Cyrillic letters with a Latin twin in common fonts. Folding is safe only in code columns, where Latin is the only
 // valid script, and only when the result is entirely Latin (design record §5.7).
 const LOOK_ALIKES = Object.freeze( {
@@ -61,3 +63,23 @@ module.exports.foldLookAlikes = ( text ) => {
  */
 module.exports.findMixedScriptWords = ( text ) => ( text.match( /[\p{L}\p{N}_-]+/gu ) || [] )
     .filter( ( word ) => LATIN.test( word ) && CYRILLIC.test( word ) );
+
+/**
+ * Folds a code to Latin and reports the fold as a `look-alike-letter` warning at its cell. Codes only: a Bulgarian word
+ * made entirely of look-alikes (`Русе`) would fold to nonsense (`Pyce`), so text is never passed here (design record
+ * §5.7, Boris 2026-10-20).
+ *
+ * @method
+ * @param {string} text
+ * @param {{sheet: string, row: number, column?: number}} source
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies Receives the warning, if any.
+ * @returns {string} The folded code, or the text unchanged.
+ * @public
+ */
+module.exports.foldCode = ( text, source, anomalies ) => {
+    const { folded, letters } = module.exports.foldLookAlikes( text );
+    if ( letters.length ) {
+        anomalies.push( createAnomaly( "look-alike-letter", source, { value: text, letters: letters.join( ", " ), folded: folded } ) );
+    }
+    return folded;
+};

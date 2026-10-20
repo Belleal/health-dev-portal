@@ -20,11 +20,13 @@
     "imports": {
         "#cells": "./interpret/cells.js",
         "#change-notes": "./interpret/change-notes.js",
+        "#code-list-sheet": "./interpret/code-list-sheet.js",
         "#colours": "./read/colours.js",
         "#legend": "./structure/legend.js",
         "#message-tree": "./structure/message-tree.js",
         "#messages-sheet": "./interpret/messages-sheet.js",
         "#module-importer": "./importer/module-importer.js",
+        "#nomenclature-index": "./interpret/nomenclature-index.js",
         "#raw": "./read/raw.js",
         "#raw-cell": "./read/raw-cell.js",
         "#report": "./report/format.js",
