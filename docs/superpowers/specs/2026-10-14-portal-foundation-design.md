@@ -413,7 +413,8 @@ The streaming reader, measured on nomenclatures 1.5.33:
   - **No tab colours:** a code list carries its status in the index sheet, so none is needed.
   - **No merged ranges:** covered cells carry no value in the file, so they read as empty, which is what the full
     reader now does too.
-- **Order:** sheets arrive in the order of the zip archive, not of the tabs (CL178 comes first).
+- **Order:** sheets arrive in the archive's order of worksheet parts, which need not be the tabs' order. Spooled
+  (below), 1.5.33 gave CL178 first; re-packed, it gives tab order. The importer depends on neither.
 - **Temporary files, and a defect:** a worksheet that arrives before the shared strings is spooled to a temporary
   file, so 1.5.33 put all 185 worksheets on disk. Worse, while such a spool is pending, the reader's entry iterator
   loses the rest of the archive.
@@ -423,9 +424,16 @@ The streaming reader, measured on nomenclatures 1.5.33:
   The importer therefore **re-packs the archive** in memory with jszip, uncompressed and one part at a time. The
   parts a worksheet depends on come first: the workbook part, its relationships, the shared strings and the styles.
   Every worksheet is then parsed straight from the archive, with **no temporary files**.
+- **The re-pack's own hazards**, found by plan 2's final review and each guarded by a test:
+  - **A damaged part** (a size that lies, corrupt data) raised an error nothing listened for. It crashed the process,
+    or left the import pending forever in a process kept alive. The error now rejects the read.
+  - **A binary part** holding the bytes `PK\x07\x08` (an image, an embedded file) ended early, and a sound workbook
+    was refused. Only the parts the reader reads are re-packed, and they are XML, which cannot hold those bytes.
+  - **An archive without shared strings** (inline strings, as streaming writers produce) fell back to spooling and
+    lost its sheets. An empty shared-strings part now stands in.
 - **Cost**, on 1.5.33 with the importer as built (plan 2):
-  - reading every sheet into raw rows takes **1.3 s at a 254 MB peak**, against 2.2 s with the spooling;
-  - importing the whole workbook into the model takes **1.7 s at a 297 MB peak**;
+  - reading every sheet into raw rows takes **1.4 s at a 261 MB peak**, against 2.2 s with the spooling;
+  - importing the whole workbook into the model takes **1.7 s at a 303 MB peak**;
   - the full reader takes 751 MB.
 
 ---

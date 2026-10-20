@@ -27,6 +27,7 @@ const { readWorkbook } = require( "#workbook-reader" );
 const { streamSheets } = require( "#stream-reader" );
 const { writeWorkbook } = require( "./support/xlsx-builder" );
 const { row, sheet } = require( "./support/raw-builders" );
+const { withLyingSize, withSignatureInMedia, withoutSharedStrings } = require( "./support/archives" );
 
 const drain = async ( iterable ) => {
     const sheets = [];
@@ -76,5 +77,28 @@ describe( "streamSheets", () => {
 
     it( "rejects bytes that are not a workbook", async () => {
         await assert.rejects( drain( streamSheets( Buffer.from( "not a workbook" ) ) ) );
+    } );
+
+    // Final review of plan 2: the re-packed archive's error went nowhere, so a damaged workbook crashed the process
+    // with an unhandled 'error' event, or — where something kept the process alive — left the import pending forever.
+    it( "rejects a damaged archive instead of crashing or hanging", { timeout: 15000 }, async () => {
+        for ( const part of [ "xl/styles.xml", "xl/sharedStrings.xml", "xl/worksheets/sheet1.xml" ] ) {
+            await assert.rejects( drain( streamSheets( await withLyingSize( part ) ) ), /size mismatch/, part );
+        }
+        // A damaged part the reader has no use for is not re-packed, so it cannot fail the read.
+        assert.equal( ( await drain( streamSheets( await withLyingSize( "docProps/app.xml" ) ) ) ).length, 2 );
+    } );
+
+    it( "reads a workbook whose binary part holds the bytes of a zip signature", async () => {
+        // Re-packed with data descriptors, a stored part ended at the first PK\x07\x08 in its bytes.
+        assert.deepEqual( ( await drain( streamSheets( await withSignatureInMedia() ) ) ).map( ( raw ) => raw.name ).sort(), [ "CL001", "Номенклатури" ] );
+    } );
+
+    it( "reads a workbook that has no shared-strings part", async () => {
+        // Without the part the reader fell back to spooling and lost every sheet after the first.
+        const bytes = await withoutSharedStrings( [ [ "Номенклатури", [ [ "ID" ] ] ], [ "CL001", [ [ "Key" ], [ "1" ] ] ], [ "Change Notes", [ [ "Версия 1.5.33" ] ] ] ] );
+        const sheets = await drain( streamSheets( bytes ) );
+        assert.deepEqual( sheets.map( ( raw ) => raw.name ).sort(), [ "CL001", "Change Notes", "Номенклатури" ] );
+        assert.deepEqual( sheets.find( ( raw ) => raw.name === "CL001" ).rows.map( ( entry ) => entry.cells[ 0 ].text ), [ "Key", "1" ] );
     } );
 } );

@@ -64,4 +64,19 @@ describe( "importSet", () => {
         await assert.rejects( importSet( { nomenclatures: { source: Buffer.from( "not a workbook" ), fileName: "broken.xlsx" } } ),
             /^Error: Cannot read broken\.xlsx: / );
     } );
+
+    // Final review of plan 2: the rules workbook given as --nomenclatures left e-Prescription 1.5.1 with 224 blocking
+    // unknown-code-list anomalies, and the set report blamed the module for the wrong file.
+    it( "links nothing against a workbook that lacks its defining sheet, and says so", async () => {
+        const result = await importSet( {
+            nomenclatures: { source: await writeWorkbook( rulesSheets( MODULE_RULES ) ), fileName: "rules.xlsx" },
+            rules: { source: await writeWorkbook( nomenclatureSheets( MODULE_LISTS ) ), fileName: "nomenclatures.xlsx" },
+            modules: [ { spec: "e-prescription", source: await writeWorkbook( moduleSheets() ) } ]
+        } );
+        assert.deepEqual( result.modules[ 0 ].anomalies, [] );
+        const report = formatSetReport( result );
+        assert.match( report, /Code lists were not linked: the nomenclatures workbook has no "Номенклатури" sheet\./ );
+        assert.match( report, /Rules were not linked: the rules workbook has no "Rules" sheet\./ );
+        assert.match( report, /Set refused: 2 of 3 workbooks have blocking anomalies\.$/ );
+    } );
 } );

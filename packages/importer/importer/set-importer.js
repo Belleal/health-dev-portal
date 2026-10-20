@@ -20,8 +20,8 @@ const { linkModule, linkRules } = require( "@health-dev-portal/spec-model/links"
 const { readWorkbook } = require( "#workbook-reader" );
 const { streamSheets } = require( "#stream-reader" );
 const { importModuleWorkbook } = require( "#module-importer" );
-const { importNomenclaturesWorkbook } = require( "#nomenclatures-importer" );
-const { importRulesWorkbook } = require( "#rules-importer" );
+const { INDEX_SHEET, importNomenclaturesWorkbook } = require( "#nomenclatures-importer" );
+const { RULES_SHEET, importRulesWorkbook } = require( "#rules-importer" );
 
 /**
  * @typedef {Object} SetInput One workbook of a set.
@@ -31,39 +31,72 @@ const { importRulesWorkbook } = require( "#rules-importer" );
 
 const fileNameOf = ( input ) => input.fileName || ( typeof input.source === "string" ? path.basename( input.source ) : "the workbook" );
 
+/**
+ * A workbook that cannot be read — not a fault in the importer, which surfaces as itself.
+ *
+ * @public
+ */
+class UnreadableWorkbookError extends Error {}
+module.exports.UnreadableWorkbookError = UnreadableWorkbookError;
+
 // A person reads which file failed: jszip's "Can't find end of central directory" names none.
+const unreadable = ( input, error ) => new UnreadableWorkbookError( `Cannot read ${ fileNameOf( input ) }: ${ error.message }`, { cause: error } );
+
 async function reading( input, read ) {
     try {
         return await read();
     } catch ( error ) {
-        throw new Error( `Cannot read ${ fileNameOf( input ) }: ${ error.message }`, { cause: error } );
+        throw unreadable( input, error );
+    }
+}
+
+// Only what the reader throws is the file's fault. The streamed import used to be wrapped whole, so a TypeError in a
+// pure stage reported a sound workbook as unreadable (final review of plan 2).
+async function* readingSheets( input, sheets ) {
+    const iterator = sheets[ Symbol.asyncIterator ]();
+    while ( true ) {
+        let step;
+        try {
+            step = await iterator.next();
+        } catch ( error ) {
+            throw unreadable( input, error );
+        }
+        if ( step.done ) {
+            return;
+        }
+        yield step.value;
     }
 }
 
 // Linking adds to a result its importer has already frozen.
 const withLinks = ( result, links ) => Object.freeze( { version: result.version, anomalies: Object.freeze( [ ...result.anomalies, ...links ] ) } );
 
+// A workbook without its defining sheet defines nothing to link against: given the rules workbook as nomenclatures,
+// e-Prescription 1.5.1 drew 224 blocking unknown-code-list anomalies for the wrong file (final review of plan 2).
+const defines = ( result, sheet ) => Boolean( result ) && !result.anomalies.some( ( anomaly ) => anomaly.type === "missing-sheet" && anomaly.details.sheet === sheet );
+
 /**
  * Imports a set of workbooks of one slot — nomenclatures, rules and modules — and links them: each module's code-list
  * and rule references against the set's nomenclatures and rules, and each rule's error code against CL999 (design
- * record §4.8, §5.3). A kind the set does not include is not linked. Workbooks are read one after another, so only
- * one is in memory while being read.
+ * record §4.8, §5.3). A kind the set does not include, or whose workbook lacks its defining sheet, is not linked;
+ * `linked` says which were. Workbooks are read one after another, so only one is in memory while being read.
  *
  * @method
  * @param {{nomenclatures?: SetInput, rules?: SetInput, modules?: Array<SetInput & {spec: string}>}} inputs
- * @returns {Promise<{nomenclatures: Object|null, rules: Object|null, modules: Object[]}>} Each result is
- *     `{ version, anomalies }`, with the link anomalies added to the workbook they concern.
- * @throws {Error} "Cannot read <file>: …" when a workbook cannot be read.
+ * @returns {Promise<{nomenclatures: Object|null, rules: Object|null, modules: Object[], linked: {codeLists: boolean, rules: boolean}}>}
+ *     Each result is `{ version, anomalies }`, with the link anomalies added to the workbook they concern.
+ * @throws {UnreadableWorkbookError} "Cannot read <file>: …" when a workbook cannot be read.
  * @public
  */
 module.exports.importSet = async ( inputs ) => {
     const nomenclatures = inputs.nomenclatures
-        ? await reading( inputs.nomenclatures, () => importNomenclaturesWorkbook( streamSheets( inputs.nomenclatures.source ), { fileName: fileNameOf( inputs.nomenclatures ) } ) )
+        ? await importNomenclaturesWorkbook( readingSheets( inputs.nomenclatures, streamSheets( inputs.nomenclatures.source ) ), { fileName: fileNameOf( inputs.nomenclatures ) } )
         : null;
     let rules = inputs.rules
         ? importRulesWorkbook( await reading( inputs.rules, () => readWorkbook( inputs.rules.source ) ), { fileName: fileNameOf( inputs.rules ) } )
         : null;
-    if ( rules && nomenclatures ) {
+    const linked = Object.freeze( { codeLists: defines( nomenclatures, INDEX_SHEET ), rules: defines( rules, RULES_SHEET ) } );
+    if ( linked.codeLists && linked.rules ) {
         rules = withLinks( rules, linkRules( rules.version, nomenclatures.version ) );
     }
     const modules = [];
@@ -71,9 +104,9 @@ module.exports.importSet = async ( inputs ) => {
         const workbook = await reading( input, () => readWorkbook( input.source ) );
         const result = importModuleWorkbook( workbook, { spec: input.spec, fileName: fileNameOf( input ) } );
         modules.push( withLinks( result, linkModule( result.version, {
-            nomenclatures: nomenclatures ? nomenclatures.version : null,
-            rules: rules ? rules.version : null
+            nomenclatures: linked.codeLists ? nomenclatures.version : null,
+            rules: linked.rules ? rules.version : null
         } ) ) );
     }
-    return { nomenclatures: nomenclatures, rules: rules, modules: modules };
+    return { nomenclatures: nomenclatures, rules: rules, modules: modules, linked: linked };
 };

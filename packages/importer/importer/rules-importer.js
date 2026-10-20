@@ -28,6 +28,14 @@ const SHEETS = Object.freeze( {
 } );
 
 /**
+ * The sheet that makes a workbook the business rules.
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.RULES_SHEET = SHEETS.rules;
+
+/**
  * Imports a business-rules workbook into a rules version (design record §4.6.1). The workbook is small (30 KB for
  * 1.1.1), so it takes the full reader's output, which sees merges.
  *

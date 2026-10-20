@@ -28,6 +28,14 @@ const SHEETS = Object.freeze( {
     changeNotes: "Change Notes"
 } );
 
+/**
+ * The sheet that makes a workbook the nomenclatures: without it no sheet can be told a code list.
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.INDEX_SHEET = SHEETS.index;
+
 const CODE_LIST_SHEET = /^CL[A-Z0-9]+$/;
 
 function joinIndex( id, listed, read, codeLists, anomalies ) {

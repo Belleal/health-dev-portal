@@ -20,7 +20,7 @@
 const fs = require( "node:fs" );
 const { parseArgs } = require( "node:util" );
 const { hasBlocking } = require( "@health-dev-portal/spec-model/anomalies" );
-const { importSet } = require( "#set-importer" );
+const { UnreadableWorkbookError, importSet } = require( "#set-importer" );
 const { formatSetReport } = require( "#report" );
 
 const USAGE = "Usage: hdp-import-set [--nomenclatures <file>] [--rules <file>] [--module <spec>=<file>]... [--json <set.json>]";
@@ -59,10 +59,11 @@ async function main( argv ) {
     return [ set.nomenclatures, set.rules, ...set.modules ].some( ( result ) => result && hasBlocking( result.anomalies ) ) ? 1 : 0;
 }
 
-// A person reads this output: an unreadable file is one line naming it, never a stack trace.
+// A person reads this output: an unreadable file is one line naming it, never a stack trace. Anything else is a fault
+// in the importer, and its stack is what a fix needs.
 main( process.argv.slice( 2 ) ).then( ( code ) => {
     process.exitCode = code;
 }, ( error ) => {
-    console.error( error.message );
+    console.error( error instanceof UnreadableWorkbookError ? error.message : error.stack );
     process.exitCode = 1;
 } );

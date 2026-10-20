@@ -17,6 +17,8 @@
 
 const { hasBlocking } = require( "@health-dev-portal/spec-model/anomalies" );
 const { ANOMALY_LEVEL, SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { INDEX_SHEET } = require( "#nomenclatures-importer" );
+const { RULES_SHEET } = require( "#rules-importer" );
 
 const LEVEL_ORDER = Object.freeze( { [ ANOMALY_LEVEL.BLOCKING ]: 0, [ ANOMALY_LEVEL.WARNING ]: 1 } );
 
@@ -115,12 +117,15 @@ module.exports.formatReport = ( result ) => {
  */
 module.exports.formatSetReport = ( set ) => {
     const results = [ set.nomenclatures, set.rules, ...set.modules ].filter( Boolean );
+    const notLinked = ( what, given, kind, sheet ) => ( given
+        ? `${ what } were not linked: the ${ kind } workbook has no "${ sheet }" sheet.`
+        : `${ what } were not linked: no ${ kind } workbook was given.` );
     const closing = [];
-    if ( set.modules.length && !set.nomenclatures ) {
-        closing.push( "Code lists were not linked: no nomenclatures workbook was given." );
+    if ( set.modules.length && !set.linked.codeLists ) {
+        closing.push( notLinked( "Code lists", set.nomenclatures, "nomenclatures", INDEX_SHEET ) );
     }
-    if ( set.modules.length && !set.rules ) {
-        closing.push( "Rules were not linked: no rules workbook was given." );
+    if ( set.modules.length && !set.linked.rules ) {
+        closing.push( notLinked( "Rules", set.rules, "rules", RULES_SHEET ) );
     }
     const refused = results.filter( ( result ) => hasBlocking( result.anomalies ) ).length;
     closing.push( refused ? `Set refused: ${ refused } of ${ results.length } workbooks have blocking anomalies.` : "Set accepted." );
