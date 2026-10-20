@@ -40,6 +40,7 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "versions-out-of-order": { level: WARNING, text: "Version {version} follows {previous}; the highest version, {latest}, is taken as the workbook's." },
     "unknown-note-colour": { level: WARNING, text: "Font colour {colour} is not in the legend; the note is read as non-breaking." },
     "ambiguous-sheet": { level: BLOCKING, text: "Sheets {sheets} have the same name once spaces are trimmed." },
+    "invalid-date": { level: WARNING, text: "\"{value}\" is not a date such as 24.08.2026." },
     // Messages
     "message-without-sheet": { level: BLOCKING, text: "Message {code} is listed but has no sheet." },
     "duplicate-message": { level: BLOCKING, text: "Message {code} is listed twice (rows {firstRow} and {row})." },
@@ -80,7 +81,30 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "single-variant": { level: WARNING, text: "Polymorphic element {identity} has {count} variant(s); it needs at least two." },
     // Side sheets
     "empty-condition": { level: WARNING, text: "Condition {id} has no text." },
-    "duplicate-condition": { level: BLOCKING, text: "Condition {id} is defined twice (rows {firstRow} and {row}); the first is kept." }
+    "duplicate-condition": { level: BLOCKING, text: "Condition {id} is defined twice (rows {firstRow} and {row}); the first is kept." },
+    // Code lists and the index
+    "duplicate-key": { level: BLOCKING, text: "Key {key} appears twice (rows {firstRow} and {row})." },
+    "skipped-rows": { level: WARNING, text: "{count} row(s) have no usable key — blank, a placeholder such as \"...\", or text with spaces — and are not imported: rows {rows}." },
+    "non-canonical-version": { level: WARNING, text: "\"{value}\" is read as version {version}; the template writes \"v1.2.3\"." },
+    "date-instead-of-version": { level: WARNING, text: "\"{value}\" is a date; this column holds a version such as v1.5.28." },
+    "invalid-version": { level: WARNING, text: "\"{value}\" is not a version such as v1.5.28." },
+    "valid-until-before-since": { level: WARNING, text: "Valid until {validUntil} is earlier than since {since}." },
+    "unknown-list-status": { level: WARNING, text: "\"{value}\" is not a known code-list status." },
+    "invalid-flag": { level: WARNING, text: "\"{value}\" is neither true nor false." },
+    "duplicate-list": { level: BLOCKING, text: "Code list {id} is listed twice (rows {firstRow} and {row})." },
+    "list-without-sheet": { level: BLOCKING, text: "Code list {id} is listed as {status} but has no sheet." },
+    "sheet-not-listed": { level: WARNING, text: "Sheet {sheet} is not listed in \"Номенклатури\" and is not imported." },
+    // Rules
+    "malformed-rule-id": { level: BLOCKING, text: "\"{value}\" is not a rule ID such as RL001." },
+    "duplicate-rule": { level: BLOCKING, text: "Rule {id} is defined twice (rows {firstRow} and {row})." },
+    "unknown-rule-colour": { level: WARNING, text: "Fill {colour} of rule {id} is not in the legend, so the rule's status is unknown." },
+    "rule-without-definition": { level: WARNING, text: "Active rule {id} has no definition." },
+    // Links between specs
+    "unknown-code-list": { level: BLOCKING, text: "{identity} names code list {id}, which the nomenclatures do not define." },
+    "removed-code-list": { level: WARNING, text: "{identity} names code list {id}, which the nomenclatures mark as removed." },
+    "unknown-rule": { level: BLOCKING, text: "{identity} names rule {id}, which the rules do not define." },
+    "withdrawn-rule": { level: WARNING, text: "{identity} names rule {id}, which is withdrawn." },
+    "unknown-error-code": { level: WARNING, text: "Rule {id} returns error code {code}, which CL999 does not define." }
 } );
 
 /**

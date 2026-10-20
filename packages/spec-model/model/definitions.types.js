@@ -77,7 +77,7 @@
  * @property {string|null} sender
  * @property {string|null} recipient
  * @property {string|null} pairedWith The code of its request or response.
- * @property {string|null} lifecycle One of `MESSAGE_LIFECYCLE`, from the tab colour.
+ * @property {string|null} lifecycle One of `LIFECYCLE`, from the tab colour.
  * @property {boolean|null} changedInVersion The tab colour's claim, kept as a cross-check.
  * @property {ElementNode[]} elements
  * @property {SourceRef} source
@@ -93,6 +93,8 @@
 /**
  * @typedef {Object} ChangeVersion
  * @property {string} version e.g. `1.5.1`.
+ * @property {string|null} stagingDate ISO `YYYY-MM-DD`; `null` where the sheet has no date columns or the cell is empty.
+ * @property {string|null} productionDate ISO `YYYY-MM-DD`, as above.
  * @property {ChangeNote[]} notes
  * @property {SourceRef} source
  */
@@ -114,11 +116,73 @@
 
 /**
  * @typedef {Object} ModuleVersion One version of a module specification, as imported.
+ * @property {string} kind `module`, one of `SPEC_KIND`.
  * @property {string} spec The spec's key, e.g. `e-prescription`.
  * @property {string|null} version
  * @property {Message[]} messages
  * @property {ConditionText[]} conditions
  * @property {DictionaryEntry[]} dictionary
+ * @property {ChangeVersion[]} changeNotes Oldest first.
+ */
+
+/**
+ * @typedef {Object} CodeListColumn A list-specific column, e.g. `NHIF Code` on CL006.
+ * @property {string} title
+ * @property {number} column 1-based.
+ */
+
+/**
+ * @typedef {Object} CodeListEntry One entry of a code list (design record §4.6).
+ * @property {string} key
+ * @property {LocalText} description
+ * @property {LocalText} display
+ * @property {Array<string|null>} values The list-specific values, in the order of the list's `columns`.
+ * @property {string|null} since The nomenclature version the entry was added in, e.g. `1.5.28`.
+ * @property {string|null} validUntil The nomenclature version it is valid until.
+ * @property {SourceRef} source
+ */
+
+/**
+ * @typedef {Object} CodeList
+ * @property {string} id e.g. `CL001`.
+ * @property {LocalText} name The workbook names lists in Bulgarian only.
+ * @property {string|null} status One of `CODE_LIST_STATUS`, from the index sheet.
+ * @property {boolean|null} dynamic
+ * @property {string|null} visibility
+ * @property {string|null} remark The index sheet's note on the list.
+ * @property {string[]} notes The note rows above the list's header, e.g. `Източник: НСЦРЛП`.
+ * @property {CodeListColumn[]} columns
+ * @property {CodeListEntry[]} entries
+ * @property {SourceRef} source The header row, or the index row of a removed list without a sheet.
+ */
+
+/**
+ * @typedef {Object} NomenclaturesVersion One version of the nomenclatures spec, as imported.
+ * @property {string} kind `nomenclatures`.
+ * @property {string} spec `nomenclatures`.
+ * @property {string|null} version
+ * @property {CodeList[]} codeLists Ordered by ID.
+ * @property {ChangeVersion[]} changeNotes Oldest first.
+ */
+
+/**
+ * @typedef {Object} Rule A business rule (design record §4.6.1).
+ * @property {string} id e.g. `RL001`.
+ * @property {LocalText} definition Bulgarian only in the workbook; lines are kept.
+ * @property {string|null} sourceText The "Source" column.
+ * @property {string|null} errorCode A CL999 key, e.g. `E002`.
+ * @property {string|null} since The rules version the rule was added in.
+ * @property {string|null} lifecycle One of `LIFECYCLE`, from the ID cell's fill.
+ * @property {boolean|null} changedInVersion The fill's claim, as a message tab's.
+ * @property {SourceRef} source
+ */
+
+/**
+ * @typedef {Object} RulesVersion One version of the rules spec, as imported.
+ * @property {string} kind `rules`.
+ * @property {string} spec `rules`.
+ * @property {string|null} version
+ * @property {Rule[]} rules
  * @property {ChangeVersion[]} changeNotes Oldest first.
  */
 

@@ -1,7 +1,7 @@
 {
     "name": "@health-dev-portal/spec-model",
     "version": "0.1.0",
-    "description": "The НЗИС specification model: element kinds, identities, anomalies and structural validation. Pure: no I/O.",
+    "description": "The НЗИС specification model: kinds, identities, anomalies, structural validation and links between specs. Pure: no I/O.",
     "license": "EUPL-1.2",
     "private": true,
     "type": "commonjs",
@@ -14,6 +14,7 @@
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
         "./kinds": "./model/kinds.js",
+        "./links": "./model/links.js",
         "./validation": "./model/validation.js"
     },
     "imports": {
