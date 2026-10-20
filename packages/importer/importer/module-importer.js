@@ -22,6 +22,8 @@ const { readMessageIndex } = require( "#messages-sheet" );
 const { readChangeNotes } = require( "#change-notes" );
 const { readConditions, readDictionary } = require( "#side-sheets" );
 const { TAB_STATUS, matchLegend } = require( "#legend" );
+const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { ambiguousSheets, workbookVersion } = require( "#workbook-checks" );
 
 const SHEETS = Object.freeze( {
     messages: "Съобщения",
@@ -31,21 +33,8 @@ const SHEETS = Object.freeze( {
 } );
 
 const MESSAGE_SHEET = /^[A-Z]\d{3}$/;
-const FILE_VERSION = /v(\d+\.\d+\.\d+)/i;
 
 const flatten = ( elements ) => elements.flatMap( ( node ) => [ node, ...flatten( node.children ) ] );
-
-// Sheets are matched by trimmed name, so two that differ only in spaces ("P002" and a stale "P002 ") are ambiguous:
-// whichever came first in tab order would be read, silently (final review).
-function ambiguousSheets( workbook ) {
-    const byName = new Map();
-    for ( const candidate of workbook.sheets ) {
-        const name = candidate.name.trim();
-        byName.set( name, [ ...( byName.get( name ) || [] ), candidate.name ] );
-    }
-    return [ ...byName.values() ].filter( ( names ) => names.length > 1 )
-        .map( ( names ) => createAnomaly( "ambiguous-sheet", {}, { sheets: names.map( ( name ) => JSON.stringify( name ) ).join( ", " ) } ) );
-}
 
 // Design record §5.3: a reference to a condition that does not exist blocks; both sides are in this workbook.
 function undefinedConditions( messages, conditions ) {
@@ -73,7 +62,7 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     if ( !options || typeof options.spec !== "string" || options.spec === "" ) {
         throw new TypeError( "importModuleWorkbook needs options.spec, the module's key." );
     }
-    const anomalies = [ ...ambiguousSheets( workbook ) ];
+    const anomalies = [ ...ambiguousSheets( workbook.sheets.map( ( candidate ) => candidate.name ) ) ];
     const sheetNamed = ( name ) => workbook.sheets.find( ( candidate ) => candidate.name.trim() === name ) || null;
     const required = ( name ) => {
         const found = sheetNamed( name );
@@ -117,14 +106,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     const notesSheet = required( SHEETS.changeNotes );
     const notes = notesSheet ? readChangeNotes( notesSheet ) : { versions: [], latest: null, anomalies: [] };
     anomalies.push( ...notes.anomalies );
-    const latest = notes.latest;
-    if ( !latest ) {
-        anomalies.push( createAnomaly( "missing-version", notesSheet ? { sheet: notesSheet.name } : {} ) );
-    }
-    const fileVersion = FILE_VERSION.exec( options.fileName || "" );
-    if ( latest && fileVersion && fileVersion[ 1 ] !== latest.version ) {
-        anomalies.push( createAnomaly( "version-mismatch", {}, { fileVersion: fileVersion[ 1 ], version: latest.version } ) );
-    }
+    const version = workbookVersion( notes, notesSheet ? notesSheet.name : null, options.fileName );
+    anomalies.push( ...version.anomalies );
 
     const conditionsSheet = required( SHEETS.conditions );
     const conditions = conditionsSheet ? readConditions( conditionsSheet ) : { conditions: [], anomalies: [] };
@@ -141,8 +124,9 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
 
     return deepFreeze( {
         version: {
+            kind: SPEC_KIND.MODULE,
             spec: options.spec,
-            version: latest ? latest.version : null,
+            version: version.version,
             messages: messages,
             conditions: conditions.conditions,
             dictionary: dictionary.entries,

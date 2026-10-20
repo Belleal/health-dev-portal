@@ -30,15 +30,24 @@ defects these workbooks still carry are **HEL-15** (nomenclatures) and **HEL-16*
 
 ## Decisions this plan takes
 
-Each one changes what a reviewer would otherwise expect. Reject any of them at review, before Task 1.
+Each one changes what a reviewer would otherwise expect. Boris accepted 1 and 2 on 2026-10-20.
 
-1. **A repeated key blocks.**
+1. **A repeated key blocks** — accepted: "that would be an error in the nomenclature".
    - Consequence: the published 1.5.33 is refused today. CL096 repeats `416`; CL127 repeats 16 keys of a scoring
      table typed under the list (HEL-15).
    - Rejected: keeping the first entry with a warning. That silently drops an entry the source still publishes, and
      plan 5's primary key `(list, key)` would refuse it anyway.
-2. **Look-alike letters in keys are folded to Latin, with a warning** (§5.7 names `Е003`).
-   - Affects 35 keys: 17 in CL022, 17 in CL024 and 1 in CL999.
+2. **Look-alike letters in codes are folded to Latin, with a warning** — accepted: "to Latin always, unless it is a
+   BG text or description".
+   - **Keys:** 35 fold — 17 in CL022, 17 in CL024 and 1 in CL999.
+   - **List-specific code columns:** 20 values fold — CL024 `CL022 Mapping` 17, CL107 `NHIF Mapping` 2 and CL037
+     `Permit Number` 1. The mapping values must fold with CL022's keys, or CL024 would point at keys that no longer
+     exist.
+   - A list-specific column holds codes when **every value in it, once folded, is printable ASCII without
+     whitespace**. In 1.5.33 that is 141 of 207 such columns. The other 66 are text and are never folded: CL127's
+     `Risk Group definition` holds `b. Не`.
+   - **Text is never folded**, even when every letter has a Latin twin. 1.5.33 shows why: `Русе` would become `Pyce`,
+     `Науру` `Haypy` and `АНТРАКС` `AHTPAKC`.
    - Which spelling the backend holds is an open item (§15, HEL-15).
 3. **Rows without a usable key are one warning per sheet, not one per row.** Such rows are blank, a placeholder
    (`...`, `---`), or text with a space (a footnote). One per row would add 3,323 lines for CL122 alone.
@@ -70,11 +79,12 @@ Each one changes what a reviewer would otherwise expect. Reject any of them at r
 - **Look-alike letters are folded only in code columns**, and only when the result is entirely ASCII (§5.7). In this
   plan the code columns are:
   - code-list keys;
+  - list-specific columns that hold codes (Decision 2);
   - index IDs;
   - rule IDs;
   - error codes.
 
-  Descriptions, display values and list-specific columns are never folded.
+  Descriptions, display values, definitions and list-specific text columns are never folded.
 - **Versions are stored without the `v`**: `"1.5.28"`. That is how plan 1 stores change-note versions.
 - **Every new `.js` file begins with the EUPL block of any existing file**, e.g. lines 1–16 of
   `packages/importer/read/raw.js`, copied verbatim. Code blocks below omit it.
@@ -587,7 +597,13 @@ git commit -m "feat(importer): a streaming workbook reader that yields raw sheet
 
      Each is reported at its cell. When both are versions and `compareVersions( validUntil, since ) < 0` →
      `valid-until-before-since`.
-7. **Skipped rows** → one `skipped-rows` per sheet, at the first skipped row.
+7. **Code columns.** Once every row is read, each list-specific column is classified as code or text (Decision 2).
+   - **A code column:** every non-null value is printable ASCII with no whitespace (`^[\x21-\x7E]+$`) after
+     `foldLookAlikes`.
+   - **Folding:** in a code column each value is replaced by its folded form, with `look-alike-letter` at its cell.
+   - **Order:** these anomalies follow the row checks, in row order.
+   - **Text columns** are left exactly as read.
+8. **Skipped rows** → one `skipped-rows` per sheet, at the first skipped row.
    - Details are `count`, and `rows` as the first 10 numbers joined by `, ` (plus `, …` when there are more).
 
 **The index sheet:**
@@ -671,6 +687,17 @@ it( "reads versions and reports the forms it does not expect, at their cells", (
     assert.deepEqual( types( at( "10.10.2023" ).anomalies ), [ "date-instead-of-version" ] );
     assert.equal( at( "10.10.2023" ).codeList.entries[ 0 ].since, null );
     assert.deepEqual( types( at( "f1267" ).anomalies ), [ "invalid-version" ] );
+} );
+
+it( "folds a list-specific column that holds codes, and leaves text alone (Decision 2)", () => {
+    const header = [ "Key", "Description BG", "Description EN", "Display value BG", "Display value EN", "CL022 Mapping", "Risk Group definition", "Since" ];
+    const { codeList, anomalies } = readCodeListSheet( list( [
+        row( 5, [ "01-001-00", "Русе", "", "", "", "01-001", "a. Мъже 40-65 г" ] ),
+        row( 6, [ "01-00А-00", "АНТРАКС", "", "", "", "01-00А", "b. Не" ] ) ], header ) );
+    assert.deepEqual( codeList.entries.map( ( entry ) => [ entry.key, entry.description.bg, ...entry.values ] ), [
+        [ "01-001-00", "Русе", "01-001", "a. Мъже 40-65 г" ], [ "01-00A-00", "АНТРАКС", "01-00A", "b. Не" ] ] );
+    assert.deepEqual( anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.row, anomaly.column ] ),
+        [ [ "look-alike-letter", 6, 1 ], [ "look-alike-letter", 6, 6 ] ] );
 } );
 
 it( "warns about a word that mixes scripts in a description, and blocks a sheet without a Key header", () => {
@@ -1180,7 +1207,8 @@ independent of this code (§4.6, §4.6.1, §5.7).
 - **Warnings known in advance:**
   - `skipped-rows` once each on CL006 (3 rows), CL009, CL026, CL038, CL076, CL122 (3,323 rows), CL127 (19), CL131 and
     CL999;
-  - `look-alike-letter` 35: CL022 17, CL024 17, CL999 1;
+  - `look-alike-letter` 55: keys 35 (CL022 17, CL024 17, CL999 1) and code-column values 20 (CL024 17, CL107 2,
+    CL037 1);
   - `non-canonical-version` 252;
   - `date-instead-of-version` 124;
   - `invalid-version` 2: CL056 rows 45 and 53;

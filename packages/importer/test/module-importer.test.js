@@ -35,6 +35,7 @@ describe( "importModuleWorkbook", () => {
     it( "imports a sound module with no anomaly", () => {
         const result = importModuleWorkbook( workbook( moduleSheets() ), { spec: "e-prescription" } );
         assert.deepEqual( result.anomalies, [] );
+        assert.equal( result.version.kind, "module" );
         const { version } = result;
         assert.equal( version.spec, "e-prescription" );
         assert.equal( version.version, "1.1.0" );

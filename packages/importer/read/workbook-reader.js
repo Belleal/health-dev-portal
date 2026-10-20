@@ -16,8 +16,8 @@
  */
 
 const ExcelJS = require( "exceljs" );
-const { EMPTY_CELL } = require( "#raw" );
-const { UNRESOLVED, parseThemeColours, resolveColour } = require( "#colours" );
+const { parseThemeColours } = require( "#colours" );
+const { colourOf, toRawRow } = require( "#raw-cell" );
 
 /**
  * @typedef {Object} RawCell
@@ -46,57 +46,10 @@ const { UNRESOLVED, parseThemeColours, resolveColour } = require( "#colours" );
  * @property {Object<string, string>} themeColours
  */
 
-function cellText( value ) {
-    if ( value === null || value === undefined ) {
-        return "";
-    }
-    if ( typeof value === "string" ) {
-        return value.replace( /\r\n?/g, "\n" ).trim();
-    }
-    if ( typeof value === "number" || typeof value === "boolean" ) {
-        return String( value );
-    }
-    if ( value instanceof Date ) {
-        return value.toISOString().slice( 0, 10 );
-    }
-    if ( Array.isArray( value.richText ) ) {
-        return cellText( value.richText.map( ( part ) => part.text ).join( "" ) );
-    }
-    if ( "result" in value ) {
-        // A formula: its cached result. Nothing in an uploaded workbook is ever evaluated.
-        return cellText( value.result );
-    }
-    if ( "text" in value ) {
-        return cellText( value.text );
-    }
-    return "";
-}
-
-// A colour that is set but cannot be resolved is marked, never read as no colour: an indexed fill would otherwise turn a
-// group row into a plain field without a word (final review).
-const colourOf = ( colour, themeColours ) => ( colour ? resolveColour( colour, themeColours ) || UNRESOLVED : null );
-
-function toRawCell( cell, themeColours ) {
-    const patterned = cell.fill && cell.fill.type === "pattern" && cell.fill.pattern !== "none";
-    // exceljs gives every cell a merge covers the first cell's value. Read that way, a note merged across a row became
-    // an element with an invalid requirement, and a condition ID merged down its lines split it into several.
-    const covered = cell.type === ExcelJS.ValueType.Merge && cell.master !== cell;
-    return Object.freeze( {
-        text: covered ? "" : cellText( cell.value ),
-        fill: patterned ? colourOf( cell.fill.fgColor, themeColours ) : null,
-        fontColour: cell.font ? colourOf( cell.font.color, themeColours ) : null,
-        indent: cell.alignment && Number.isInteger( cell.alignment.indent ) ? cell.alignment.indent : 0
-    } );
-}
-
 function toRawSheet( worksheet, themeColours ) {
     const rows = [];
-    worksheet.eachRow( { includeEmpty: false }, ( row, number ) => {
-        const cells = [];
-        row.eachCell( { includeEmpty: true }, ( cell, column ) => {
-            cells[ column - 1 ] = toRawCell( cell, themeColours );
-        } );
-        rows.push( Object.freeze( { number: number, cells: Object.freeze( Array.from( cells, ( cell ) => cell || EMPTY_CELL ) ) } ) );
+    worksheet.eachRow( { includeEmpty: false }, ( row ) => {
+        rows.push( toRawRow( row, themeColours ) );
     } );
     return Object.freeze( {
         name: worksheet.name,

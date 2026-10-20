@@ -34,6 +34,16 @@ const FIXTURES = Object.freeze( [ {
     // The production e-Prescription workbook listed on https://his.bg/bg/dev/specifications, measured on 2026-10-13.
     url: "https://his.bg/upload/523/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%A0%D0%B5%D1%86%D0%B5%D0%BF%D1%82%D0%B0+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.5.1.xlsx",
     sha256: "6b53e64b01526ee4cee9ba47e4a6be1a6854115ecc7b9a378f35ca66a1a4b7ed"
+}, {
+    file: "nomenclatures-1.5.33.xlsx",
+    // The nomenclatures workbook the specifications page names, measured on 2026-10-19 (design record §4.6, §5.7).
+    url: "https://his.bg/upload/657/%D0%9D%D0%97%D0%98%D0%A1+%D0%9D%D0%BE%D0%BC%D0%B5%D0%BD%D0%BA%D0%BB%D0%B0%D1%82%D1%83%D1%80%D0%B8+-+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.5.33.xlsx",
+    sha256: "4dd02562329c003f3c038f492bea7d840218fa904dd7274ca8f1d68086cc603e"
+}, {
+    file: "rules-1.1.1.xlsx",
+    // The production business-rules workbook (1.1.2 is in test), measured on 2026-10-19 (design record §4.6.1).
+    url: "https://his.bg/upload/446/%D0%9D%D0%97%D0%98%D0%A1+-+API+%D0%91%D0%B8%D0%B7%D0%BD%D0%B5%D1%81+%D0%9F%D1%80%D0%B0%D0%B2%D0%B8%D0%BB%D0%B0+-+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.1.1.xlsx",
+    sha256: "686283df949d30fe19f31d063c460c49eb1d42e5ceed19c5701e0700cda4a75d"
 } ] );
 
 const DOWNLOAD_TIMEOUT_MS = 60000;

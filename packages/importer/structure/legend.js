@@ -15,7 +15,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
-const { CHANGE_CATEGORY, ELEMENT_KIND, MESSAGE_LIFECYCLE } = require( "@health-dev-portal/spec-model/kinds" );
+const { CHANGE_CATEGORY, ELEMENT_KIND, LIFECYCLE } = require( "@health-dev-portal/spec-model/kinds" );
 
 /**
  * Row fills of the specification template's legend sheet ("Легенда"), measured on e-Prescription 1.5.1.
@@ -88,10 +88,10 @@ module.exports.matchLegend = ( colour, table ) => {
  * @public
  */
 module.exports.TAB_STATUS = Object.freeze( {
-    "70AD47": Object.freeze( { lifecycle: MESSAGE_LIFECYCLE.ACTIVE, changed: false } ),
-    "FFC000": Object.freeze( { lifecycle: MESSAGE_LIFECYCLE.ACTIVE, changed: true } ),
-    "ED7D31": Object.freeze( { lifecycle: MESSAGE_LIFECYCLE.IN_DEVELOPMENT, changed: true } ),
-    "C00000": Object.freeze( { lifecycle: MESSAGE_LIFECYCLE.WITHDRAWN, changed: true } )
+    "70AD47": Object.freeze( { lifecycle: LIFECYCLE.ACTIVE, changed: false } ),
+    "FFC000": Object.freeze( { lifecycle: LIFECYCLE.ACTIVE, changed: true } ),
+    "ED7D31": Object.freeze( { lifecycle: LIFECYCLE.IN_DEVELOPMENT, changed: true } ),
+    "C00000": Object.freeze( { lifecycle: LIFECYCLE.WITHDRAWN, changed: true } )
 } );
 
 /**

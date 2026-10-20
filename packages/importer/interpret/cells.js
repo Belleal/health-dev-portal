@@ -15,6 +15,8 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
+const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
+
 const NONE = /^-+$/;
 
 const NUMERIC_TYPES = new Set( [ "Unsigned Int", "Positive Int", "Decimal", "Integer" ] );
@@ -136,3 +138,101 @@ module.exports.parseReferenceList = ( text, kind ) => {
     }
     return { values: values, invalid: invalid };
 };
+
+// Tried in this order: a date such as 10.10.2023 also matches the lenient version form, and 124 cells of nomenclatures
+// 1.5.33 hold one where a version belongs (design record §4.6).
+const VERSION_FORMS = Object.freeze( [
+    [ "canonical", /^v(\d+)\.(\d+)\.(\d+)$/ ],
+    [ "date", /^\d{1,2}\.\d{1,2}\.\d{4}$/ ],
+    [ "lenient", /^v?\.?\s*(\d+)\.(\d+)\.(\d+)$/ ]
+] );
+
+/**
+ * Reads a `Since` / `Valid Until` cell, which holds a spec version (`v1.5.28`), and says in which form it was written:
+ * the template's, another form that is still a version (`v.1.5.21`, `1.5.16`), a date, or neither.
+ *
+ * @method
+ * @param {string} text
+ * @returns {{version: string|null, form: string}} `version` without the `v`; `form` is `empty`, `canonical`,
+ *     `lenient`, `date` or `invalid`.
+ * @public
+ */
+module.exports.parseVersionCell = ( text ) => {
+    const trimmed = text.trim();
+    if ( module.exports.isNone( trimmed ) ) {
+        return { version: null, form: "empty" };
+    }
+    for ( const [ form, pattern ] of VERSION_FORMS ) {
+        const match = pattern.exec( trimmed );
+        if ( match ) {
+            return { version: form === "date" ? null : match.slice( 1, 4 ).join( "." ), form: form };
+        }
+    }
+    return { version: null, form: "invalid" };
+};
+
+/**
+ * Compares two `x.y.z` versions part by part, as numbers.
+ *
+ * @method
+ * @param {string} a
+ * @param {string} b
+ * @returns {number} Negative when `a` is lower, positive when higher, 0 when equal.
+ * @public
+ */
+module.exports.compareVersions = ( a, b ) => {
+    const left = a.split( "." ).map( Number );
+    const right = b.split( "." ).map( Number );
+    for ( let index = 0; index < 3; index++ ) {
+        if ( left[ index ] !== right[ index ] ) {
+            return left[ index ] - right[ index ];
+        }
+    }
+    return 0;
+};
+
+/**
+ * Reads a version cell and reports, at its cell, a form the template does not use: `non-canonical-version`,
+ * `date-instead-of-version` or `invalid-version`.
+ *
+ * @method
+ * @param {string} text
+ * @param {{sheet: string, row: number, column: number}} source
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies Receives the warning, if any.
+ * @returns {string|null} The version without the `v`, or `null`.
+ * @public
+ */
+module.exports.readVersionCell = ( text, source, anomalies ) => {
+    const { version, form } = module.exports.parseVersionCell( text );
+    if ( form === "lenient" ) {
+        anomalies.push( createAnomaly( "non-canonical-version", source, { value: text, version: version } ) );
+    } else if ( form === "date" ) {
+        anomalies.push( createAnomaly( "date-instead-of-version", source, { value: text } ) );
+    } else if ( form === "invalid" ) {
+        anomalies.push( createAnomaly( "invalid-version", source, { value: text } ) );
+    }
+    return version;
+};
+
+/**
+ * Tells whether a key cell holds a key at all. A footnote typed into the key column ("* За лекари, завършили…"), a
+ * placeholder ("...", "---") and the keyless second row of a merged key (CL006) are not keys a message could carry.
+ *
+ * @method
+ * @param {string} text
+ * @returns {boolean}
+ * @public
+ */
+module.exports.isUsableKey = ( text ) => !module.exports.isNone( text ) && /[\p{L}\p{N}]/u.test( text ) && !/\s/u.test( text );
+
+const LISTED_ROWS = 10;
+
+/**
+ * Lists row numbers for a message: the first ten, then an ellipsis. CL122 alone has 3,323 keyless rows.
+ *
+ * @method
+ * @param {number[]} rows
+ * @returns {string}
+ * @public
+ */
+module.exports.listRows = ( rows ) => rows.slice( 0, LISTED_ROWS ).join( ", " ) + ( rows.length > LISTED_ROWS ? ", …" : "" );

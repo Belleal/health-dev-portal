@@ -26,7 +26,7 @@ Requires Node 24 (`.nvmrc`).
 
 ```bash
 npm ci
-npm run fixtures:fetch   # downloads the public e-Prescription workbook used by the regression test
+npm run fixtures:fetch   # downloads the public e-Prescription, nomenclatures and rules workbooks the regression tests read
 npm run lint
 npm test
 ```
@@ -39,3 +39,13 @@ npx hdp-import-module --spec e-prescription --json model.json "path/to/НЗИС 
 
 The report lists every anomaly with its sheet and cell. Exit code 0: accepted; 1: refused (a blocking anomaly) or the
 file could not be read; 2: wrong arguments.
+
+### Importing and linking a set
+
+```bash
+npx hdp-import-set --nomenclatures "path/to/НЗИС Номенклатури - Спецификация v1.5.33.xlsx" --rules "path/to/НЗИС - API Бизнес Правила - Спецификация v1.1.1.xlsx" --module e-prescription="path/to/НЗИС Е-Рецепта - API Спецификация v1.5.1.xlsx"
+```
+
+The workbooks of one slot, imported together. Each module's code-list and rule references are checked against the
+set's nomenclatures and rules; any of the three options may be left out, and what is then not linked is said. One
+report per workbook, then the verdict for the set; the exit codes are as above.

@@ -15,7 +15,11 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
-const { ANOMALY_LEVEL } = require( "@health-dev-portal/spec-model/kinds" );
+const { hasBlocking } = require( "@health-dev-portal/spec-model/anomalies" );
+const { ERROR_CODE_LIST } = require( "@health-dev-portal/spec-model/links" );
+const { ANOMALY_LEVEL, SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { INDEX_SHEET } = require( "#nomenclatures-importer" );
+const { RULES_SHEET } = require( "#rules-importer" );
 
 const LEVEL_ORDER = Object.freeze( { [ ANOMALY_LEVEL.BLOCKING ]: 0, [ ANOMALY_LEVEL.WARNING ]: 1 } );
 
@@ -25,6 +29,32 @@ function columnLetters( column ) {
         letters = String.fromCharCode( 65 + ( ( remaining - 1 ) % 26 ) ) + letters;
     }
     return letters;
+}
+
+// What a version holds, by kind. A version without a kind is a module: plan 1's results carry none.
+function contents( version ) {
+    if ( version.kind === SPEC_KIND.NOMENCLATURES ) {
+        const entries = version.codeLists.reduce( ( sum, list ) => sum + list.entries.length, 0 );
+        return `${ version.codeLists.length } code lists, ${ entries } entries`;
+    }
+    if ( version.kind === SPEC_KIND.RULES ) {
+        return `${ version.rules.length } rules`;
+    }
+    return `${ version.messages.length } messages`;
+}
+
+// One line counting each type, blocking types first, then the most frequent. Nomenclatures 1.5.33 alone has a
+// thousand warnings, and the tally is what a person reads before the list.
+function tally( anomalies ) {
+    const counts = new Map();
+    for ( const anomaly of anomalies ) {
+        const entry = counts.get( anomaly.type ) || { type: anomaly.type, level: anomaly.level, count: 0 };
+        entry.count++;
+        counts.set( anomaly.type, entry );
+    }
+    const ordered = [ ...counts.values() ]
+        .sort( ( a, b ) => LEVEL_ORDER[ a.level ] - LEVEL_ORDER[ b.level ] || b.count - a.count || a.type.localeCompare( b.type ) );
+    return `By type: ${ ordered.map( ( entry ) => `${ entry.type } ${ entry.count }` ).join( ", " ) }`;
 }
 
 /**
@@ -49,11 +79,12 @@ module.exports.cellReference = ( anomaly ) => {
 };
 
 /**
- * Formats an import result as the text report a person reads: a summary line, each anomaly (blocking first, then by
- * sheet, row and column), and whether the import was accepted.
+ * Formats an import result as the text report a person reads: a summary line saying what the version holds, a tally
+ * by type, each anomaly (blocking first, then by sheet, row and column), and whether the import was accepted.
  *
  * @method
- * @param {{version: import( "@health-dev-portal/spec-model/definitions" ).ModuleVersion, anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}} result
+ * @param {{version: Object, anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}} result A
+ *     module, nomenclatures or rules version and its anomalies.
  * @returns {string}
  * @public
  */
@@ -65,10 +96,42 @@ module.exports.formatReport = ( result ) => {
         || ( a.row || 0 ) - ( b.row || 0 )
         || ( a.column || 0 ) - ( b.column || 0 ) );
     const blocking = anomalies.filter( ( anomaly ) => anomaly.level === ANOMALY_LEVEL.BLOCKING ).length;
-    const lines = [ `${ version.spec } ${ version.version || "(version unknown)" }: ${ version.messages.length } messages, ${ blocking } blocking, ${ anomalies.length - blocking } warnings` ];
+    const lines = [ `${ version.spec } ${ version.version || "(version unknown)" }: ${ contents( version ) }, ${ blocking } blocking, ${ anomalies.length - blocking } warnings` ];
+    if ( anomalies.length ) {
+        lines.push( tally( anomalies ) );
+    }
     for ( const anomaly of sorted ) {
         lines.push( `[${ anomaly.level }] ${ module.exports.cellReference( anomaly ) } ${ anomaly.type }: ${ anomaly.message }` );
     }
     lines.push( blocking ? "Import refused: fix the blocking anomalies in the source workbook and import it again." : "Import accepted." );
     return lines.join( "\n" );
+};
+
+/**
+ * Formats a set import: each workbook's report — nomenclatures, rules, then the modules in the order given — every
+ * check that could not run and why, and whether the set as a whole was accepted.
+ *
+ * @method
+ * @param {{nomenclatures: Object|null, rules: Object|null, modules: Object[], linked: {codeLists: boolean, rules: boolean, errorCodes: boolean}}} set
+ *     `importSet`'s result.
+ * @returns {string}
+ * @public
+ */
+module.exports.formatSetReport = ( set ) => {
+    const results = [ set.nomenclatures, set.rules, ...set.modules ].filter( Boolean );
+    const missing = ( given, kind, sheet ) => ( given ? `the ${ kind } workbook has no "${ sheet }" sheet` : `no ${ kind } workbook was given` );
+    const closing = [];
+    if ( set.modules.length && !set.linked.codeLists ) {
+        closing.push( `Code lists were not linked: ${ missing( set.nomenclatures, "nomenclatures", INDEX_SHEET ) }.` );
+    }
+    if ( set.modules.length && !set.linked.rules ) {
+        closing.push( `Rules were not linked: ${ missing( set.rules, "rules", RULES_SHEET ) }.` );
+    }
+    // Rules alone used to end in "Set accepted" with their CL999 check silently skipped (CodeRabbit on #6).
+    if ( set.linked.rules && !set.linked.errorCodes ) {
+        closing.push( `Error codes were not checked: ${ set.linked.codeLists ? `the nomenclatures define no ${ ERROR_CODE_LIST }` : missing( set.nomenclatures, "nomenclatures", INDEX_SHEET ) }.` );
+    }
+    const refused = results.filter( ( result ) => hasBlocking( result.anomalies ) ).length;
+    closing.push( refused ? `Set refused: ${ refused } of ${ results.length } workbooks have blocking anomalies.` : "Set accepted." );
+    return [ ...results.map( module.exports.formatReport ), closing.join( "\n" ) ].join( "\n\n" );
 };

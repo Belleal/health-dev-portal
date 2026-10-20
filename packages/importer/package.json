@@ -9,30 +9,45 @@
         "node": ">=24"
     },
     "bin": {
-        "hdp-import-module": "./bin/import-module.js"
+        "hdp-import-module": "./bin/import-module.js",
+        "hdp-import-set": "./bin/import-set.js"
     },
     "exports": {
         "./module": "./importer/module-importer.js",
+        "./nomenclatures": "./importer/nomenclatures-importer.js",
         "./reader": "./read/workbook-reader.js",
-        "./report": "./report/format.js"
+        "./report": "./report/format.js",
+        "./rules": "./importer/rules-importer.js",
+        "./set": "./importer/set-importer.js",
+        "./stream-reader": "./read/stream-reader.js"
     },
     "imports": {
         "#cells": "./interpret/cells.js",
         "#change-notes": "./interpret/change-notes.js",
+        "#code-list-sheet": "./interpret/code-list-sheet.js",
         "#colours": "./read/colours.js",
         "#legend": "./structure/legend.js",
         "#message-tree": "./structure/message-tree.js",
         "#messages-sheet": "./interpret/messages-sheet.js",
         "#module-importer": "./importer/module-importer.js",
+        "#nomenclature-index": "./interpret/nomenclature-index.js",
+        "#nomenclatures-importer": "./importer/nomenclatures-importer.js",
         "#raw": "./read/raw.js",
+        "#raw-cell": "./read/raw-cell.js",
         "#report": "./report/format.js",
+        "#rules-importer": "./importer/rules-importer.js",
+        "#rules-sheet": "./interpret/rules-sheet.js",
         "#scripts": "./interpret/scripts.js",
+        "#set-importer": "./importer/set-importer.js",
         "#side-sheets": "./interpret/side-sheets.js",
+        "#stream-reader": "./read/stream-reader.js",
+        "#workbook-checks": "./importer/workbook-checks.js",
         "#workbook-reader": "./read/workbook-reader.js"
     },
     "dependencies": {
         "@health-dev-portal/spec-model": "*",
-        "exceljs": "4.4.0"
+        "exceljs": "4.4.0",
+        "jszip": "3.10.2"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

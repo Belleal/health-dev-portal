@@ -43,13 +43,14 @@ module.exports.REQUIREMENT = Object.freeze( {
 } );
 
 /**
- * Where a message stands in its life (design record §4.2), read from the workbook's tab colour.
+ * Where a message or a rule stands in its life (design record §4.2, §4.6.1). Both are read from the same status
+ * colours: a message's tab, a rule's ID cell.
  *
  * @readonly
  * @enum {string}
  * @public
  */
-module.exports.MESSAGE_LIFECYCLE = Object.freeze( {
+module.exports.LIFECYCLE = Object.freeze( {
     ACTIVE: "active",
     IN_DEVELOPMENT: "in-development",
     WITHDRAWN: "withdrawn"
@@ -90,4 +91,34 @@ module.exports.CHANGE_CATEGORY = Object.freeze( {
 module.exports.ANOMALY_LEVEL = Object.freeze( {
     BLOCKING: "blocking",
     WARNING: "warning"
+} );
+
+/**
+ * The kinds of spec, each with its own version line (design record §4.1).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.SPEC_KIND = Object.freeze( {
+    MODULE: "module",
+    RULES: "rules",
+    NOMENCLATURES: "nomenclatures",
+    COMMON_SCHEMA: "common-schema"
+} );
+
+/**
+ * A code list's status in the nomenclatures workbook's index sheet "Номенклатури" (design record §4.6).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.CODE_LIST_STATUS = Object.freeze( {
+    IN_USE: "in-use",
+    REMOVED: "removed",
+    UNDER_REVISION: "under-revision",
+    RESERVED: "reserved",
+    IN_DEVELOPMENT: "in-development",
+    INCOMPLETE: "incomplete"
 } );
