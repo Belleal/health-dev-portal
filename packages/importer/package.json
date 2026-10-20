@@ -14,7 +14,8 @@
     "exports": {
         "./module": "./importer/module-importer.js",
         "./reader": "./read/workbook-reader.js",
-        "./report": "./report/format.js"
+        "./report": "./report/format.js",
+        "./stream-reader": "./read/stream-reader.js"
     },
     "imports": {
         "#cells": "./interpret/cells.js",
@@ -25,14 +26,17 @@
         "#messages-sheet": "./interpret/messages-sheet.js",
         "#module-importer": "./importer/module-importer.js",
         "#raw": "./read/raw.js",
+        "#raw-cell": "./read/raw-cell.js",
         "#report": "./report/format.js",
         "#scripts": "./interpret/scripts.js",
         "#side-sheets": "./interpret/side-sheets.js",
+        "#stream-reader": "./read/stream-reader.js",
         "#workbook-reader": "./read/workbook-reader.js"
     },
     "dependencies": {
         "@health-dev-portal/spec-model": "*",
-        "exceljs": "4.4.0"
+        "exceljs": "4.4.0",
+        "jszip": "3.10.2"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

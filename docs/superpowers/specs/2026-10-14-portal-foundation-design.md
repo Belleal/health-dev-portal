@@ -413,11 +413,18 @@ The streaming reader, measured on nomenclatures 1.5.33:
   - **No tab colours:** a code list carries its status in the index sheet, so none is needed.
   - **No merged ranges:** covered cells carry no value in the file, so they read as empty, which is what the full
     reader now does too.
-- **Order and temporary files:** sheets arrive in the order of the zip archive, not of the tabs (CL178 comes first).
-  Because 1.5.33 stores its shared strings after its worksheets, the reader **spools every worksheet to a temporary
-  file** before parsing it. The container therefore needs a writable temporary directory (plan 8).
-- **Cost:** reading every sheet into raw rows one at a time and keeping the whole model took **2.2 s and 321 MB** at
-  peak, against the full reader's 751 MB.
+- **Order:** sheets arrive in the order of the zip archive, not of the tabs (CL178 comes first).
+- **Temporary files, and a defect:** a worksheet that arrives before the shared strings is spooled to a temporary
+  file, so 1.5.33 put all 185 worksheets on disk. Worse, while such a spool is pending, the reader's entry iterator
+  loses the rest of the archive.
+  - On a workbook written by exceljs itself (worksheets first, workbook part last), the reader fails outright.
+  - Excel stores the workbook part early, which is why 1.5.33 survived.
+
+  The importer therefore **re-packs the archive** in memory with jszip, uncompressed and one part at a time. The
+  parts a worksheet depends on come first: the workbook part, its relationships, the shared strings and the styles.
+  Every worksheet is then parsed straight from the archive, with **no temporary files**.
+- **Cost:** reading every sheet this way took **1.05 s at a 190 MB peak** on 1.5.33, against 2.2 s with the spooling.
+  A prototype that kept the whole model peaked at 321 MB; the full reader takes 751 MB.
 
 ---
 
