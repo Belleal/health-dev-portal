@@ -392,6 +392,14 @@ Measured on 2026-10-19 with exceljs 4.4.0 against both public workbooks:
   (HEL-12) — folded to Latin with a warning, so the workbook still imports.
 - **Look-alike folding** applies only where the result is entirely Latin: `О`, `Т3`, `Е003` fold; a genuine Bulgarian
   word in a fixed value is left alone.
+- **Codes are folded to Latin; text never is** (Boris, 2026-10-20: "to Latin always, unless it is a BG text or
+  description").
+  - **Code-list keys** are codes.
+  - **A list-specific column** is a code column when every value in it, once folded, is printable ASCII without
+    whitespace. That is 141 of 207 such columns in 1.5.33, and folding them changes 20 values, among them CL024's
+    `CL022 Mapping`, which must match CL022's folded keys.
+  - **Descriptions, display values and text columns** stay as written, even when every letter has a Latin twin:
+    `Русе` would otherwise become `Pyce`.
 
 The streaming reader, measured on nomenclatures 1.5.33:
 
