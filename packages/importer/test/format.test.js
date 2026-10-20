@@ -43,9 +43,10 @@ describe( "report", () => {
             createAnomaly( "look-alike-letter", { sheet: "P001", row: 3, column: 2 }, { value: "О", letters: "О U+041E", folded: "O" } )
         ] } ).split( "\n" );
         assert.equal( report[ 0 ], "e-prescription 1.5.1: 2 messages, 0 blocking, 2 warnings" );
-        assert.match( report[ 1 ], /^\[warning\] P001!B3 look-alike-letter: / );
-        assert.match( report[ 2 ], /^\[warning\] P001!A16 mixed-script-word: / );
-        assert.equal( report[ 3 ], "Import accepted." );
+        assert.equal( report[ 1 ], "By type: look-alike-letter 1, mixed-script-word 1" );
+        assert.match( report[ 2 ], /^\[warning\] P001!B3 look-alike-letter: / );
+        assert.match( report[ 3 ], /^\[warning\] P001!A16 mixed-script-word: / );
+        assert.equal( report[ 4 ], "Import accepted." );
     } );
 
     it( "puts blocking anomalies first and says the import was refused", () => {
@@ -54,7 +55,22 @@ describe( "report", () => {
             createAnomaly( "missing-version" )
         ] } ).split( "\n" );
         assert.equal( report[ 0 ], "e-prescription (version unknown): 2 messages, 1 blocking, 1 warnings" );
-        assert.match( report[ 1 ], /^\[blocking\] \(workbook\) missing-version/ );
+        assert.equal( report[ 1 ], "By type: missing-version 1, unknown-fill 1" );
+        assert.match( report[ 2 ], /^\[blocking\] \(workbook\) missing-version/ );
         assert.match( report[ report.length - 1 ], /^Import refused/ );
+    } );
+
+    it( "summarises a nomenclatures and a rules import by what they hold", () => {
+        const lists = { kind: "nomenclatures", spec: "nomenclatures", version: "1.5.33", codeLists: [ { entries: [ {}, {} ] }, { entries: [] } ] };
+        assert.equal( formatReport( { version: lists, anomalies: [] } ).split( "\n" )[ 0 ], "nomenclatures 1.5.33: 2 code lists, 2 entries, 0 blocking, 0 warnings" );
+        const rules = { kind: "rules", spec: "rules", version: "1.1.1", rules: [ {} ] };
+        assert.equal( formatReport( { version: rules, anomalies: [] } ).split( "\n" )[ 0 ], "rules 1.1.1: 1 rules, 0 blocking, 0 warnings" );
+    } );
+
+    it( "tallies anomalies by type, blocking types first", () => {
+        const anomalies = [ createAnomaly( "mixed-script-word", {}, { word: "x" } ), createAnomaly( "look-alike-letter", {}, {} ),
+            createAnomaly( "look-alike-letter", {}, {} ), createAnomaly( "duplicate-key", {}, {} ) ];
+        const lines = formatReport( { version: { kind: "rules", spec: "rules", version: "1.1.1", rules: [] }, anomalies } ).split( "\n" );
+        assert.equal( lines[ 1 ], "By type: duplicate-key 1, look-alike-letter 2, mixed-script-word 1" );
     } );
 } );

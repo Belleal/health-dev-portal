@@ -9,7 +9,8 @@
         "node": ">=24"
     },
     "bin": {
-        "hdp-import-module": "./bin/import-module.js"
+        "hdp-import-module": "./bin/import-module.js",
+        "hdp-import-set": "./bin/import-set.js"
     },
     "exports": {
         "./module": "./importer/module-importer.js",
@@ -17,6 +18,7 @@
         "./reader": "./read/workbook-reader.js",
         "./report": "./report/format.js",
         "./rules": "./importer/rules-importer.js",
+        "./set": "./importer/set-importer.js",
         "./stream-reader": "./read/stream-reader.js"
     },
     "imports": {
@@ -36,6 +38,7 @@
         "#rules-importer": "./importer/rules-importer.js",
         "#rules-sheet": "./interpret/rules-sheet.js",
         "#scripts": "./interpret/scripts.js",
+        "#set-importer": "./importer/set-importer.js",
         "#side-sheets": "./interpret/side-sheets.js",
         "#stream-reader": "./read/stream-reader.js",
         "#workbook-checks": "./importer/workbook-checks.js",
