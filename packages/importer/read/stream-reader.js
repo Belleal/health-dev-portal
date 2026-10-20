@@ -27,7 +27,7 @@
  *   workbook part last) it then fails with "Cannot read properties of undefined (reading 'sheets')". Excel stores
  *   its workbook part early, which is why 1.5.33 survived — after spooling all 185 sheets to disk. So the archive is
  *   re-packed, uncompressed and one part at a time, with the parts a worksheet depends on first. Every worksheet is
- *   then parsed straight from the archive: no temporary files, and on 1.5.33 1.05 s at a 190 MB peak instead of 2.2 s.
+ *   then parsed straight from the archive: no temporary files, and on 1.5.33 1.3 s at a 254 MB peak instead of 2.2 s.
  *
  * It ignores merged ranges and tab colours. Covered cells carry no value in the file, so they read as empty — as the
  * full reader reads them — and a code list needs no tab colour: its status is in the index sheet.

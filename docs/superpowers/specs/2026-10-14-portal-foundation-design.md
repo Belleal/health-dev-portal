@@ -423,8 +423,10 @@ The streaming reader, measured on nomenclatures 1.5.33:
   The importer therefore **re-packs the archive** in memory with jszip, uncompressed and one part at a time. The
   parts a worksheet depends on come first: the workbook part, its relationships, the shared strings and the styles.
   Every worksheet is then parsed straight from the archive, with **no temporary files**.
-- **Cost:** reading every sheet this way took **1.05 s at a 190 MB peak** on 1.5.33, against 2.2 s with the spooling.
-  A prototype that kept the whole model peaked at 321 MB; the full reader takes 751 MB.
+- **Cost**, on 1.5.33 with the importer as built (plan 2):
+  - reading every sheet into raw rows takes **1.3 s at a 254 MB peak**, against 2.2 s with the spooling;
+  - importing the whole workbook into the model takes **1.7 s at a 297 MB peak**;
+  - the full reader takes 751 MB.
 
 ---
 
