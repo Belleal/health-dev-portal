@@ -16,7 +16,7 @@
  */
 
 const path = require( "node:path" );
-const { ERROR_CODE_LIST, linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
+const { ERROR_CODE_LIST, linkConditions, linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
 const { readWorkbook } = require( "#workbook-reader" );
 const { streamSheets } = require( "#stream-reader" );
 const { importModuleWorkbook } = require( "#module-importer" );
@@ -110,10 +110,13 @@ module.exports.importSet = async ( inputs ) => {
     for ( const input of inputs.modules || [] ) {
         const workbook = await reading( input, () => readWorkbook( input.source ) );
         const result = importModuleWorkbook( workbook, { spec: input.spec, fileName: fileNameOf( input ) } );
-        modules.push( withLinks( result, linkModule( result.version, {
-            nomenclatures: linked.codeLists ? nomenclatures.version : null,
-            rules: linked.rules ? rules.version : null
-        } ) ) );
+        modules.push( withLinks( result, [
+            ...linkModule( result.version, {
+                nomenclatures: linked.codeLists ? nomenclatures.version : null,
+                rules: linked.rules ? rules.version : null
+            } ),
+            ...( linked.codeLists ? linkConditions( result.version, nomenclatures.version ) : [] )
+        ] ) );
     }
     return { nomenclatures: nomenclatures, rules: rules, modules: modules, linked: linked };
 };

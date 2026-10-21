@@ -34,7 +34,7 @@ const run = ( args ) => spawnSync( process.execPath, [ CLI, ...args ], { encodin
 describe( "hdp-import-set", () => {
 
     it( "imports a set, prints each report, writes the JSON and exits 0", async () => {
-        const nomenclatures = await writeWorkbook( nomenclatureSheets( [ "CL009", "CL018", "CL035" ] ) );
+        const nomenclatures = await writeWorkbook( nomenclatureSheets( [ "CL007", "CL009", "CL018", "CL035" ] ) );
         const rules = await writeWorkbook( rulesSheets( [ "RL023", "RL026", "RL027", "RL059", "RL083" ] ) );
         const module = await writeWorkbook( moduleSheets() );
         const out = path.join( path.dirname( module ), "set.json" );

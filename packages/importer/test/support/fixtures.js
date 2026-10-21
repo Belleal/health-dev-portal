@@ -37,7 +37,10 @@ const prescriptionRows = () => [
     element( 14, 4, "polymorphic", { name: "Dose Quantity Unit", req: "R", card: "1..1", type: "---", tag: "---" } ),
     element( 15, 5, "field", { name: "Dose Quantity Unit - as UCUM Entry", req: "R", card: "1..1", type: "String", rules: "RL027", tag: "doseQuantityCode", attribute: "value" } ),
     element( 16, 5, "field", { name: "Dose Quantity Unit - as Medication Form", req: "R", card: "1..1", type: "Codeable Concept", codeList: "CL035", tag: "doseQuantityCode", attribute: "value" } ),
-    element( 17, 2, "field", { name: "Number of Repeats Allowed", req: "C", card: "0..1", type: "Unsigned Int", constraint: "max=1", conditions: "CDP21", tag: "allowedRepeatsNumber", attribute: "value" } )
+    element( 17, 2, "field", { name: "Number of Repeats Allowed", req: "C", card: "0..1", type: "Unsigned Int", constraint: "max=1", conditions: "CDP21", tag: "allowedRepeatsNumber", attribute: "value" } ),
+    // The fields the four conditions compare, so that every path they name binds.
+    element( 18, 2, "field", { name: "Prescription Category", req: "R", card: "1..1", type: "Codeable Concept", codeList: "CL007", tag: "category", attribute: "value" } ),
+    element( 19, 2, "field", { name: "Dispensation Type", req: "R", card: "1..1", type: "Codeable Concept", codeList: "CL009", tag: "dispensationType", attribute: "value" } )
 ];
 
 const confirmationRows = () => [
@@ -73,14 +76,14 @@ const moduleSheets = () => [
     ] ),
     sheet( "Conditions", [
         row( 1, [ "Condition ID", "Condition Logic" ] ),
-        row( 3, [ "CDP01", "IF 'prescription.category'.value = 'T2' OR 'T3'" ] ),
+        row( 3, [ "CDP01", "IF 'prescription.category'.value IN ['T2', 'T3']" ] ),
         row( 4, [ null, "THEN 'prescription.isProtocolBased'.required = 'R'" ] ),
         row( 5, [ null, "ELSE 'prescription.isProtocolBased'.required = 'O'" ] ),
         row( 7, [ "CDP19", "IF 'prescription.category'.value = 'T3'" ] ),
         row( 8, [ null, "THEN 'prescription.group'.cardinality = '1..3'" ] ),
         row( 10, [ "CDP21", "IF 'prescription.dispensationType'.value = '2'" ] ),
         row( 11, [ null, "THEN 'prescription.allowedRepeatsNumber'.required = 'R'" ] ),
-        row( 13, [ "CDP29", "IF 'prescription.category'.value = 'T2' OR 'T3'" ] ),
+        row( 13, [ "CDP29", "IF 'prescription.category'.value IN ['T2', 'T3']" ] ),
         row( 14, [ null, "THEN 'prescription.group.medication'.cardinality = '1..3'" ] )
     ] ),
     sheet( "Dictionary", [
@@ -96,6 +99,14 @@ const CODE_LIST_HEADER = Object.freeze( [ "Key", "Description BG", "Description 
 const LIST_NAMES = Object.freeze( { CL001: "Пол" } );
 const listName = ( id ) => LIST_NAMES[ id ] || `Номенклатура ${ id }`;
 
+// CL007 holds the prescription categories moduleSheets() compares, so its conditions link with no anomaly.
+const LIST_KEYS = Object.freeze( { CL007: [ "T1", "T2", "T3" ] } );
+const ENTRY_TEXTS = Object.freeze( [ [ "Първи", "First" ], [ "Втори", "Second" ], [ "Трети", "Third" ] ] );
+const entryRows = ( id ) => ( LIST_KEYS[ id ] || [ "1", "2" ] ).map( ( key, index ) => {
+    const [ bg, en ] = ENTRY_TEXTS[ index ];
+    return row( 5 + index, [ key, bg, en, bg, en, "---", "v1.5.33" ] );
+} );
+
 // A whole nomenclatures workbook: the index, one sheet per list and dated change notes. It imports with no anomaly at
 // all, so any test that adds one defect sees exactly that defect. CL068 is listed as removed and has no sheet, as in
 // 1.5.33.
@@ -110,8 +121,7 @@ const nomenclatureSheets = ( ids = [ "CL001" ] ) => [
         row( 1, [ `${ id } - ${ listName( id ) }` ] ),
         row( 3, [ "Entity", "", "", "", "", "Meta Data", "System Data" ] ),
         row( 4, CODE_LIST_HEADER ),
-        row( 5, [ "1", "Първи", "First", "Първи", "First", "---", "v1.5.33" ] ),
-        row( 6, [ "2", "Втори", "Second", "Втори", "Second", "---", "v1.5.33" ] )
+        ...entryRows( id )
     ] ) ),
     sheet( "Change Notes", [
         row( 1, [ "Версия / промени", "Дата на тестова", "Дата на прод" ] ),

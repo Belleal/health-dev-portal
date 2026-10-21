@@ -25,10 +25,11 @@ const assert = require( "node:assert/strict" );
 const { importSet } = require( "#set-importer" );
 const { formatSetReport } = require( "#report" );
 const { writeWorkbook } = require( "./support/xlsx-builder" );
+const { row, sheet } = require( "./support/raw-builders" );
 const { moduleSheets, nomenclatureSheets, rulesSheets } = require( "./support/fixtures" );
 
 // What moduleSheets() references.
-const MODULE_LISTS = [ "CL009", "CL018", "CL035" ];
+const MODULE_LISTS = [ "CL007", "CL009", "CL018", "CL035" ];
 const MODULE_RULES = [ "RL023", "RL026", "RL027", "RL059", "RL083" ];
 
 const importOf = async ( { lists = MODULE_LISTS, rules = MODULE_RULES, withNomenclatures = true, withRules = true } = {} ) => importSet( {
@@ -46,7 +47,7 @@ describe( "importSet", () => {
     } );
 
     it( "links a module against the set, and refuses the set when a reference is missing", async () => {
-        const result = await importOf( { lists: [ "CL009", "CL018" ], rules: MODULE_RULES.slice( 1 ) } );
+        const result = await importOf( { lists: [ "CL007", "CL009", "CL018" ], rules: MODULE_RULES.slice( 1 ) } );
         assert.deepEqual( result.modules[ 0 ].anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.details.id ] ).sort(),
             [ [ "unknown-code-list", "CL035" ], [ "unknown-rule", "RL023" ] ] );
         assert.match( formatSetReport( result ), /Set refused: 1 of 3 workbooks have blocking anomalies\.$/ );
@@ -58,6 +59,21 @@ describe( "importSet", () => {
         const report = formatSetReport( result );
         assert.match( report, /Code lists were not linked: no nomenclatures workbook was given\./ );
         assert.match( report, /Rules were not linked: no rules workbook was given\./ );
+    } );
+
+    it( "blocks a condition value the set's nomenclatures do not define", async () => {
+        // CL007 defines T1 to T3, so a category of T9 can never be sent and the condition can never hold.
+        const sheets = moduleSheets().map( ( candidate ) => ( candidate.name !== "Conditions" ? candidate : sheet( "Conditions", [
+            ...candidate.rows.filter( ( line ) => line.number !== 7 ),
+            row( 7, [ "CDP19", "IF 'prescription.category'.value = 'T9'" ] )
+        ].sort( ( a, b ) => a.number - b.number ) ) ) );
+        const result = await importSet( {
+            nomenclatures: { source: await writeWorkbook( nomenclatureSheets( MODULE_LISTS ) ) },
+            modules: [ { spec: "e-prescription", source: await writeWorkbook( sheets ) } ]
+        } );
+        assert.deepEqual( result.modules[ 0 ].anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.level, anomaly.row, anomaly.details.value, anomaly.details.list ] ),
+            [ [ "unknown-condition-value", "blocking", 7, "T9", "CL007" ] ] );
+        assert.match( formatSetReport( result ), /Set refused/ );
     } );
 
     it( "names the file it cannot read (Review Focus 5)", async () => {
