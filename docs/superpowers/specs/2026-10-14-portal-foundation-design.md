@@ -459,50 +459,94 @@ THEN 'prescription.group.medication.dosageInstruction.boundsDurationUnit'.requir
  AND 'prescription.group.medication.dosageInstruction.boundsDurationUnit'.value = 'd'
 ```
 
+A branch may offer **alternatives**, joined with `OR`. At least one alternative must hold in full (Boris, 2026-10-21).
+Five published conditions need it, e.g. e-Referral CDR01:
+
+```text
+IF 'nrnReferral'.value IS null
+THEN ('lrn'.required = 'R' AND 'pmi'.required = 'R') OR ('identifier'.required = 'R' AND 'fromDate'.required = 'O')
+ELSE THIS.value IS null
+```
+
 ### 6.2 Paths
 
-- One form: quoted, dotted, absolute from the message root (`header.…`, or the contents' children such as
-  `prescription.…`).
-- After the path: `.value` (the value attribute), `.@name` (any other XML attribute, e.g.
-  `'requester.qualification'.@nhifCode`), `.required`, `.cardinality`.
-- Stored as element identities, not text: renaming a tag updates every condition using it.
-- Relative (`'..medication'`) and partial (`'medication.mkb'`) forms are accepted **only by the importer**, and only
-  where they resolve to exactly one element; anything else is reported (HEL-5).
+- **One canonical form:** quoted, dotted, absolute from the message root (`header.…`, or the contents' children such
+  as `prescription.…`).
+- **`THIS`** is the element that names the condition (Boris, 2026-10-21). The workbooks write it as a bare `'*'`
+  (e-Hospitalization CDH13, CDH15, CDH16) or `'..'` (e-Referral CDR01, CDR25, CDR27).
+- **After the path:**
+  - `.value`, the value attribute;
+  - `.@name`, any other XML attribute, e.g. `'requester.qualification'.@nhifCode`;
+  - `.required`;
+  - `.cardinality`;
+  - `.entry['Column']`, a column of the code-list entry the element holds, e.g.
+    `'..diagnosis.code'.entry['Contagious']`.
+
+  A path with no property is the element itself: `'referral.laboratory' IS null` means the group is absent.
+- **Stored as element identities, not text:** renaming a tag updates every condition using it. A condition named by
+  elements of several messages is bound **per naming element**, since a relative path or `THIS` means something
+  different in each.
+- **Other forms, accepted only by the importer**, and only where they resolve to exactly one element in the naming
+  element's message; anything else is reported (HEL-5, HEL-20):
+  - **relative** (`'..medication.mkb'`): from the naming element up, each ancestor in turn is tried as the place the
+    rest of the path starts; the first that holds it wins;
+  - **partial** (`'medication.mkb'`): the one element of the message whose path ends so.
+- **Entity names:** a path starting with an entity's name rather than a tag (`'patient.…'`, `'practitioner.…'`)
+  resolves only once the XSD types are known (plan 4). Until then it is an unresolved path.
 
 ### 6.3 Predicates (IF)
 
 `=`, `!=`, `<`, `<=`, `>`, `>=`, `IN [...]`, `NOT IN [...]`, `MATCHES 'glob'`, `IS null`, `IS NOT null`, `IS true`,
-`IS false`, combined with `AND`, `OR`, `NOT` and parentheses. The shorthand `= 'T2' OR 'T3'` is accepted and stored as
-`IN ['T2', 'T3']`.
+`IS false`, combined with `AND`, `OR`, `NOT` and parentheses.
 
-**Globs:** `?` is exactly one character, `*` any number. The workbook's `x` (one character, e.g. `'N80.xx'` in CDP30)
-becomes `?` on import. Globs, not regular expressions: `MATCHES 'N80.??'` is readable by analysts where
-`^N80\..{2}$` is not.
+- **Shorthand:** `= 'T2' OR 'T3'` is accepted and stored as `IN ['T2', 'T3']`. Its negation,
+  `!= 'a' OR 'b'`, is stored as `NOT IN ['a', 'b']`, which is what CDP30 means.
+- **A code-list column as the set:** `IN CL006['NHIF Code']` means "one of the values in CL006's NHIF Code column"
+  (Boris, 2026-10-21).
 
-### 6.4 Effects (THEN / ELSE), joined with AND
+**Globs:** `?` is exactly one character, `*` any number. The workbook's `x` becomes `?` on import, e.g. `'N80.xx'` in
+CDP30. It does so only as a trailing run of lowercase `x` after a digit or a dot, so a value that merely contains an `x`
+stays a value. A glob compared with `=` becomes `MATCHES`. Globs, not regular expressions: `MATCHES 'N80.??'` is
+readable by analysts where `^N80\..{2}$` is not.
+
+### 6.4 Effects (THEN / ELSE), joined with AND, alternatives with OR
 
 | Effect | Meaning |
 |---|---|
 | `.required = 'R'` / `'O'` | Must / may appear |
-| `.value IS null` | **Must be absent** from the message |
+| `.value IS null`, or for a group `IS null` | **Must be absent** from the message |
 | `.value = 'x'` | Fixed value |
 | `.value IN` / `NOT IN` / `NOT MATCHES` | Restricted value |
-| `.cardinality = '1..3'` | Overridden occurrence count |
+| `.cardinality = '1..3'` | Overridden occurrence count; `'5..'` is open above |
 | `.value IS any` | No constraint |
 | `NOTE '…'` | Prose that cannot be expressed (CDP14); shown, marked not checkable |
 
 ### 6.5 Checked against the model
 
-- A value compared with a code-list element must be a key of that list in the same slot — so the Cyrillic `'Т3'` of
-  CDP08 (HEL-3) fails as "not a CL007 key", and the class of bug cannot be published.
-- Every element marked `C` must be governed by at least one condition.
-- Paths must resolve; types must agree (no `> '1'` on a boolean).
+- **Code-list values.** A value compared with a code-list element must be a key of that list in the same slot, and
+  one that is not **blocks**. A Cyrillic look-alike is first folded to Latin with a warning, like every code (Boris,
+  2026-10-21), so CDP08's `'Т3'` (HEL-3) reads as the CL007 key `'T3'`.
+  - Measured across the seven production modules: 137 of 149 compared values are keys, 1 more once folded, 3 are
+    globs, and 8 are not keys (HEL-20).
+- **Code-list columns.** A column named by `.entry[…]` or `IN CLxxx[…]` must exist in that list.
+- **Every element marked `C`** must be governed by at least one condition.
+- **Paths and types.** Paths must resolve, and types must agree:
+  - `IS true` and `IS false` apply only to a boolean;
+  - `<`, `<=`, `>`, `>=` never apply to a boolean, and on a string only to values that are numbers.
+
+  A mismatch is a warning: such a condition still reads, but cannot be trusted.
 
 ### 6.6 Repetition
 
 Default: a condition is evaluated **once per occurrence of the innermost repeating element that contains all its
 paths**; a path above that level has one value shared by every occurrence. `FOR EACH` overrides the default.
 **To be confirmed against the live NHIS validation (HEL-9)** with CDP19, CDP23 and CDP29.
+
+Until then, two provisional rules apply where a path repeats *below* that occurrence:
+- a comparison holds when it holds for at least one of the path's occurrences;
+- `IS null` holds when there is none.
+
+No production condition uses `FOR EACH` yet.
 
 ### 6.7 Display and execution
 
@@ -511,6 +555,76 @@ paths**; a path above that level has one value shared by every occurrence. `FOR 
 - The evaluator is plain code in `spec-model`, without I/O, so it runs in the browser (§8.6).
 - Business rules (`RL…`) stay text for now; the model reserves a formal expression for them and the same evaluator is
   meant to carry them.
+
+### 6.8 The import dialect
+
+The workbooks write conditions more loosely than the language prints them. The importer reads these forms, prints the
+condition canonically, and reports **one warning per condition** naming the forms it used:
+
+| Written | Read as |
+|---|---|
+| `= 'a' OR 'b'` / `!= 'a' OR 'b'` | `IN [...]` / `NOT IN [...]` |
+| `&&` | `AND` |
+| `!= '01.01' AND != '01.04'`, left side left out | The same left side repeated |
+| `= ANY`, unquoted numbers and list values | `IS any`, quoted values |
+| `'*'`, `'..'` | `THIS` |
+| `.nhifCode` | `.@nhifCode` |
+| `.value.required` | `.required` |
+| `.content`, `.contents` (on a group) | The group itself: `'x' IS null` |
+| `.meta['Contagious']` | `.entry['Contagious']` |
+| `CL006.nhifCode` after `IN` | `CL006['NHIF Code']` |
+| `'N80.xx'` | `'N80.??'`, with `MATCHES` |
+| `'BG' (fixed)` | `'BG'`; the annotation is dropped |
+
+Beyond these, there are two fallbacks:
+- **A THEN or ELSE clause** that still cannot be read becomes a `NOTE` with its text: "a free-text effect" (§5.3), a
+  warning.
+- **An IF that cannot be read** leaves the whole condition as text, also a warning. Nothing about it is checked.
+
+### 6.9 Measured: the conditions corpus
+
+Measured on 2026-10-21 over the seven production module workbooks:
+- e-Prescription 1.5.1;
+- Общи медицински услуги 1.2.2;
+- e-Referral 1.4.4;
+- e-Dental 1.0.7;
+- e-Examination 1.3.10;
+- e-Hospitalization 1.1.1;
+- Long-term care 1.0.4, which has no conditions;
+- e-Immunization 1.2.2.
+
+**Shape:**
+- 171 conditions, 20 of them empty. Every other condition is exactly an IF, a THEN and an ELSE line.
+- None uses `FOR EACH`, `NOTE` or `MATCHES`.
+- **Properties used:**
+
+  | Property | Uses |
+  |---|---|
+  | `.value` | 306 |
+  | `.required` | 190 |
+  | `.content` / `.contents` | 17 |
+  | `.cardinality` | 10 |
+  | an attribute without `@` | 5 |
+  | `.meta[…]` | 2 |
+
+**Parsing:** a prototype of §6.1–6.4 with the import dialect read 141 of the 151 non-empty conditions. The other ten
+are the forms listed above: prose, `&&`, a missing left side, `= ANY`, `(fixed)`, and `CL006.nhifCode` used with no
+element.
+
+**Path resolution.** Each path was resolved in each message that names its condition: about 1,290 references in all.
+
+| Outcome | References |
+|---|---|
+| absolute | 422 |
+| partial, unique | 382 |
+| relative | 127 |
+| `THIS` | 21 |
+| unresolved | about 340 |
+
+The unresolved references fall into three kinds:
+- **entity names:** `'patient.…'` and `'practitioner.…'`, about 126 (plan 4);
+- **elements the message does not have:** conditions shared by messages of different shape;
+- **typos** (HEL-20).
 
 ---
 
