@@ -17,6 +17,9 @@
 
 const { createAnomaly } = require( "#anomalies" );
 const { CODE_LIST_STATUS, LIFECYCLE } = require( "#kinds" );
+const { OPERATOR, PROPERTY } = require( "#conditions" );
+const { operandKey } = require( "#condition-binding" );
+const { testsOf } = require( "#condition-checks" );
 
 /**
  * The code list whose keys are the error codes NHIS returns; each rule names one of them (design record §4.6.1).
@@ -89,4 +92,76 @@ module.exports.linkRules = ( rules, nomenclatures ) => {
     const keys = new Set( errorCodes.entries.map( ( entry ) => entry.key ) );
     return rules.rules.filter( ( rule ) => rule.errorCode !== null && rule.errorCode !== undefined && !keys.has( rule.errorCode ) )
         .map( ( rule ) => createAnomaly( "unknown-error-code", rule.source, { id: rule.id, code: rule.errorCode } ) );
+};
+
+const KEYED = new Set( [ OPERATOR.EQUAL, OPERATOR.NOT_EQUAL, OPERATOR.IN, OPERATOR.NOT_IN ] );
+
+// "NHIF Code", "nhifCode" and "nhif code" are one column; so are "Contagious" and "Contagious (CL148)".
+const columnName = ( title ) => title.replace( /\s*\([^)]*\)\s*$/, "" ).replace( /\s+/g, "" ).toLowerCase();
+
+const hasColumn = ( list, column ) => list.columns.some( ( candidate ) => columnName( candidate.title ) === columnName( column ) );
+
+/**
+ * Checks a module's conditions against the nomenclatures of the same slot (design record §6.5).
+ *
+ * - **Keys.** A value compared with `=`, `!=`, `IN` or `NOT IN` on an element with a code list must be a key of that
+ *   list, or it blocks. A comparison that can never be true is not published.
+ * - **Columns.** A column read by `.entry['…']`, or used as the set of `IN CLxxx['…']`, must exist in its list.
+ *
+ * A list the nomenclatures lack is not checked here; linkModule reports it.
+ *
+ * @method
+ * @param {import( "#definitions" ).ModuleVersion} module With `conditionBindings` and parsed conditions.
+ * @param {import( "#definitions" ).NomenclaturesVersion} nomenclatures
+ * @returns {import( "#definitions" ).Anomaly[]}
+ * @public
+ */
+module.exports.linkConditions = ( module, nomenclatures ) => {
+    const lists = byId( nomenclatures.codeLists );
+    const flatten = ( elements ) => elements.flatMap( ( element ) => [ element, ...flatten( element.children ) ] );
+    const elements = new Map( module.messages.flatMap( ( message ) => flatten( message.elements ) ).map( ( element ) => [ element.identity, element ] ) );
+    const conditions = new Map( ( module.conditions || [] ).map( ( condition ) => [ condition.id, condition ] ) );
+    const anomalies = [];
+    const reported = new Set();
+    const report = ( condition, type, details ) => {
+        const key = `${ type } ${ JSON.stringify( details ) }`;
+        if ( !reported.has( key ) ) {
+            reported.add( key );
+            anomalies.push( createAnomaly( type, condition.source, { id: condition.id, ...details } ) );
+        }
+    };
+    for ( const binding of module.conditionBindings || [] ) {
+        const condition = conditions.get( binding.condition );
+        if ( !condition || !condition.parsed ) {
+            continue;
+        }
+        for ( const test of testsOf( condition.parsed ) ) {
+            if ( test.set ) {
+                const setList = lists.get( test.set.list );
+                if ( setList && !hasColumn( setList, test.set.column ) ) {
+                    report( condition, "unknown-list-column", { list: setList.id, column: test.set.column } );
+                }
+            }
+            const identity = binding.paths[ operandKey( test.operand ) ];
+            const element = identity ? elements.get( identity ) : null;
+            const list = element && element.codeList ? lists.get( element.codeList ) : null;
+            if ( !list ) {
+                continue;
+            }
+            if ( test.operand.property === PROPERTY.ENTRY ) {
+                if ( !hasColumn( list, test.operand.column ) ) {
+                    report( condition, "unknown-list-column", { list: list.id, column: test.operand.column } );
+                }
+                continue;
+            }
+            if ( !KEYED.has( test.operator ) || test.set ) {
+                continue;
+            }
+            const keys = new Set( list.entries.map( ( entry ) => entry.key ) );
+            for ( const value of test.values.filter( ( candidate ) => !keys.has( candidate ) ) ) {
+                report( condition, "unknown-condition-value", { value: value, list: list.id, identity: identity } );
+            }
+        }
+    }
+    return anomalies;
 };

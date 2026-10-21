@@ -21,11 +21,9 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { bindCondition } = require( "@health-dev-portal/spec-model/condition-binding" )
-
-const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" )
-
-const { elementAt, prescriptionMessage } = require( "./support/messages" )
+const { bindCondition } = require( "@health-dev-portal/spec-model/condition-binding" );
+const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" );
+const { elementAt, prescriptionMessage } = require( "./support/messages" );
 
 
 describe( "bindCondition", () => {

@@ -11,6 +11,7 @@
     "exports": {
         "./anomalies": "./model/anomalies.js",
         "./condition-binding": "./model/condition-binding.js",
+        "./condition-checks": "./model/condition-checks.js",
         "./condition-parser": "./model/condition-parser.js",
         "./condition-printer": "./model/condition-printer.js",
         "./conditions": "./model/conditions.js",
@@ -23,6 +24,8 @@
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#condition-binding": "./model/condition-binding.js",
+        "#condition-checks": "./model/condition-checks.js",
         "#conditions": "./model/conditions.js",
         "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",

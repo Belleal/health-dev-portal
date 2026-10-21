@@ -21,9 +21,8 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" )
-
-const { printCondition } = require( "@health-dev-portal/spec-model/condition-printer" )
+const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" );
+const { printCondition } = require( "@health-dev-portal/spec-model/condition-printer" );
 
 
 describe( "parseCondition", () => {
