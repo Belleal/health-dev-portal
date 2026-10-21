@@ -99,7 +99,19 @@ const KEYED = new Set( [ OPERATOR.EQUAL, OPERATOR.NOT_EQUAL, OPERATOR.IN, OPERAT
 // "NHIF Code", "nhifCode" and "nhif code" are one column; so are "Contagious" and "Contagious (CL148)".
 const columnName = ( title ) => title.replace( /\s*\([^)]*\)\s*$/, "" ).replace( /\s+/g, "" ).toLowerCase();
 
-const hasColumn = ( list, column ) => list.columns.some( ( candidate ) => columnName( candidate.title ) === columnName( column ) );
+/**
+ * Finds a list-specific column of a code list by a loosely written name: case, spaces and a trailing `(…)` do not
+ * count, so `nhifCode` finds "NHIF Code" and `Contagious` finds "Contagious (CL148)".
+ *
+ * @method
+ * @param {import( "#definitions" ).CodeList} list
+ * @param {string} column
+ * @returns {number} The column's index in `list.columns` — and so in each entry's `values` — or -1.
+ * @public
+ */
+module.exports.findColumn = ( list, column ) => list.columns.findIndex( ( candidate ) => columnName( candidate.title ) === columnName( column ) );
+
+const hasColumn = ( list, column ) => module.exports.findColumn( list, column ) >= 0;
 
 /**
  * Checks a module's conditions against the nomenclatures of the same slot (design record §6.5).

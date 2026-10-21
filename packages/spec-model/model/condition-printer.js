@@ -109,6 +109,14 @@ module.exports.printEffect = ( effect ) => {
     }
 };
 
+/**
+ * Prints a THEN or ELSE branch: its alternatives joined by OR, one of several effects wrapped in parentheses.
+ *
+ * @method
+ * @param {import( "#definitions" ).Branch} branch
+ * @returns {string}
+ * @public
+ */
 function printBranch( branch ) {
     const several = branch.alternatives.length > 1;
     return branch.alternatives.map( ( alternative ) => {
@@ -126,6 +134,8 @@ function printBranch( branch ) {
  * @returns {string}
  * @public
  */
+module.exports.printBranch = printBranch;
+
 module.exports.printCondition = ( condition ) => {
     const lines = [];
     if ( condition.scope ) {
