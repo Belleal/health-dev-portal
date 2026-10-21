@@ -44,6 +44,20 @@ describe( "readMessageIndex", () => {
         assert.deepEqual( request.source, { sheet: "Съобщения", row: 4 } );
     } );
 
+    // HEL-18: e-Referral, e-Dental and e-Examination title the column "Име", without e-Prescription's footnote asterisk,
+    // and the whole module imported no messages.
+    it( "reads a header whose titles carry no footnote asterisks, or other ones", () => {
+        const header = [ "Съобщение", "Име", "Класификация", "Адрес", "Тип", "Налично в Release*", "Изпращач", "Получател" ];
+        const result = readMessageIndex( sheet( "Съобщения", [ row( 3, header ),
+            row( 4, [ "Заявка за създаване на Е-направление", "R001", "eReferral Create Request", "/v3/ereferral/doctor/issue", "Request", "1.0", "външна система", "НЗИС" ] ),
+            row( 5, [ "Потвърждение за успешно създаване на Е-направление", "R002", "eReferral Create Confirmation", "---", "Response", "1.0", "НЗИС", "външна система" ] ) ] ) );
+        assert.deepEqual( result.anomalies, [] );
+        assert.deepEqual( result.messages.map( ( message ) => [ message.code, message.pairedWith ] ), [ [ "R001", "R002" ], [ "R002", "R001" ] ] );
+        const starred = readMessageIndex( sheet( "Съобщения", [ row( 3, header.map( ( title ) => ( title === "Изпращач" ? "Изпращач**" : title ) ) ),
+            row( 4, [ "Заявка", "R001", "Request one", "/v1/x", "Request", "1.0", "външна система", "НЗИС" ] ) ] ) );
+        assert.equal( starred.messages[ 0 ].sender, "външна система" );
+    } );
+
     it( "pairs each request with the response after it, and leaves the x99 error message unpaired without a warning", () => {
         const [ request, response, error ] = readMessageIndex( index() ).messages;
         assert.equal( request.pairedWith, "P002" );

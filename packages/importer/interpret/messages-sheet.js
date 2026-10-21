@@ -21,15 +21,19 @@ const { cellAt, columnMap, findRow } = require( "#raw" );
 const { noneToNull } = require( "#cells" );
 const { findMixedScriptWords, foldLookAlikes } = require( "#scripts" );
 
+// Titles as written without their footnote asterisks: e-Prescription writes "Име*", e-Referral, e-Dental and
+// e-Examination write "Име", and an exact match imported no message of theirs (HEL-18).
 const COLUMNS = Object.freeze( {
     title: "Съобщение",
-    code: "Име*",
+    code: "Име",
     name: "Класификация",
     address: "Адрес",
     direction: "Тип",
     sender: "Изпращач",
     recipient: "Получател"
 } );
+
+const withoutFootnote = ( title ) => title.replace( /\s*\*+$/, "" );
 
 // P001 in e-Prescription, R001 in e-Referral: one letter and three digits (Review Focus 1).
 const MESSAGE_CODE = /^[A-Z]\d{3}$/;
@@ -65,12 +69,18 @@ function pair( messages, anomalies ) {
  */
 module.exports.readMessageIndex = ( sheet ) => {
     const anomalies = [];
-    const header = findRow( sheet, ( row ) => row.cells.some( ( cell ) => cell.text === COLUMNS.code ) );
+    const header = findRow( sheet, ( row ) => row.cells.some( ( cell ) => withoutFootnote( cell.text ) === COLUMNS.code ) );
     if ( !header ) {
         anomalies.push( createAnomaly( "missing-header-row", { sheet: sheet.name } ) );
         return { messages: [], anomalies: anomalies };
     }
-    const titles = columnMap( header );
+    // As columnMap, the first column of a title wins.
+    const titles = new Map();
+    for ( const [ title, column ] of columnMap( header ) ) {
+        if ( !titles.has( withoutFootnote( title ) ) ) {
+            titles.set( withoutFootnote( title ), column );
+        }
+    }
     const columns = {};
     for ( const [ key, title ] of Object.entries( COLUMNS ) ) {
         if ( !titles.has( title ) ) {
