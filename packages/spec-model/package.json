@@ -10,6 +10,7 @@
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
+        "./condition-parser": "./model/condition-parser.js",
         "./condition-printer": "./model/condition-printer.js",
         "./conditions": "./model/conditions.js",
         "./definitions": "./model/definitions.types.js",
