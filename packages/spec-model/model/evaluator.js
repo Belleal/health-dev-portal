@@ -22,7 +22,7 @@
  */
 
 const { EFFECT, OPERATOR, PROPERTY } = require( "#conditions" );
-const { operandKey } = require( "#condition-binding" );
+const { operandKey, operandsOf } = require( "#condition-binding" );
 const { printBranch, printCondition, printEffect } = require( "#condition-printer" );
 const { findColumn } = require( "#links" );
 
@@ -49,6 +49,9 @@ const tagsOf = ( identity ) => identity.replace( /[@#].*$/, "" ).split( "/" );
 const attributeOf = ( identity ) => ( identity.includes( "@" ) ? identity.split( "@" )[ 1 ].replace( /#.*$/, "" ) : null );
 
 const repeats = ( element ) => Boolean( element ) && Boolean( element.cardinality ) && ( element.cardinality.max === null || element.cardinality.max > 1 );
+
+// The properties that read an element's own presence or count, which only its parent can see.
+const OWN_OCCURRENCE = new Set( [ PROPERTY.ELEMENT, PROPERTY.REQUIRED, PROPERTY.CARDINALITY ] );
 
 const NUMBER = /^-?\d+(?:\.\d+)?$/;
 
@@ -103,12 +106,18 @@ class Evaluation {
     }
 
     // The scope's tag path (§6.6): FOR EACH's, else the deepest repeating element on the common prefix of every bound
-    // path; `null` when the condition is judged once over the whole message.
+    // path; `null` when the condition is judged once over the whole message. A path whose presence or count is read
+    // counts from its parent, since the scope must contain it: when it was the scope itself, a medication group's count
+    // was always 1 and its presence always true (CodeRabbit on #9).
     scopeTags() {
         if ( this.condition.scope ) {
             return tagsOf( this.binding.paths[ operandKey( { path: this.condition.scope, attribute: null } ) ] );
         }
-        const prefix = Object.values( this.binding.paths ).map( tagsOf ).reduce( ( common, tags ) => {
+        const paths = operandsOf( this.condition ).map( ( operand ) => {
+            const tags = tagsOf( this.identity( operand ) );
+            return OWN_OCCURRENCE.has( operand.property ) ? tags.slice( 0, -1 ) : tags;
+        } );
+        const prefix = paths.reduce( ( common, tags ) => {
             let shared = 0;
             while ( shared < common.length && common[ shared ] === tags[ shared ] ) {
                 shared++;
@@ -246,9 +255,15 @@ class Evaluation {
                 }
                 return ( effect.operand.property === PROPERTY.ELEMENT ? nodes : carrying ).length > 0 ? "must be absent" : null;
             case EFFECT.CARDINALITY: {
+                // Counted within each parent, as the model's own cardinality is: CDP29's medications are 1..3 per group,
+                // and two groups of two read as four when counted over the message.
                 const { min, max } = effect.cardinality;
-                return nodes.length < min || ( max !== null && nodes.length > max )
-                    ? `${ nodes.length } occurrence(s), not ${ min }..${ max === null ? "*" : max }` : null;
+                const tags = tagsOf( identity );
+                const tag = tags[ tags.length - 1 ];
+                const parents = tags.length > 1 ? this.nodes( tags.slice( 0, -1 ).join( "/" ), occurrence, scope ) : [ this.root ];
+                const counts = parents.map( ( parent ) => parent.children.filter( ( child ) => child.tag === tag ).length );
+                const wrong = counts.find( ( count ) => count < min || ( max !== null && count > max ) );
+                return wrong === undefined ? null : `${ wrong } occurrence(s), not ${ min }..${ max === null ? "*" : max }`;
             }
             case EFFECT.RESTRICT: {
                 const allowed = effect.set ? this.allowedSet( effect.set ) : null;

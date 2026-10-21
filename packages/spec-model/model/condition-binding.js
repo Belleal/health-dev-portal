@@ -41,6 +41,15 @@ module.exports.operandKey = ( operand ) => {
 
 const flatten = ( elements ) => elements.flatMap( ( element ) => [ element, ...flatten( element.children ) ] );
 
+/**
+ * Every operand a condition reads: its FOR EACH scope as an element, its predicate's comparisons, and the effects of
+ * both branches but their notes.
+ *
+ * @method
+ * @param {import( "#definitions" ).Condition} condition
+ * @returns {import( "#definitions" ).Operand[]} In the order they are written; an operand written twice is listed twice.
+ * @public
+ */
 function operandsOf( condition ) {
     const operands = [];
     if ( condition.scope ) {
@@ -61,6 +70,8 @@ function operandsOf( condition ) {
     }
     return operands;
 }
+
+module.exports.operandsOf = operandsOf;
 
 // The identity an operand means among the elements on one tag path: the attribute it names, else the group, else the
 // field or polymorphic element itself — never one of a polymorphic element's numbered variants.

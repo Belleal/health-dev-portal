@@ -125,6 +125,8 @@ function printBranch( branch ) {
     } ).join( " OR " );
 }
 
+module.exports.printBranch = printBranch;
+
 /**
  * Prints a condition in the canonical form of design record §6: `FOR EACH`, `IF`, `THEN` and `ELSE`, each on its
  * own line.
@@ -134,8 +136,6 @@ function printBranch( branch ) {
  * @returns {string}
  * @public
  */
-module.exports.printBranch = printBranch;
-
 module.exports.printCondition = ( condition ) => {
     const lines = [];
     if ( condition.scope ) {

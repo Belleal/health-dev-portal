@@ -99,6 +99,31 @@ describe( "evaluateCondition", () => {
             branch: "else", effect: "'prescription.group'.cardinality = '1..3'", reason: "4 occurrence(s), not 1..3" } ] );
     } );
 
+    // CodeRabbit on #9: with every other path inside the medication, the medication itself became the scope, so its
+    // count was always 1 and its presence always true inside the one occurrence being judged.
+    it( "judges an element's count and presence from its parent, never from inside it", () => {
+        const naming = "contents/prescription/group/medication/mkb@value";
+        const mkb = ( value ) => medication( node( "mkb", { value } ) );
+        const inGroup = ( effect, reason ) => [ { scope: "contents/prescription/group[1]", branch: "then", effect: effect, reason: reason } ];
+        assert.deepEqual( evaluate( "IF 'medication.mkb'.value IS NOT null\nTHEN 'group.medication'.cardinality = '1..3'", naming,
+            prescription( group( mkb( "A01" ), mkb( "A02" ), mkb( "A03" ), mkb( "A04" ) ) ) ).violations, inGroup( "'group.medication'.cardinality = '1..3'", "4 occurrence(s), not 1..3" ) );
+        assert.deepEqual( evaluate( "IF 'medication.mkb'.value IS null\nTHEN 'group.medication'.required = 'R'", naming, prescription( group() ) ).violations,
+            inGroup( "'group.medication'.required = 'R'", "must be present" ) );
+        assert.deepEqual( evaluate( "IF 'group.medication' IS null\nTHEN 'medication.mkb'.required = 'R'", naming, prescription( group() ) ).violations,
+            inGroup( "'medication.mkb'.required = 'R'", "must be present" ) );
+    } );
+
+    // An overridden cardinality replaces the model's own, which counts within each parent: CDP29's medications are
+    // 1..3 per group, so two groups of two are not four.
+    it( "counts an element's occurrences within each of its parents", () => {
+        const text = "IF 'prescription.category'.value IN ['T2', 'T3']\nTHEN 'prescription.group.medication'.cardinality = '1..3'";
+        const naming = "contents/prescription/group/medication";
+        const category = node( "category", { value: "T2" } );
+        assert.deepEqual( evaluate( text, naming, prescription( category, group( medication(), medication() ), group( medication(), medication() ) ) ).violations, [] );
+        assert.deepEqual( evaluate( text, naming, prescription( category, group( medication() ), group( medication(), medication(), medication(), medication() ) ) ).violations,
+            [ { scope: "(message)", branch: "then", effect: "'prescription.group.medication'.cardinality = '1..3'", reason: "4 occurrence(s), not 1..3" } ] );
+    } );
+
     it( "reads an entry column with the code lists, and reports it unchecked without them", () => {
         const text = "IF 'medication.mkb'.entry['Contagious'] IS NOT null\nTHEN 'medication.medicationCode'.required = 'R'";
         const naming = "contents/prescription/group/medication/mkb@value";
