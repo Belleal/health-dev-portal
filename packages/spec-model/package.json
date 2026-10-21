@@ -10,6 +10,8 @@
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
+        "./condition-printer": "./model/condition-printer.js",
+        "./conditions": "./model/conditions.js",
         "./definitions": "./model/definitions.types.js",
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
@@ -19,6 +21,7 @@
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#conditions": "./model/conditions.js",
         "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
