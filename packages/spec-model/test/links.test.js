@@ -101,6 +101,26 @@ describe( "linkConditions", () => {
             [ [ "unknown-condition-value", "blocking", "Conditions", 3, { id: "CD1", value: "QN", list: "CL028", identity: "contents/x@value" } ] ] );
     } );
 
+    // Common medical services 1.2.2: CDC04 and CDC12 both compare one valueScale with 'QN', and only CDC04 was reported.
+    // e-Referral 1.4.4: CDR17 is bound in two messages to two elements, and its '10.64' was reported twice.
+    it( "blocks a value once per condition, value and list, whichever element it is bound to", () => {
+        const text = "IF 'x'.value = 'QN'\nTHEN 'x'.required = 'R'";
+        const condition = ( id, row ) => ( { id: id, text: text, parsed: parseCondition( text ).condition, printed: null, source: { sheet: "Conditions", row: row } } );
+        const element = ( identity ) => ( { identity: identity, codeList: "CL028", children: [] } );
+        const module = {
+            kind: "module", spec: "s", version: "1.0.0",
+            messages: [ { code: "P001", elements: [ element( "contents/x@value" ) ] }, { code: "P002", elements: [ element( "contents/y/x@value" ) ] } ],
+            conditions: [ condition( "CD1", 3 ), condition( "CD2", 6 ) ],
+            conditionBindings: [
+                { condition: "CD1", message: "P001", element: "contents/x@value", paths: { x: "contents/x@value" } },
+                { condition: "CD1", message: "P002", element: "contents/y/x@value", paths: { x: "contents/y/x@value" } },
+                { condition: "CD2", message: "P001", element: "contents/x@value", paths: { x: "contents/x@value" } }
+            ]
+        };
+        assert.deepEqual( linkConditions( module, nomenclatures( [ "CL028", [ "1" ] ] ) ).map( ( anomaly ) => [ anomaly.row, anomaly.details.id, anomaly.details.value ] ),
+            [ [ 3, "CD1", "QN" ], [ 6, "CD2", "QN" ] ] );
+    } );
+
     it( "accepts keys and globs, and checks nothing against a list the nomenclatures lack", () => {
         assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.value = '1'\nTHEN 'x'.value MATCHES 'N80.??'", { x: "contents/x@value" } ),
             nomenclatures( [ "CL028", [ "1", "2" ] ] ) ), [] );

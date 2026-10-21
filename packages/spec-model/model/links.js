@@ -135,8 +135,10 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
     const conditions = new Map( ( module.conditions || [] ).map( ( condition ) => [ condition.id, condition ] ) );
     const anomalies = [];
     const reported = new Set();
-    const report = ( condition, type, details ) => {
-        const key = `${ type } ${ JSON.stringify( details ) }`;
+    // Once per condition and finding, whichever element it is bound to. Keyed on the details, the identity made
+    // e-Referral's CDR17 report one value twice, and the missing ID hid CDC12's 'QN' behind CDC04's (Task 7 corpus).
+    const report = ( condition, type, finding, details ) => {
+        const key = JSON.stringify( [ condition.id, type, ...finding ] );
         if ( !reported.has( key ) ) {
             reported.add( key );
             anomalies.push( createAnomaly( type, condition.source, { id: condition.id, ...details } ) );
@@ -151,7 +153,7 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
             if ( test.set ) {
                 const setList = lists.get( test.set.list );
                 if ( setList && !hasColumn( setList, test.set.column ) ) {
-                    report( condition, "unknown-list-column", { list: setList.id, column: test.set.column } );
+                    report( condition, "unknown-list-column", [ setList.id, test.set.column ], { list: setList.id, column: test.set.column } );
                 }
             }
             const identity = binding.paths[ operandKey( test.operand ) ];
@@ -162,7 +164,7 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
             }
             if ( test.operand.property === PROPERTY.ENTRY ) {
                 if ( !hasColumn( list, test.operand.column ) ) {
-                    report( condition, "unknown-list-column", { list: list.id, column: test.operand.column } );
+                    report( condition, "unknown-list-column", [ list.id, test.operand.column ], { list: list.id, column: test.operand.column } );
                 }
                 continue;
             }
@@ -171,7 +173,7 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
             }
             const keys = new Set( list.entries.map( ( entry ) => entry.key ) );
             for ( const value of test.values.filter( ( candidate ) => !keys.has( candidate ) ) ) {
-                report( condition, "unknown-condition-value", { value: value, list: list.id, identity: identity } );
+                report( condition, "unknown-condition-value", [ value, list.id ], { value: value, list: list.id, identity: identity } );
             }
         }
     }

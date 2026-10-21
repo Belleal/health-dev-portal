@@ -44,6 +44,38 @@ const FIXTURES = Object.freeze( [ {
     // The production business-rules workbook (1.1.2 is in test), measured on 2026-10-19 (design record §4.6.1).
     url: "https://his.bg/upload/446/%D0%9D%D0%97%D0%98%D0%A1+-+API+%D0%91%D0%B8%D0%B7%D0%BD%D0%B5%D1%81+%D0%9F%D1%80%D0%B0%D0%B2%D0%B8%D0%BB%D0%B0+-+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.1.1.xlsx",
     sha256: "686283df949d30fe19f31d063c460c49eb1d42e5ceed19c5701e0700cda4a75d"
+}, {
+    file: "common-services-1.2.2.xlsx",
+    // The other seven production module workbooks the specifications page lists, measured on 2026-10-21 for their
+    // conditions (design record §6.9). This one is Общи медицински услуги.
+    url: "https://his.bg/upload/378/%D0%9D%D0%97%D0%98%D0%A1+%D0%9E%D0%B1%D1%89%D0%B8+%D0%9C%D0%B5%D0%B4%D0%B8%D1%86%D0%B8%D0%BD%D1%81%D0%BA%D0%B8+%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.2.2.xlsx",
+    sha256: "af928ef5c8fd6d11009dec2be912cccaa68572e02905ed20e3e0ca27402a4991"
+}, {
+    file: "ereferral-1.4.4.xlsx",
+    url: "https://his.bg/upload/463/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%9D%D0%B0%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.4.4.xlsx",
+    sha256: "6f704b34dd0fa0e26697f93b827c3b926bea137da2c52b1ad2613357e82808a2"
+}, {
+    file: "edental-1.0.7.xlsx",
+    // his.bg serves this one under a name ending "(1)".
+    url: "https://his.bg/upload/548/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%94%D0%B5%D0%BD%D1%82%D0%B0%D0%BB%D0%BD%D0%BE+%D0%BB%D0%B5%D1%87%D0%B5%D0%BD%D0%B8%D0%B5+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.0.7+%281%29.xlsx",
+    sha256: "29721e399d2b89e01e1bdc54077f44456cd7ff36f3ea46f278e741a1801429de"
+}, {
+    file: "eexamination-1.3.10.xlsx",
+    url: "https://his.bg/upload/594/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%9F%D1%80%D0%B5%D0%B3%D0%BB%D0%B5%D0%B4+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.3.10.xlsx",
+    sha256: "7596c537c9ba1274edc1b9ff7fac445b5479e97528bc449cc08fb4544ff7312d"
+}, {
+    file: "ehospitalization-1.1.1.xlsx",
+    url: "https://his.bg/upload/595/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%A5%D0%BE%D1%81%D0%BF%D0%B8%D1%82%D0%B0%D0%BB%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.1.1.xlsx",
+    sha256: "2bd063bffa50ee51c63f5da46cc3b259499467274838054cb7df32669c9f3ab3"
+}, {
+    file: "longterm-care-1.0.4.xlsx",
+    // No conditions, but a production module all the same: its structure is read like every other's.
+    url: "https://his.bg/upload/596/%D0%9D%D0%97%D0%98%D0%A1+%D0%94%D1%8A%D0%BB%D0%B3%D0%BE%D1%81%D1%80%D0%BE%D1%87%D0%BD%D0%B0+%D0%B3%D1%80%D0%B8%D0%B6%D0%B0+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.0.4.xlsx",
+    sha256: "89d4c9a9e8933a1fafa6cc2b12b064c007d46b135c77192155494497413d3883"
+}, {
+    file: "eimmunization-1.2.2.xlsx",
+    url: "https://his.bg/upload/618/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%98%D0%BC%D1%83%D0%BD%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.2.2.xlsx",
+    sha256: "31a5c1a91aa814ce1c37ae56cac19e66dc9223a9409f0e11d8aa42d266a5ac76"
 } ] );
 
 const DOWNLOAD_TIMEOUT_MS = 60000;
