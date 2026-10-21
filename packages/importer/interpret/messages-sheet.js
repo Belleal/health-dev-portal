@@ -33,7 +33,8 @@ const COLUMNS = Object.freeze( {
     recipient: "Получател"
 } );
 
-const withoutFootnote = ( title ) => title.replace( /\s*\*+$/, "" );
+// Asterisks and spaces together: "Име * *" kept a marker when only a final run of asterisks went (CodeRabbit on #7).
+const withoutFootnote = ( title ) => title.replace( /[\s*]+$/, "" );
 
 // P001 in e-Prescription, R001 in e-Referral: one letter and three digits (Review Focus 1).
 const MESSAGE_CODE = /^[A-Z]\d{3}$/;

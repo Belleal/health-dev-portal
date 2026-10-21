@@ -58,6 +58,15 @@ describe( "readMessageIndex", () => {
         assert.equal( starred.messages[ 0 ].sender, "външна система" );
     } );
 
+    // CodeRabbit on #7: footnote markers spaced apart ("Име * *") read as "Име *" and the header was not found.
+    it( "reads footnote asterisks however they are spaced", () => {
+        const header = [ "Съобщение", "Име * *", "Класификация", "Адрес", "Тип", "Налично в Release *", "Изпращач", "Получател" ];
+        const result = readMessageIndex( sheet( "Съобщения", [ row( 3, header ),
+            row( 4, [ "Заявка", "R001", "Request one", "/v1/x", "Request", "1.0", "външна система", "НЗИС" ] ) ] ) );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => anomaly.type ), [ "unpaired-message" ] );
+        assert.deepEqual( result.messages.map( ( message ) => message.code ), [ "R001" ] );
+    } );
+
     it( "pairs each request with the response after it, and leaves the x99 error message unpaired without a warning", () => {
         const [ request, response, error ] = readMessageIndex( index() ).messages;
         assert.equal( request.pairedWith, "P002" );
