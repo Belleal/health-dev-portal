@@ -54,4 +54,11 @@ describe( "bindCondition", () => {
         const paths = keys( "IF 'patient.identifierType'.value = '2'\nTHEN 'value'.required = 'R'", "contents/prescription/lrn@value" );
         assert.deepEqual( [ paths[ "patient.identifierType" ], paths[ "value" ] ], [ null, null ] );
     } );
+
+    // Final review: an untagged row has no path, and walking up from it threw a TypeError.
+    it( "binds no relative path from an element without a path", () => {
+        const untagged = { identity: null, path: null, kind: "field", attribute: null, children: [] };
+        assert.deepEqual( bindCondition( parseCondition( "IF '..medication.medicationCode'.value IS NOT null\nTHEN 'prescription.lrn'.required = 'R'" ).condition, message, untagged ).paths,
+            { "..medication.medicationCode": null, "prescription.lrn": "contents/prescription/lrn@value" } );
+    } );
 } );

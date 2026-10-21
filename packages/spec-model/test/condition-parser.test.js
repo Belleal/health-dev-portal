@@ -49,6 +49,19 @@ describe( "parseCondition", () => {
         }
     } );
 
+    // Final review: a path followed by IS read as one more shorthand value, so the canonical `'a'.value = '1' OR
+    // 'grp' IS null` did not read back, and `'grp'.content IS any` printed as a form that reads back as a value test.
+    it( "prints what it parses when a comparison is followed by OR and a bare path (Review Focus 4)", () => {
+        const text = "IF 'a'.value = '1' OR 'referral.laboratory'.content IS null\nTHEN 'b'.value = '2' OR 'grp' IS null\nELSE 'grp'.content IS any";
+        const first = read( text );
+        assert.deepEqual( [ first.error, first.notes ], [ null, [] ] );
+        assert.equal( printCondition( first.condition ),
+            "IF 'a'.value = '1' OR 'referral.laboratory' IS null\nTHEN 'b'.value = '2' OR 'grp' IS null\nELSE 'grp'.value IS any" );
+        const again = read( printCondition( first.condition ) );
+        assert.deepEqual( again.forms, [] );
+        assert.deepEqual( again.condition, first.condition );
+    } );
+
     it( "lists the dialect forms each workbook condition uses", () => {
         assert.deepEqual( read( CDP01_WORKBOOK ).forms, [ "shorthand OR" ] );
         assert.deepEqual( read( CDR01_WORKBOOK ).forms, [ "bare '*' or '..'" ] );

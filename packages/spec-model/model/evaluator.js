@@ -230,10 +230,20 @@ class Evaluation {
         const nodes = this.nodes( identity, occurrence, scope );
         const attribute = attributeOf( identity );
         const carrying = attribute ? nodes.filter( ( node ) => node.attributes[ attribute ] !== undefined ) : nodes;
+        // An effect on `.entry['…']` restricts the column of the entries the values name, not the values themselves
+        // (final review: A01, whose Contagious is 1, failed "= '1'"). Without the code lists it cannot be judged.
+        const entries = effect.operand.property === PROPERTY.ENTRY ? this.operandValues( effect, occurrence, scope ) : null;
+        if ( entries === UNKNOWN ) {
+            this.skip( printEffect( effect ) );
+            return null;
+        }
         switch ( effect.kind ) {
             case EFFECT.REQUIRE:
                 return effect.requirement === "R" && carrying.length === 0 ? "must be present" : null;
             case EFFECT.ABSENT:
+                if ( entries ) {
+                    return entries.length > 0 ? "must be absent" : null;
+                }
                 return ( effect.operand.property === PROPERTY.ELEMENT ? nodes : carrying ).length > 0 ? "must be absent" : null;
             case EFFECT.CARDINALITY: {
                 const { min, max } = effect.cardinality;
@@ -246,7 +256,7 @@ class Evaluation {
                     this.skip( printEffect( effect ) );
                     return null;
                 }
-                const offending = this.values( identity, occurrence, scope ).find( ( value ) => !passes( effect.operator, value, effect, allowed ) );
+                const offending = ( entries || this.values( identity, occurrence, scope ) ).find( ( value ) => !passes( effect.operator, value, effect, allowed ) );
                 return offending === undefined ? null : `value '${ offending }' is not allowed`;
             }
             default:

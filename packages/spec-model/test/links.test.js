@@ -121,6 +121,30 @@ describe( "linkConditions", () => {
             [ [ 3, "CD1", "QN" ], [ 6, "CD2", "QN" ] ] );
     } );
 
+    // Final review: elements were looked up across the whole module, the last message winning, and e-Immunization's
+    // contents/status@value is CL039 in I002 but CL043 in I009.
+    it( "checks a value against the code list of the element in the binding's own message", () => {
+        const text = "IF 'status'.value = 'A'\nTHEN 'status'.required = 'R'";
+        const module = {
+            kind: "module", spec: "s", version: "1.0.0",
+            messages: [
+                { code: "P001", elements: [ { identity: "contents/status@value", codeList: "CL039", children: [] } ] },
+                { code: "P002", elements: [ { identity: "contents/status@value", codeList: "CL043", children: [] } ] }
+            ],
+            conditions: [ { id: "CD1", text: text, parsed: parseCondition( text ).condition, printed: null, source: { sheet: "Conditions", row: 3 } } ],
+            conditionBindings: [ { condition: "CD1", message: "P001", element: "contents/status@value", paths: { status: "contents/status@value" } } ]
+        };
+        assert.deepEqual( linkConditions( module, nomenclatures( [ "CL039", [ "X" ] ], [ "CL043", [ "A" ] ] ) ).map( ( anomaly ) => [ anomaly.details.value, anomaly.details.list ] ),
+            [ [ "A", "CL039" ] ] );
+    } );
+
+    // Final review: a requirement or a cardinality compared in an IF is not a value of the element, and 'R' blocked as
+    // "not a key of CL028".
+    it( "checks keys only where a value is compared", () => {
+        const text = "IF 'x'.required = 'R' AND 'x'.cardinality = '1..1'\nTHEN 'x'.value = '1'";
+        assert.deepEqual( linkConditions( moduleNaming( text, { x: "contents/x@value" } ), nomenclatures( [ "CL028", [ "1" ] ] ) ), [] );
+    } );
+
     it( "accepts keys and globs, and checks nothing against a list the nomenclatures lack", () => {
         assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.value = '1'\nTHEN 'x'.value MATCHES 'N80.??'", { x: "contents/x@value" } ),
             nomenclatures( [ "CL028", [ "1", "2" ] ] ) ), [] );

@@ -79,7 +79,9 @@ module.exports.importConditions = ( conditions, messages ) => {
     for ( const message of messages ) {
         const nodes = flatten( message.elements );
         const elements = new Map( nodes.map( ( node ) => [ node.identity, node ] ) );
-        for ( const node of nodes ) {
+        // A row the tree could not place — untagged, say — already blocks, and binding from it would only add warnings
+        // about a position it does not have (final review: a relative path from it threw).
+        for ( const node of nodes.filter( ( candidate ) => candidate.path ) ) {
             for ( const id of node.conditions ) {
                 const condition = byId.get( id );
                 if ( !condition || !condition.parsed ) {
@@ -87,9 +89,14 @@ module.exports.importConditions = ( conditions, messages ) => {
                 }
                 const binding = { ...bindCondition( condition.parsed, message, node ), condition: id };
                 bindings.push( binding );
-                for ( const [ path, identity ] of Object.entries( binding.paths ) ) {
-                    if ( identity === null ) {
-                        once( `path ${ id } ${ message.code } ${ path }`, "unresolved-condition-path", condition, { message: message.code, path: path } );
+                for ( const path of Object.keys( binding.paths ).filter( ( key ) => binding.paths[ key ] === null ) ) {
+                    // A relative path fails from one naming element and may hold from another of the same message: e-Referral's
+                    // CDR21 in R010 was reported as not checked there at all (final review). Any other path fails alike from all.
+                    if ( path.startsWith( ".." ) ) {
+                        once( JSON.stringify( [ "relative", id, message.code, node.identity, path ] ), "unresolved-relative-path", condition,
+                            { message: message.code, element: node.identity, path: path } );
+                    } else {
+                        once( JSON.stringify( [ "path", id, message.code, path ] ), "unresolved-condition-path", condition, { message: message.code, path: path } );
                     }
                 }
                 for ( const problem of checkConditionTypes( condition.parsed, binding, elements ) ) {

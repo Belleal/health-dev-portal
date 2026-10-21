@@ -517,6 +517,9 @@ readable by analysts where `^N80\..{2}$` is not.
 | `.value IS null`, or for a group `IS null` | **Must be absent** from the message |
 | `.value = 'x'` | Fixed value |
 | `.value IN` / `NOT IN` / `NOT MATCHES` | Restricted value |
+| `.value IS true` / `IS false` | Must be true / false (CDP38) |
+| `.value < '1'`, `<=`, `>`, `>=` | Must lie above or below (CDI09: "more than 1") |
+| `.entry['Column'] = 'x'`, or any restriction above on an entry | Restricts that column of the entry the value names |
 | `.cardinality = '1..3'` | Overridden occurrence count; `'5..'` is open above |
 | `.value IS any` | No constraint |
 | `NOTE '…'` | Prose that cannot be expressed (CDP14); shown, marked not checkable |

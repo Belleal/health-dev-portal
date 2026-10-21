@@ -52,8 +52,26 @@ describe( "importConditions", () => {
             [ "CDP29", "P001", "contents/prescription/group/medication", "contents/prescription/group/medication/medicationCode@value" ],
             [ "CDP29", "P002", "contents/nrnPrescription@value", null ]
         ] );
-        assert.deepEqual( result.anomalies.map( ( anomaly ) => [ ...summary( anomaly ), anomaly.details.message, anomaly.details.path ] ),
-            [ [ "unresolved-condition-path", "Conditions", 13, "P002", "..medication.medicationCode" ] ] );
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => [ ...summary( anomaly ), anomaly.details.message, anomaly.details.element, anomaly.details.path ] ),
+            [ [ "unresolved-relative-path", "Conditions", 13, "P002", "contents/nrnPrescription@value", "..medication.medicationCode" ] ] );
+    } );
+
+    // Final review: CDR21 resolves from R010's execution element and not from its diagnostic report, and the warning
+    // said it was not checked in R010 at all, without naming where it failed.
+    it( "reports a relative path at the naming element it fails from, when another of the message binds it", () => {
+        // CDP29 is named by the medication, which has a medication code below it, and by the LRN, which has none above it.
+        const rows = [ ...prescriptionRows().filter( ( line ) => line.number !== 8 ), element( 8, 2, "field", { name: "Prescription LRN", req: "R", card: "1..1",
+            type: "String", conditions: "CDP29", tag: "lrn", attribute: "value" } ) ].sort( ( a, b ) => a.number - b.number );
+        const result = importConditions( [ conditionOf( "CDP29", 13, "IF '..medication.medicationCode'.value IS NOT null\nTHEN 'prescription.missing'.required = 'R'" ) ],
+            [ messageOf( "P001", rows ) ] );
+        assert.equal( result.bindings.length, 2 );
+        // An absolute path fails from every element of a message alike, so it is still reported once for the message.
+        assert.deepEqual( result.anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.details.message, anomaly.details.element, anomaly.details.path ] ), [
+            [ "unresolved-relative-path", "P001", "contents/prescription/lrn@value", "..medication.medicationCode" ],
+            [ "unresolved-condition-path", "P001", undefined, "prescription.missing" ]
+        ] );
+        assert.equal( result.anomalies[ 0 ].message, "Condition CDP29 in P001: '..medication.medicationCode' names no single element as seen from "
+            + "contents/prescription/lrn@value, so the condition is not checked there." );
     } );
 
     it( "reports the dialect, a note, an unread condition and a folded value at the condition's row", () => {
@@ -77,6 +95,18 @@ describe( "importConditions", () => {
         assert.deepEqual( result.conditions.map( ( condition ) => condition.printed === null ), [ false, false, true, true ] );
         // The empty condition was reported when the sheet was read; it is not reported again as unread.
         assert.equal( result.conditions[ 3 ].parsed, null );
+    } );
+
+    // Final review: an untagged row has no path, and binding a relative path from it threw a TypeError, so the upload
+    // got no report at all instead of the blocking missing-tag that names the row.
+    it( "binds nothing from an element the tree could not place, and still reports it", () => {
+        const rows = [ ...prescriptionRows(), element( 20, 2, "field", { name: "Untagged", req: "C", card: "0..1", type: "String", conditions: "CDP29" } ) ];
+        const tree = buildMessageTree( messageSheet( "P001", rows ) );
+        assert.deepEqual( tree.anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.row ] ), [ [ "missing-tag", 20 ] ] );
+        const result = importConditions( [ conditionOf( "CDP29", 13, "IF '..medication.medicationCode'.value IS NOT null\nTHEN THIS.required = 'R'" ) ],
+            [ { code: "P001", elements: tree.elements } ] );
+        assert.deepEqual( result.bindings.map( ( binding ) => binding.element ), [ "contents/prescription/group/medication" ] );
+        assert.deepEqual( result.anomalies, [] );
     } );
 
     it( "reports a type mismatch once per message", () => {

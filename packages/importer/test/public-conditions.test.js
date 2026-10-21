@@ -128,16 +128,31 @@ describe( "The conditions of the eight production modules", { skip: PRESENT ? fa
     } );
 
     it( "pins each module's unresolved paths", () => {
-        // Once per condition, message and path; plan 4 resolves the entity names ('patient.…') among them.
-        assert.deepEqual( perModule( ( result ) => ofType( result, "unresolved-condition-path" ).length ), {
-            "e-prescription": 86,
-            "common-services": 12,
-            "e-referral": 58,
-            "e-dental": 4,
-            "e-examination": 70,
-            "e-hospitalization": 13,
-            "long-term-care": 0,
-            "e-immunization": 6
+        // Per module: other paths once per condition, message and path, and relative ones once per naming element too,
+        // as a relative path can fail from one element and hold from another. Plan 4 resolves the entity names
+        // ('patient.…') among the first. Both counts were re-derived from the bindings alone.
+        assert.deepEqual( perModule( ( result ) => [ ofType( result, "unresolved-condition-path" ).length, ofType( result, "unresolved-relative-path" ).length ] ), {
+            "e-prescription": [ 86, 0 ],
+            "common-services": [ 12, 0 ],
+            "e-referral": [ 52, 14 ],
+            "e-dental": [ 4, 0 ],
+            "e-examination": [ 27, 93 ],
+            "e-hospitalization": [ 7, 6 ],
+            "long-term-care": [ 0, 0 ],
+            "e-immunization": [ 6, 0 ]
         } );
+    } );
+
+    // Review Focus 1, as the final review measured it: R010 binds CDR21 from its execution element, and only its
+    // diagnostic report's reference range, from which no observation can be reached, is reported.
+    it( "reports CDR21 in R010 only at the element it fails from", () => {
+        const referral = modules.find( ( result ) => result.version.spec === "e-referral" );
+        assert.deepEqual( ofType( referral, "unresolved-relative-path" ).filter( ( anomaly ) => anomaly.details.id === "CDR21" )
+            .map( ( anomaly ) => [ anomaly.details.message, anomaly.details.element, anomaly.details.path ] ), [
+            [ "R010", "contents/results/examination/diagnosticReport/result/referenceRange", "..observation.valueScale" ],
+            [ "R010", "contents/results/examination/diagnosticReport/result/referenceRange", "..observation.referenceRange" ]
+        ] );
+        assert.ok( referral.version.conditionBindings.some( ( binding ) => binding.condition === "CDR21" && binding.message === "R010"
+            && Object.values( binding.paths ).every( ( identity ) => identity !== null ) ) );
     } );
 } );

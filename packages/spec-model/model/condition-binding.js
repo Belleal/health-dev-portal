@@ -91,6 +91,10 @@ function resolve( operand, byPath, naming ) {
     }
     const joined = tags.join( "/" );
     if ( relative ) {
+        // An element the tree could not place (an untagged row) has nowhere to walk up from (final review: it threw).
+        if ( !naming.path ) {
+            return null;
+        }
         // Up from the naming element's parent: the first ancestor under which the rest of the path exists wins.
         const own = naming.path.split( "/" );
         for ( let depth = own.length - 1; depth >= 0; depth-- ) {

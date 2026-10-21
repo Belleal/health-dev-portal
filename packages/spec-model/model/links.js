@@ -131,7 +131,10 @@ const hasColumn = ( list, column ) => module.exports.findColumn( list, column ) 
 module.exports.linkConditions = ( module, nomenclatures ) => {
     const lists = byId( nomenclatures.codeLists );
     const flatten = ( elements ) => elements.flatMap( ( element ) => [ element, ...flatten( element.children ) ] );
-    const elements = new Map( module.messages.flatMap( ( message ) => flatten( message.elements ) ).map( ( element ) => [ element.identity, element ] ) );
+    // Per message: an identity is unique only within its message, and e-Immunization's contents/status@value is CL039 in
+    // I002 but CL043 in I009 (final review: with one map for the module, the last message won).
+    const elements = new Map( module.messages.map( ( message ) => [ message.code,
+        new Map( flatten( message.elements ).map( ( element ) => [ element.identity, element ] ) ) ] ) );
     const conditions = new Map( ( module.conditions || [] ).map( ( condition ) => [ condition.id, condition ] ) );
     const anomalies = [];
     const reported = new Set();
@@ -157,7 +160,8 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
                 }
             }
             const identity = binding.paths[ operandKey( test.operand ) ];
-            const element = identity ? elements.get( identity ) : null;
+            const inMessage = elements.get( binding.message );
+            const element = identity && inMessage ? inMessage.get( identity ) : null;
             const list = element && element.codeList ? lists.get( element.codeList ) : null;
             if ( !list ) {
                 continue;
@@ -168,7 +172,8 @@ module.exports.linkConditions = ( module, nomenclatures ) => {
                 }
                 continue;
             }
-            if ( !KEYED.has( test.operator ) || test.set ) {
+            // Only a value is a key: `'x'.required = 'R'` in an IF blocked as "'R' is not a key" (final review).
+            if ( test.operand.property !== PROPERTY.VALUE || !KEYED.has( test.operator ) || test.set ) {
                 continue;
             }
             const keys = new Set( list.entries.map( ( entry ) => entry.key ) );

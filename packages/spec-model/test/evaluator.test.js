@@ -110,6 +110,21 @@ describe( "evaluateCondition", () => {
         assert.deepEqual( evaluate( text, naming, instance ), { violations: [], unchecked: [ "'medication.mkb'.entry['Contagious'] IS NOT null" ] } );
     } );
 
+    // Final review: an effect on an entry column was judged against the element's own value, so A01, whose Contagious is
+    // 1, failed "= '1'" as "value 'A01' is not allowed", with or without the code lists.
+    it( "judges an effect on an entry column by that column, and reports it unchecked without the code lists", () => {
+        const naming = "contents/prescription/group/medication/mkb@value";
+        const codeLists = new Map( [ [ "CL011", { id: "CL011", columns: [ { title: "Contagious (CL148)", column: 6 } ],
+            entries: [ { key: "A01", values: [ "1" ] }, { key: "A02", values: [ null ] } ] } ] ] );
+        const instance = ( key ) => prescription( group( medication( node( "mkb", { value: key } ) ) ) );
+        const restrict = "IF 'medication.mkb'.value IS NOT null\nTHEN 'medication.mkb'.entry['Contagious'] = '1'";
+        assert.deepEqual( evaluate( restrict, naming, instance( "A01" ), { codeLists } ), { violations: [], unchecked: [] } );
+        assert.deepEqual( evaluate( restrict, naming, instance( "A01" ) ), { violations: [], unchecked: [ "'medication.mkb'.entry['Contagious'] = '1'" ] } );
+        const absent = "IF 'medication.mkb'.value IS NOT null\nTHEN 'medication.mkb'.entry['Contagious'] IS null";
+        assert.deepEqual( evaluate( absent, naming, instance( "A02" ), { codeLists } ).violations, [] );
+        assert.deepEqual( evaluate( absent, naming, instance( "A01" ), { codeLists } ).violations.map( ( violation ) => violation.reason ), [ "must be absent" ] );
+    } );
+
     it( "evaluates nothing for a binding with an unresolved path, and says so", () => {
         const text = "IF 'patient.identifierType'.value = '2'\nTHEN 'prescription.lrn'.required = 'R'";
         assert.deepEqual( evaluate( text, "contents/prescription/lrn@value", prescription() ), { violations: [], unchecked: [ text ] } );

@@ -110,6 +110,8 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "free-text-effect": { level: WARNING, text: "Condition {id}: \"{text}\" cannot be read as an effect; it is kept as a note and not checked." },
     "unparsed-condition": { level: WARNING, text: "Condition {id} cannot be read ({error}); it is kept as text and not checked." },
     "unresolved-condition-path": { level: WARNING, text: "Condition {id} in {message}: '{path}' names no single element there, so the condition is not checked in that message." },
+    // A relative path is read from the element naming the condition, so it can fail from one and hold from another.
+    "unresolved-relative-path": { level: WARNING, text: "Condition {id} in {message}: '{path}' names no single element as seen from {element}, so the condition is not checked there." },
     "condition-type-mismatch": { level: WARNING, text: "Condition {id} in {message}: {operator} does not apply to {identity}, which is {dataType}." },
     "unknown-condition-value": { level: BLOCKING, text: "Condition {id}: '{value}' is not a key of {list}, the code list of {identity}." },
     "unknown-list-column": { level: WARNING, text: "Condition {id}: {list} has no column \"{column}\"." }

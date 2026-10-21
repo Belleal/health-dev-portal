@@ -149,14 +149,19 @@ class Reader {
         throw new ConditionSyntaxError( `expected a value at ${ this.where() }` );
     }
 
-    // Is a value next, and not the path of a new comparison? `OR 'T3'` continues the shorthand; `OR 'b'.value` does not.
+    // Is a value next, and not the path of a new comparison? `OR 'T3'` continues the shorthand; `OR 'b'.value` does
+    // not, and nor does `OR 'grp' IS null`, the canonical test of an element (final review: it read 'grp' as a value).
     valueAhead( offset ) {
         const token = this.peek( offset );
         if ( !token || ![ "string", "number", "word" ].includes( token.type ) ) {
             return false;
         }
         const after = this.peek( offset + 1 );
-        return !after || ( after.type !== "property" && after.type !== "attribute" );
+        if ( !after ) {
+            return true;
+        }
+        const tests = after.type === "keyword" && [ "IS", "NOT", "IN", "MATCHES" ].includes( after.text );
+        return after.type !== "property" && after.type !== "attribute" && !tests && !( after.type === "symbol" && RELATIONS.has( after.text ) );
     }
 
     list() {
@@ -252,6 +257,12 @@ class Reader {
             return { ...operand, property: PROPERTY.VALUE };
         }
         return operand;
+    }
+
+    // `IS any` frees an element's value, so it is always a value operand: `'grp'.content IS any` kept the element
+    // property, printed as `'grp' IS any` and read back as a value with a missing property (final review).
+    anyValue( operand ) {
+        return operand.property === PROPERTY.ELEMENT ? { ...operand, property: PROPERTY.VALUE } : this.valued( operand );
     }
 
     // The values of `= v { OR v }`, globs made of the workbook's x, and the operator they amount to.
@@ -424,7 +435,7 @@ class Reader {
             if ( word === "NULL" ) {
                 effect = { kind: EFFECT.ABSENT, operand: operand.property === null ? { ...operand, property: PROPERTY.ELEMENT } : operand };
             } else if ( word === "ANY" ) {
-                effect = { kind: EFFECT.ANY, operand: this.valued( operand ) };
+                effect = { kind: EFFECT.ANY, operand: this.anyValue( operand ) };
             } else if ( word === "TRUE" || word === "FALSE" ) {
                 // "Must be true" (CDP38): a restriction by a test.
                 effect = { kind: EFFECT.RESTRICT, operand: this.valued( operand ), operator: word === "TRUE" ? OPERATOR.IS_TRUE : OPERATOR.IS_FALSE, values: [], set: null };
@@ -434,7 +445,7 @@ class Reader {
         } else if ( this.is( "symbol", "=" ) && this.is( "keyword", "ANY", 1 ) ) {
             this.at += 2;
             this.forms.add( "ANY without IS" );
-            effect = { kind: EFFECT.ANY, operand: this.valued( operand ) };
+            effect = { kind: EFFECT.ANY, operand: this.anyValue( operand ) };
         } else if ( operand.property === PROPERTY.REQUIRED ) {
             this.take( "symbol", "=" );
             const requirement = this.value();
