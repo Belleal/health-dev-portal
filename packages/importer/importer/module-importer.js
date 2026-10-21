@@ -21,6 +21,7 @@ const { buildMessageTree } = require( "#message-tree" );
 const { readMessageIndex } = require( "#messages-sheet" );
 const { readChangeNotes } = require( "#change-notes" );
 const { readConditions, readDictionary } = require( "#side-sheets" );
+const { importConditions } = require( "#condition-import" );
 const { TAB_STATUS, matchLegend } = require( "#legend" );
 const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
 const { ambiguousSheets, workbookVersion } = require( "#workbook-checks" );
@@ -116,6 +117,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     if ( conditionsSheet ) {
         anomalies.push( ...undefinedConditions( messages, conditions.conditions ) );
     }
+    const language = importConditions( conditions.conditions, messages );
+    anomalies.push( ...language.anomalies );
 
     // Not every module has a dictionary, so its absence is not an anomaly.
     const dictionarySheet = sheetNamed( SHEETS.dictionary );
@@ -128,7 +131,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
             spec: options.spec,
             version: version.version,
             messages: messages,
-            conditions: conditions.conditions,
+            conditions: language.conditions,
+            conditionBindings: language.bindings,
             dictionary: dictionary.entries,
             changeNotes: notes.versions
         },

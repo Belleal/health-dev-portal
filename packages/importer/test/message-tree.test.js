@@ -49,7 +49,9 @@ describe( "buildMessageTree", () => {
             "contents/prescription/group/medication/doseQuantityCode@value",
             "contents/prescription/group/medication/doseQuantityCode@value#1",
             "contents/prescription/group/medication/doseQuantityCode@value#2",
-            "contents/prescription/allowedRepeatsNumber@value"
+            "contents/prescription/allowedRepeatsNumber@value",
+            "contents/prescription/category@value",
+            "contents/prescription/dispensationType@value"
         ] );
     } );
 

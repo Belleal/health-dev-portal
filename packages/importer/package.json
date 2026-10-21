@@ -25,6 +25,7 @@
         "#cells": "./interpret/cells.js",
         "#change-notes": "./interpret/change-notes.js",
         "#code-list-sheet": "./interpret/code-list-sheet.js",
+        "#condition-import": "./importer/condition-import.js",
         "#colours": "./read/colours.js",
         "#legend": "./structure/legend.js",
         "#message-tree": "./structure/message-tree.js",

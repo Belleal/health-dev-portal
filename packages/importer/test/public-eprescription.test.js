@@ -103,4 +103,22 @@ describe( "e-Prescription 1.5.1, the published workbook", { skip: PRESENT ? fals
         // HEL-5: CDP09 and CDP36 are empty.
         assert.deepEqual( warnings.filter( ( anomaly ) => anomaly.type === "empty-condition" ).map( ( anomaly ) => anomaly.details.id ), [ "CDP09", "CDP36" ] );
     } );
+
+    // Measured on 2026-10-21 (design record §6.9). The shorthand and x-glob counts were checked with a regex over the
+    // raw texts, independent of the parser.
+    it( "reads every condition that is not empty, and warns about the dialect it is written in", () => {
+        assert.equal( result.version.conditions.filter( ( condition ) => condition.parsed ).length, 36 );
+        const tally = {};
+        for ( const anomaly of result.anomalies.filter( ( candidate ) => candidate.sheet === "Conditions" ) ) {
+            tally[ anomaly.type ] = ( tally[ anomaly.type ] || 0 ) + 1;
+        }
+        assert.deepEqual( tally, { "empty-condition": 2, "look-alike-letter": 1, "non-canonical-condition": 18, "free-text-effect": 1, "unresolved-condition-path": 86 } );
+        const forms = result.anomalies.filter( ( anomaly ) => anomaly.type === "non-canonical-condition" ).flatMap( ( anomaly ) => anomaly.details.forms.split( ", " ) );
+        assert.equal( forms.filter( ( form ) => form === "shorthand OR" ).length, 16 );
+        assert.equal( forms.filter( ( form ) => form === "x as a wildcard" ).length, 2 );
+        // CDP14's THEN is prose; CDP08, on row 27, compares with a Т3 whose Т is Cyrillic.
+        assert.deepEqual( result.anomalies.filter( ( anomaly ) => anomaly.type === "free-text-effect" ).map( ( anomaly ) => anomaly.details.id ), [ "CDP14" ] );
+        assert.deepEqual( result.anomalies.filter( ( anomaly ) => anomaly.type === "look-alike-letter" && anomaly.sheet === "Conditions" )
+            .map( ( anomaly ) => [ anomaly.row, anomaly.details.folded ] ), [ [ 27, "T3" ] ] );
+    } );
 } );

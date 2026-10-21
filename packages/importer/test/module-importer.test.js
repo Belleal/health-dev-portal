@@ -104,7 +104,7 @@ describe( "importModuleWorkbook", () => {
             messageSheet( "R001", referralRows ),
             messageSheet( "R002", confirmationRows() ),
             sheet( "Change Notes", [ row( 1, [ "Версия 1.4.4" ] ) ] ),
-            sheet( "Conditions", [ row( 1, [ "Condition ID", "Condition Logic" ] ), row( 3, [ "CDR07", "IF 'x'.value = '1'" ] ) ] )
+            sheet( "Conditions", [ row( 1, [ "Condition ID", "Condition Logic" ] ), row( 3, [ "CDR07", "IF 'country'.value = 'BG'" ] ), row( 4, [ null, "THEN THIS.required = 'R'" ] ) ] )
         ];
         const result = importModuleWorkbook( workbook( sheets ), { spec: "e-referral" } );
         assert.deepEqual( result.anomalies, [] );

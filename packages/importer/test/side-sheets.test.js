@@ -34,7 +34,7 @@ describe( "side sheets", () => {
         assert.deepEqual( result.anomalies, [] );
         assert.deepEqual( result.conditions.map( ( condition ) => condition.id ), [ "CDP01", "CDP19", "CDP21", "CDP29" ] );
         assert.equal( result.conditions[ 0 ].text, [
-            "IF 'prescription.category'.value = 'T2' OR 'T3'",
+            "IF 'prescription.category'.value IN ['T2', 'T3']",
             "THEN 'prescription.isProtocolBased'.required = 'R'",
             "ELSE 'prescription.isProtocolBased'.required = 'O'"
         ].join( "\n" ) );

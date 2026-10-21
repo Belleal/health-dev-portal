@@ -22,7 +22,8 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
+const { linkConditions, linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
+const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" );
 
 // Only the properties linking reads.
 const element = ( overrides = {} ) => ( { identity: "contents/x@value", name: { bg: null, en: "X" }, rules: [], conditions: [],
@@ -78,5 +79,85 @@ describe( "linkRules", () => {
         assert.deepEqual( anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.level, anomaly.details.id, anomaly.details.code ] ),
             [ [ "unknown-error-code", "warning", "RL002", "E404" ] ] );
         assert.deepEqual( linkRules( rules, nomenclaturesOf( [ "CL001", "in-use" ] ) ), [] );
+    } );
+} );
+
+describe( "linkConditions", () => {
+
+    // A module with one condition, named by one element, and its binding; only the properties linking reads.
+    const moduleNaming = ( text, paths, named = { identity: "contents/x@value", codeList: "CL028" } ) => ( {
+        kind: "module", spec: "s", version: "1.0.0",
+        messages: [ { code: "P001", elements: [ { identity: named.identity, codeList: named.codeList, children: [] } ] } ],
+        conditions: [ { id: "CD1", text: text, parsed: parseCondition( text ).condition, printed: null, source: { sheet: "Conditions", row: 3 } } ],
+        conditionBindings: [ { condition: "CD1", message: "P001", element: named.identity, paths: paths } ]
+    } );
+    const nomenclatures = ( ...lists ) => ( { kind: "nomenclatures", codeLists: lists.map( ( [ id, keys, columns = [] ] ) =>
+        ( { id, status: "in-use", columns: columns.map( ( title, index ) => ( { title, column: 6 + index } ) ), entries: keys.map( ( key ) => ( { key } ) ) } ) ) } );
+
+    it( "blocks a compared value that is not a key of the element's code list, once per value", () => {
+        const anomalies = linkConditions( moduleNaming( "IF 'x'.value = 'QN'\nTHEN 'x'.required = 'R'\nELSE 'x'.value IN ['QN', '1']", { x: "contents/x@value" } ),
+            nomenclatures( [ "CL028", [ "1", "2" ] ] ) );
+        assert.deepEqual( anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.level, anomaly.sheet, anomaly.row, anomaly.details ] ),
+            [ [ "unknown-condition-value", "blocking", "Conditions", 3, { id: "CD1", value: "QN", list: "CL028", identity: "contents/x@value" } ] ] );
+    } );
+
+    // Common medical services 1.2.2: CDC04 and CDC12 both compare one valueScale with 'QN', and only CDC04 was reported.
+    // e-Referral 1.4.4: CDR17 is bound in two messages to two elements, and its '10.64' was reported twice.
+    it( "blocks a value once per condition, value and list, whichever element it is bound to", () => {
+        const text = "IF 'x'.value = 'QN'\nTHEN 'x'.required = 'R'";
+        const condition = ( id, row ) => ( { id: id, text: text, parsed: parseCondition( text ).condition, printed: null, source: { sheet: "Conditions", row: row } } );
+        const element = ( identity ) => ( { identity: identity, codeList: "CL028", children: [] } );
+        const module = {
+            kind: "module", spec: "s", version: "1.0.0",
+            messages: [ { code: "P001", elements: [ element( "contents/x@value" ) ] }, { code: "P002", elements: [ element( "contents/y/x@value" ) ] } ],
+            conditions: [ condition( "CD1", 3 ), condition( "CD2", 6 ) ],
+            conditionBindings: [
+                { condition: "CD1", message: "P001", element: "contents/x@value", paths: { x: "contents/x@value" } },
+                { condition: "CD1", message: "P002", element: "contents/y/x@value", paths: { x: "contents/y/x@value" } },
+                { condition: "CD2", message: "P001", element: "contents/x@value", paths: { x: "contents/x@value" } }
+            ]
+        };
+        assert.deepEqual( linkConditions( module, nomenclatures( [ "CL028", [ "1" ] ] ) ).map( ( anomaly ) => [ anomaly.row, anomaly.details.id, anomaly.details.value ] ),
+            [ [ 3, "CD1", "QN" ], [ 6, "CD2", "QN" ] ] );
+    } );
+
+    // Final review: elements were looked up across the whole module, the last message winning, and e-Immunization's
+    // contents/status@value is CL039 in I002 but CL043 in I009.
+    it( "checks a value against the code list of the element in the binding's own message", () => {
+        const text = "IF 'status'.value = 'A'\nTHEN 'status'.required = 'R'";
+        const module = {
+            kind: "module", spec: "s", version: "1.0.0",
+            messages: [
+                { code: "P001", elements: [ { identity: "contents/status@value", codeList: "CL039", children: [] } ] },
+                { code: "P002", elements: [ { identity: "contents/status@value", codeList: "CL043", children: [] } ] }
+            ],
+            conditions: [ { id: "CD1", text: text, parsed: parseCondition( text ).condition, printed: null, source: { sheet: "Conditions", row: 3 } } ],
+            conditionBindings: [ { condition: "CD1", message: "P001", element: "contents/status@value", paths: { status: "contents/status@value" } } ]
+        };
+        assert.deepEqual( linkConditions( module, nomenclatures( [ "CL039", [ "X" ] ], [ "CL043", [ "A" ] ] ) ).map( ( anomaly ) => [ anomaly.details.value, anomaly.details.list ] ),
+            [ [ "A", "CL039" ] ] );
+    } );
+
+    // Final review: a requirement or a cardinality compared in an IF is not a value of the element, and 'R' blocked as
+    // "not a key of CL028".
+    it( "checks keys only where a value is compared", () => {
+        const text = "IF 'x'.required = 'R' AND 'x'.cardinality = '1..1'\nTHEN 'x'.value = '1'";
+        assert.deepEqual( linkConditions( moduleNaming( text, { x: "contents/x@value" } ), nomenclatures( [ "CL028", [ "1" ] ] ) ), [] );
+    } );
+
+    it( "accepts keys and globs, and checks nothing against a list the nomenclatures lack", () => {
+        assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.value = '1'\nTHEN 'x'.value MATCHES 'N80.??'", { x: "contents/x@value" } ),
+            nomenclatures( [ "CL028", [ "1", "2" ] ] ) ), [] );
+        assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.value = 'Z'\nTHEN 'x'.required = 'R'", { x: "contents/x@value" }, { identity: "contents/x@value", codeList: "CL404" } ),
+            nomenclatures( [ "CL028", [ "1" ] ] ) ), [] );
+    } );
+
+    it( "warns about an entry or list column the list does not have, matching titles loosely", () => {
+        const onCl011 = { identity: "contents/x@value", codeList: "CL011" };
+        const lists = nomenclatures( [ "CL011", [ "A01" ], [ "Contagious (CL148)" ] ], [ "CL006", [ "1001" ], [ "NHIF Code" ] ] );
+        assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.entry['Contagious'] IS NOT null\nTHEN 'x'.required = 'R'", { x: "contents/x@value" }, onCl011 ), lists ), [] );
+        assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.entry['Rare'] IS NOT null\nTHEN 'x'.required = 'R'", { x: "contents/x@value" }, onCl011 ), lists )
+            .map( ( anomaly ) => [ anomaly.type, anomaly.level, anomaly.details ] ), [ [ "unknown-list-column", "warning", { id: "CD1", list: "CL011", column: "Rare" } ] ] );
+        assert.deepEqual( linkConditions( moduleNaming( "IF 'x'.value = 'A01'\nTHEN 'y'.@nhifCode IN CL006['nhifCode']", { x: "contents/x@value", "y@nhifCode": null }, onCl011 ), lists ), [] );
     } );
 } );

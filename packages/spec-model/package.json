@@ -10,7 +10,13 @@
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
+        "./condition-binding": "./model/condition-binding.js",
+        "./condition-checks": "./model/condition-checks.js",
+        "./condition-parser": "./model/condition-parser.js",
+        "./condition-printer": "./model/condition-printer.js",
+        "./conditions": "./model/conditions.js",
         "./definitions": "./model/definitions.types.js",
+        "./evaluator": "./model/evaluator.js",
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
         "./kinds": "./model/kinds.js",
@@ -19,10 +25,15 @@
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#condition-binding": "./model/condition-binding.js",
+        "#condition-checks": "./model/condition-checks.js",
+        "#condition-printer": "./model/condition-printer.js",
+        "#conditions": "./model/conditions.js",
         "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
-        "#kinds": "./model/kinds.js"
+        "#kinds": "./model/kinds.js",
+        "#links": "./model/links.js"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

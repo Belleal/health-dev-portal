@@ -100,10 +100,72 @@
  */
 
 /**
- * @typedef {Object} ConditionText A condition as written in the workbook; plan 3 parses it.
+ * @typedef {Object} ConditionText A condition as written in the workbook, and as the language reads it.
  * @property {string} id e.g. `CDP01`.
  * @property {string} text The lines joined with newlines.
+ * @property {Condition|null} [parsed] `null` when the condition is empty or could not be read.
+ * @property {string|null} [printed] The canonical form of `parsed`.
  * @property {SourceRef} source
+ */
+
+/**
+ * @typedef {Object} ConditionPath A path as written (design record §6.2).
+ * @property {string|null} text The dotted path — absolute, relative (`..medication.mkb`) or partial — or `null` for
+ *     `THIS`.
+ * @property {boolean} self `true` for `THIS`, the element naming the condition.
+ */
+
+/**
+ * @typedef {Object} Operand What a comparison or an effect reads.
+ * @property {ConditionPath} path
+ * @property {string|null} attribute An XML attribute (`.@nhifCode`), or `null` for the element's own value.
+ * @property {string} property One of `PROPERTY`.
+ * @property {string|null} column The code-list column of `.entry['…']`, else `null`.
+ */
+
+/**
+ * @typedef {Object} ListColumn A code-list column used as the set of allowed values: `CL006['NHIF Code']`.
+ * @property {string} list
+ * @property {string} column
+ */
+
+/**
+ * @typedef {Object} Comparison
+ * @property {string} kind `comparison`.
+ * @property {Operand} operand
+ * @property {string} operator One of `OPERATOR`.
+ * @property {string[]} values As stored: globs use `?` and `*`.
+ * @property {ListColumn|null} set The allowed set of `IN CLxxx['…']`, else `null`.
+ */
+
+/**
+ * @typedef {Comparison|{kind: string, terms: Predicate[]}|{kind: string, term: Predicate}} Predicate A comparison,
+ *     an `and` / `or` of terms, or a `not` of one term.
+ */
+
+/**
+ * @typedef {Object} Effect One effect of a THEN or ELSE branch; `kind` is one of `EFFECT`.
+ * @property {string} kind
+ * @property {Operand} [operand] Every kind but `note`.
+ * @property {string} [requirement] `require`: `R` or `O`.
+ * @property {string} [operator] `restrict`: one of `OPERATOR`.
+ * @property {string[]} [values] `restrict`.
+ * @property {ListColumn|null} [set] `restrict`.
+ * @property {Cardinality} [cardinality] `cardinality`.
+ * @property {string} [text] `note`: prose that cannot be checked.
+ */
+
+/**
+ * @typedef {Object} Branch A THEN or ELSE branch: it holds when one of its alternatives holds in full.
+ * @property {Effect[][]} alternatives One or more, each a list of effects joined by AND.
+ */
+
+/**
+ * @typedef {Object} Condition A condition in the formal language (design record §6).
+ * @property {ConditionPath|null} scope The `FOR EACH` path, or `null` for the default repetition (§6.6).
+ * @property {Predicate} predicate
+ * @property {Branch} then
+ * @property {Branch|null} otherwise The ELSE branch, if any.
  */
 
 /**
@@ -121,6 +183,8 @@
  * @property {string|null} version
  * @property {Message[]} messages
  * @property {ConditionText[]} conditions
+ * @property {import( "#condition-binding" ).ConditionBinding[]} conditionBindings One per element naming a condition that
+ *     could be read.
  * @property {DictionaryEntry[]} dictionary
  * @property {ChangeVersion[]} changeNotes Oldest first.
  */
