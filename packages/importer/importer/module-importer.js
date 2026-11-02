@@ -127,7 +127,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     if ( conditionsSheet ) {
         anomalies.push( ...undefinedConditions( messages, conditions.conditions ) );
     }
-    const language = importConditions( conditions.conditions, messages );
+    const language = importConditions( conditions.conditions, messages,
+        options.catalogue ? { blueprints: options.catalogue.blueprints, bindings: blueprints.bindings } : undefined );
     anomalies.push( ...language.anomalies );
 
     // Not every module has a dictionary, so its absence is not an anomaly.
