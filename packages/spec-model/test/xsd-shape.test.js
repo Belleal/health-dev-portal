@@ -21,7 +21,7 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { CHARSET_PATTERNS, messageShape, typeNameOf, valueTypeOf } = require( "@health-dev-portal/spec-model/xsd-shape" );
+const { CHARSET_PATTERNS, fitsValueType, messageShape, typeNameOf, valueTypeOf } = require( "@health-dev-portal/spec-model/xsd-shape" );
 const { elementAt, prescriptionMessage } = require( "./support/messages" );
 
 const LISTS = new Map( [ [ "CL007", { id: "CL007", keyType: "string" } ], [ "CL009", { id: "CL009", keyType: "integer" } ],
@@ -86,6 +86,19 @@ describe( "valueTypeOf", () => {
             type( "string" ) );
     } );
 
+    it( "tells whether a value fits a value type", () => {
+        const cases = [
+            [ "4", type( "int" ), true ], [ "NHIS", type( "int" ), false ], [ "-12", type( "int" ), true ], [ "2147483648", type( "int" ), false ],
+            [ "0", type( "positiveInteger" ), false ], [ "7", type( "positiveInteger" ), true ], [ "0", type( "unsignedInt" ), true ],
+            [ "1.5", type( "decimal" ), true ], [ "1,5", type( "decimal" ), false ], [ "true", type( "boolean" ), true ], [ "да", type( "boolean" ), false ],
+            [ "2026-01-02", type( "date" ), true ], [ "02.01.2026", type( "date" ), false ], [ "2026-01-02T03:04:05", type( "dateTime" ), true ],
+            [ "P001", type( "string", { minLength: 4, maxLength: 4, patterns: [ CHARSET_PATTERNS.an ] } ), true ],
+            [ "Р001", type( "string", { patterns: [ CHARSET_PATTERNS.an ] } ), false ], [ "Русе", type( "string", { patterns: [ CHARSET_PATTERNS.a ] } ), true ],
+            [ "12", type( "string", { minLength: 3 } ), false ], [ "5", type( "int", { minInclusive: "1", maxInclusive: "4" } ), false ]
+        ];
+        assert.deepEqual( cases.map( ( [ value, valueType ] ) => fitsValueType( value, valueType ) ), cases.map( ( [ , , fits ] ) => fits ) );
+    } );
+
     it( "copies NHIS-Commons 1.13.1's character classes verbatim", () => {
         assert.deepEqual( CHARSET_PATTERNS, { n: "[0-9]+", an: "[a-zA-Z0-9\\- ]+", a: "[a-zа-яA-ZА-Я\\- ]+" } );
         assert.ok( Object.isFrozen( CHARSET_PATTERNS ) );
@@ -130,6 +143,16 @@ describe( "messageShape", () => {
         assert.deepEqual( find( shape, "header/messageType" ).attributes[ 0 ].fixed, "P001" );
         const signature = find( shape, "Signature" );
         assert.deepEqual( [ signature.kind, signature.type, signature.children, signature.attributes ], [ "signature", null, [], [] ] );
+    } );
+
+    // e-Immunization 1.2.2's I006 fixes its senderId to "NHIS" while giving it the integer list CL018: written as fixed,
+    // the XSD failed to compile. The type wins, and linking reports the value (fixed-value-not-a-key).
+    it( "writes no fixed value its own type would refuse", () => {
+        const message = { code: "I006", elements: [ row( "header", "group", { children: [
+            row( "header/senderId@value", "field", { dataType: "String", codeList: "CL018", fixedValue: "NHIS" } ),
+            row( "header/sender@value", "field", { dataType: "Codeable Concept", codeList: "CL018", fixedValue: "4" } ) ] } ) ] };
+        const shape = messageShape( message, LISTS );
+        assert.deepEqual( [ find( shape, "header/senderId" ).attributes[ 0 ].fixed, find( shape, "header/sender" ).attributes[ 0 ].fixed ], [ null, "4" ] );
     } );
 
     it( "documents an element by its description in each language it has", () => {

@@ -411,8 +411,13 @@ against, so any kept version's XSDs can be generated again.
     or a CL035 key, so it is a string.
   - Variants with tags of their own (`valueQuantity`, `valueCode`, `valueString`) are separate optional elements,
     like the members of a choice. The conditions say which one applies.
-- **Fixed values** become `fixed` on their attribute (`messageType` is `P001` in P001). **Default values** are
-  documentation only: an XSD cannot supply an absent element, and several defaults are not literals.
+- **Fixed values** become `fixed` on their attribute (`messageType` is `P001` in P001).
+  - A fixed value that its own type refuses is not written, since the XSD would not compile. The import reports it as
+    a value that is no key of its list.
+  - One of the 242 coded fixed values in the production workbooks is such a value. I006's `senderId` names CL018,
+    whose keys are integers, and is fixed to `NHIS` (HEL-25).
+- **Default values** are documentation only: an XSD cannot supply an absent element, and several defaults are not
+  literals.
 - **Value types** come from the workbook's "Data types" column:
 
   | Data type | XSD |
@@ -449,8 +454,12 @@ against, so any kept version's XSDs can be generated again.
   - An element's documentation is the workbook's description, in each language it has, marked with `xml:lang`.
   - A coded value's documentation names its list: "Code list CL035."
 
-Each file's `version` attribute is the version of the module it comes from. A withdrawn message (§4.2) gets no XSD.
-There is no XSD for the nomenclatures.
+Each file's `version` attribute is the version of the module it comes from.
+- A withdrawn message (§4.2) gets no XSD.
+- A message whose tree repeats an identity cannot have one: two definitions of one type would not compile, and its
+  import blocks anyway. In e-Examination 1.3.10, X003, X006, X009 and X013 do so (HEL-19). The other 172 production
+  messages that are not withdrawn all compile in `xmllint`.
+- There is no XSD for the nomenclatures.
 
 ---
 

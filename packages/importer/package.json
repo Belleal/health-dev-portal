@@ -57,5 +57,8 @@
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""
+    },
+    "devDependencies": {
+        "xmllint-wasm": "5.3.0"
     }
 }

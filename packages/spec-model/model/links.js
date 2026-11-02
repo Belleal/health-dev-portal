@@ -56,6 +56,9 @@ module.exports.linkModule = ( module, targets ) => {
                 anomalies.push( createAnomaly( "unknown-code-list", node.source, details( node.codeList ) ) );
             } else if ( list.status === CODE_LIST_STATUS.REMOVED ) {
                 anomalies.push( createAnomaly( "removed-code-list", node.source, details( node.codeList ) ) );
+            } else if ( node.fixedValue && list.entries.length && !list.entries.some( ( entry ) => entry.key === node.fixedValue ) ) {
+                // A generated XSD types the value by the list's keys, so it cannot fix it to a non-key (design record §4.10).
+                anomalies.push( createAnomaly( "fixed-value-not-a-key", node.source, { ...details( node.codeList ), value: node.fixedValue } ) );
             }
         }
         if ( rules ) {

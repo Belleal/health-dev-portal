@@ -101,6 +101,53 @@ module.exports.valueTypeOf = ( element, codeLists ) => {
     return value;
 };
 
+// The lexical forms of the built-ins a generated XSD uses, and the integer ranges xmllint holds them to.
+const LEXICAL = Object.freeze( {
+    int: /^[+-]?\d+$/,
+    positiveInteger: /^\+?\d+$/,
+    unsignedInt: /^\+?\d+$/,
+    decimal: /^[+-]?(\d+(\.\d*)?|\.\d+)$/,
+    boolean: /^(true|false|1|0)$/,
+    date: /^-?\d{4,}-\d{2}-\d{2}(Z|[+-]\d{2}:\d{2})?$/,
+    dateTime: /^-?\d{4,}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/
+} );
+const RANGES = Object.freeze( { int: [ -2147483648, 2147483647 ], positiveInteger: [ 1, Infinity ], unsignedInt: [ 0, 4294967295 ] } );
+
+/**
+ * Whether a value is valid for a value type: its base's lexical form and range, its lengths, every pattern, its bounds
+ * and its enumeration. The generator writes no fixed value its own type would refuse — an XSD with one does not
+ * compile — and the synthetic messages pick their values by it. Patterns are read as JavaScript regular expressions over
+ * the whole value, which the NHIS patterns are written as.
+ *
+ * @method
+ * @param {string} value
+ * @param {import( "#definitions" ).ValueType} valueType
+ * @returns {boolean}
+ * @public
+ */
+module.exports.fitsValueType = ( value, valueType ) => {
+    const lexical = LEXICAL[ valueType.base ];
+    if ( lexical && !lexical.test( value ) ) {
+        return false;
+    }
+    const range = RANGES[ valueType.base ];
+    if ( range && ( Number( value ) < range[ 0 ] || Number( value ) > range[ 1 ] ) ) {
+        return false;
+    }
+    const length = Array.from( value ).length;
+    if ( ( valueType.minLength !== null && length < valueType.minLength ) || ( valueType.maxLength !== null && length > valueType.maxLength ) ) {
+        return false;
+    }
+    if ( !valueType.patterns.every( ( pattern ) => new RegExp( `^(?:${ pattern })$`, "u" ).test( value ) ) ) {
+        return false;
+    }
+    if ( ( valueType.minInclusive !== null && Number( value ) < Number( valueType.minInclusive ) )
+        || ( valueType.maxInclusive !== null && Number( value ) > Number( valueType.maxInclusive ) ) ) {
+        return false;
+    }
+    return valueType.enumeration.length === 0 || valueType.enumeration.includes( value );
+};
+
 // What the writer can write and the reader reads back: no surrounding space, and line ends as XML normalises them.
 const text = ( value ) => {
     const normalised = ( value || "" ).replace( /\r\n?/g, "\n" ).trim();
@@ -121,8 +168,13 @@ const occurrences = ( element ) => element.cardinality
 const codedNote = ( element ) => ( element.codeList ? `Code list ${ element.codeList }.` : null );
 
 function attributeOf( element, codeLists, name, required ) {
-    return { name: name, required: required, value: module.exports.valueTypeOf( element, codeLists ), fixed: element.fixedValue ?? null,
-        documentation: codedNote( element ) };
+    const value = module.exports.valueTypeOf( element, codeLists );
+    // A fixed value the type refuses would make the XSD fail to compile (I006's senderId, fixed to "NHIS" on the integer
+    // list CL018). The type wins; linking reports the value as fixed-value-not-a-key.
+    const fixed = element.fixedValue !== null && element.fixedValue !== undefined && module.exports.fitsValueType( element.fixedValue, value )
+        ? element.fixedValue
+        : null;
+    return { name: name, required: required, value: value, fixed: fixed, documentation: codedNote( element ) };
 }
 
 // A field's attributes: its value, always required as in every published field type, then each attribute row under it,
