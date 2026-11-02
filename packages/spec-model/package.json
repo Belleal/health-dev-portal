@@ -23,7 +23,8 @@
         "./key-type": "./model/key-type.js",
         "./kinds": "./model/kinds.js",
         "./links": "./model/links.js",
-        "./validation": "./model/validation.js"
+        "./validation": "./model/validation.js",
+        "./xsd-shape": "./model/xsd-shape.js"
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
@@ -37,7 +38,8 @@
         "#identity": "./model/identity.js",
         "#key-type": "./model/key-type.js",
         "#kinds": "./model/kinds.js",
-        "#links": "./model/links.js"
+        "#links": "./model/links.js",
+        "#xsd-shape": "./model/xsd-shape.js"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""
