@@ -86,9 +86,9 @@ release approval, the go-live switch and the environment status form (§7, §8.7
 | Versions kept | Development, staging, production, **previous production** (until its expiry date); retired versions keep only their changelog | The full changelog from the first version is kept |
 | Version numbers | The spec version is the only version that matters; the workbook's "Release" column is ignored; `/vN/` is an endpoint space | — |
 | Conditions | A formal, executable language (§6); business rules later in the same engine | Rejected: conditions as text only |
-| XSDs | Generated; type, element and attribute names, structure, restrictions and documentation reproduced exactly where the type exists today; compared structurally, not byte for byte | The `version` attribute becomes the spec version of the file's source |
+| XSDs | Generated: one self-contained file per message and version, holding only what that version specifies — no shared, nested or inherited types (Boris, 2026-11-02). Element and attribute names, their order and the namespace stay as on the wire today; code lists are not enumerated (§4.10) | Shared and inherited types caused trouble in vendors' frameworks, and today's shared types accept fields a message does not list (§5.8). Vendors regenerate from staging during the notice period. Rejected: reproducing today's types exactly |
 | `/api/v1/` | Obsolete: left frozen and marked obsolete; never redirected | Vendors' code points at it |
-| Common schema | Its own spec with its own versions and approvals | A shared-type change appears in the changelog of every module using it |
+| Common schema | Internal **blueprints** of the business objects — patient, practitioner, address, diagnosis — never published (Boris, 2026-11-02; §4.4) | They existed only as the XSDs' shared types. A change a vendor sees is a change to a module's messages, in that module's changelog. Rejected: a public common-schema spec with its own versions |
 | Releases | Approved by the solution architect from day one; go-live switched and announced **manually** | No automation for now |
 | Staging releases | Announced; no notice period. Production: notice period + announcement | — |
 | Message tester | Runs in the browser; the message is never sent | Messages may carry patient data |
@@ -171,7 +171,9 @@ A **spec** is anything with its own version line:
 | `module` | One per module — e-Prescription, e-Referral, … : messages and their elements |
 | `rules` | Business rules (`RL…`) |
 | `nomenclatures` | Code lists (`CL…`) |
-| `common-schema` | The shared type library behind `NHIS-Fields`, `NHIS-Entities`, `NHIS-Commons` |
+
+The shared type library behind today's `NHIS-Fields`, `NHIS-Entities` and `NHIS-Commons` is not a spec: its business
+objects are kept as internal blueprints, with no version line of their own (§4.4).
 
 A spec has at most one version in each **slot**: `development`, `staging` (the public test environment), `production`
 and `previous-production`. A version records its staging date, its production date, the notice period and
@@ -199,18 +201,78 @@ Each message has a tree of elements. An element has:
 - references to rules, conditions and a code list;
 - its XML tag and attribute, and its order;
 - descriptions in both languages;
-- its **binding to a common-schema type**.
+- its **blueprint**, when it carries a business object such as a patient (§4.4).
 
 **Identity across versions** is the tag path plus the attribute, e.g.
-`contents/prescription/group/medication/medicationCode@name`. Polymorphic variants share their tag, so each variant
-**and every identity under it** carries the variant's ordinal: `…/doseQuantityCode@value#1`, `…/doseQuantityCode@name#1`.
+`contents/prescription/group/medication/medicationCode@name`. Polymorphic variants usually share their tag, so each
+variant **and every identity under it** carries the variant's ordinal: `…/doseQuantityCode@value#1`,
+`…/doseQuantityCode@name#1`. Some variants have tags of their own (`valueQuantity`, `valueCode`, `valueString`), and
+they carry the ordinal all the same.
 Comparison and changelog generation rely on it; the studio preserves it when an element is edited.
 
-### 4.4 Common-schema types
+### 4.4 Blueprints
 
-Exact name (`lrnBase`), the schema file it belongs to, restrictions and documentation. Many elements in many modules
-share one type, so a type change shows up in every module that uses it. A new field gets a type name by the existing
-convention (`<tag>Base`), which an editor can override.
+A **blueprint** is a business object that many messages carry, such as a patient, a practitioner, an address or a
+diagnosis. Blueprints live in the model. They are never published: no generated XSD refers to one (§4.10), and they
+have no version line of their own (Boris, 2026-11-02).
+
+**One object, many types.** A blueprint is one business object, not one XSD type.
+- Today's variants of an object fold into one blueprint **by derivation**. A type that extends another, directly or
+  through a chain, is the object its chain starts from in `NHIS-Entities`:
+  - `patient`, `patientExtended` and the message-local `patientP001` (which extends it) are all the Patient;
+  - `medicalPractitioner`, `…WithName` and `…WithAccompanying…` all extend `medicalPractitionerSimple`, the
+    Practitioner.
+
+  Measured on the published set (2026-11-02), `NHIS-Entities`' 24 types make **18 blueprints**, and five message-local
+  types fold in: `patientP001`, `patientP004`, `patientP011`, `patientExtendedWithID` and `procedureR010`. Folding by
+  name stem as well was considered; it adds nothing on this set and is not done.
+- The workbooks name blueprints where they name objects. 185 group rows in six modules give the object in their "Data
+  types" cell: Diagnosis, Practitioner, Patient, Address, Diagnostic Report, and so on, 32 names. The other 163 group
+  rows with a value there hold the placeholder `↸`. e-Prescription and e-Immunization name none.
+- **A name matches a blueprint** when its words, with look-alikes folded and case ignored, appear in a row among the
+  words of one of the blueprint's types: Practitioner matches `medicalPractitionerSimple`, Diagnosis
+  `diagnosisBasic`, Address `addressBase`. A name two blueprints match is matched by neither.
+- `NHIS-Fields` supplies the constraints of fields, not blueprints.
+
+**Binding.** An element is bound to a blueprint by the first of these that applies:
+1. its own "Data types" name, with look-alikes folded (`Аccommodation` starts with a Cyrillic А);
+2. the type the published XSD of its message gives it, through its derivation;
+3. the same tag path bound in another message of its module, when those messages agree.
+
+Measured on the eight production workbooks: 108 group elements bind by name, 104 by published type and 34 by a
+sibling message.
+- **Reported:** a workbook name whose blueprint differs from the one the element's type or a sibling gives. None
+  differs today.
+- **Not reported:** a name no blueprint matches. 77 group rows name such objects, among them Referral, Examination and
+  Sick Leave, which belong to one module's messages and have no shared type. Their elements stay unbound, like
+  `header`, `contents` or a message's own `prescription`. Reporting each would put 77 warnings about sound rows on
+  the data-quality page.
+
+**A reference for identity, not for constraints.** The published XSDs teach which objects exist and which fields belong
+to them. They are not the authority on a field's constraint: the workbooks are (§2), and the 2024 XSDs are stale. So
+**consistency is checked between messages.** The same field of the same blueprint, with a different data type or
+constraint in two messages of one module version, is a warning. Without this, a patient's identifier could be 12
+characters in one message and 20 in another, and no report would say so. Differences from the 2024 XSDs belong to the
+drift report (§5.5).
+
+Measured on the production workbooks, five fields differ today (HEL-24):
+
+| Module | Field | Differs |
+|---|---|---|
+| Общи медицински услуги | address `line` | `max=2000` in C005, `max=255` in C007, C009, C041, C047 |
+| e-Referral | diagnosis `note` | `max=4000`, but `max=2000` on two of R010's diagnoses |
+| e-Referral | practitioner `pmi` | `max=10` in five messages, `min=10, max=10` in R005, R010, R017 |
+| e-Referral | practitioner `pmiDeputy` | as `pmi`, in R005 and R010 |
+| e-Immunization | address `line` | `max=2000` in I001, I007, `max=255` in I004 |
+
+A field inside a nested object, such as the address in a patient, is the nested object's, and is compared there.
+
+**What they are for:** consistency as above; conditions, since a path that starts with an entity's name
+(`'patient.…'`) resolves through them (§6.2); and reading, since the portal can say "this is a patient" and link every
+message that carries one.
+
+**Subsets.** A message lists only the blueprint's fields it uses. The rest are not part of that message, and the
+generated XSD does not have them, although today's shared types do (§5.8).
 
 ### 4.5 Conditions
 
@@ -224,6 +286,22 @@ languages and `Since` / `Valid Until` — which hold **nomenclature versions** (
 (e.g. a FHIR code system), and whether an external register maintains the list (CL009 from НСЦРЛП, CL011 ICD). The
 workbook's index sheet "Номенклатури" adds a status ("В УПОТРЕБА"), a "dynamic" flag and a visibility column per
 list. CL009 and CL011 are imported once; how they are maintained afterwards is decided later.
+
+**Key type.** A list's keys are `integer` when the list has entries and every key is a whole number from 0 to
+2,147,483,647 (the range of `xs:int`) written without a leading zero, and `string` otherwise. A list without entries
+is therefore `string`. The type is inferred on import and kept with the list, and the XSDs type a coded value by it
+(§4.10). A version that would change a list's key type is reported, since every XSD using the list changes with it.
+
+Measured on 1.5.33 (2026-11-02): 122 of the 182 lists are `integer` and 60 are `string`. Five of the 60 have no
+entries; they are removed or reserved. Over the 177 lists with entries:
+
+| Key type | Lists | Examples |
+|---|---|---|
+| `integer` | 122 | CL001 `1`, `2`, `3` |
+| `string`: codes | 42 | CL007 `T1`, CL011 `A00.1` |
+| `string`: digits whose leading zeros matter | 7 | CL015 `01`, where `01` is not `1` |
+| `string`: dotted numbers | 5 | CL134 `01.01` |
+| `string`: other | 1 | |
 
 Measured on nomenclatures 1.5.33 (2026-10-19):
 
@@ -288,9 +366,8 @@ Historical workbook notes are imported as text entries under their versions.
 
 ### 4.8 References between specs
 
-References resolve **within the same slot**: a module's staging version reads the staging nomenclatures, rules and
-common schema. A release records exactly which versions it resolved against, so a frozen version never changes
-meaning.
+References resolve **within the same slot**: a module's staging version reads the staging nomenclatures and rules. A
+release records exactly which versions it resolved against, so a frozen version never changes meaning.
 
 ### 4.9 Text
 
@@ -299,11 +376,81 @@ with the other language.
 
 ### 4.10 XSD generation
 
-The XSD set is generated **per slot, from all specs together**: `NHIS-Fields.xsd`, `NHIS-Entities.xsd` and
-`NHIS-Commons.xsd` from the common schema, `NHIS-Nomenclatures.xsd` from the code lists (code lists are enforced in
-XSD: `prescriptionTypeBase` takes `nhis:CL007`), and one file per message from its module. Each file's `version`
-attribute is the version of the spec it comes from. Each `include` points to the **fixed** address of the exact
-common-schema version the release resolved against (§7.3).
+Each message of a module version gets one **self-contained** XSD: exactly what that version's workbook specifies, and
+nothing else (Boris, 2026-11-02). Generation is a function of one module version and the nomenclatures it resolved
+against, so any kept version's XSDs can be generated again.
+
+- **No shared, nested or inherited types.**
+  - No `xs:include` and no `xs:extension`.
+  - Each group and each field has a named type, defined once at the top level of the file.
+  - **Type names are stable across versions.** A name is derived from the element's tag path in the message, never
+    from a counter. So adding an element never renames another element's type, and a vendor's generated classes
+    change only where the message did.
+    - The spelling: each tag of the path below `message`, capitalised, then joined. So
+      `contents/prescription/lrn` has the type `ContentsPrescriptionLrn`, and the root's type is `Message`.
+    - Two paths could in principle spell one name (`a/bC` and `aB/c`). Generation then stops and names both. None of
+      the 5,806 tag paths of the 186 production messages does; the longest name has 84 characters.
+  - The one import is W3C's `xmldsig-core-schema.xsd`, for `Signature`. A message's `Signature` row becomes a
+    reference to `ds:Signature`. The portal serves the W3C file beside each XSD set, as his.bg does at `/api/v1/`.
+- **No `xs:choice`.** The workbook expresses a choice through conditions (R001's laboratory, consultation, …). So
+  the XSD gives each element its own cardinality, and the conditions enforce the choice (§6).
+- **The wire stays the same.** Element and attribute names, their order and the namespace `https://www.his.bg` are
+  those of today's messages. A message validates as before, except where the workbook really differs from the old
+  XSD.
+- **Code lists are not enumerated.**
+  - Lists change with time, and they are large: messages use 121 lists with 55,090 keys, 39,005 of them in CL011.
+  - An enumeration would tie every message to one nomenclatures version.
+  - A code generator turns an enumeration into an `enum`, so a new code would break vendors' compiled code.
+
+  Instead, a coded value is typed by its list's key type (§4.6), and its documentation names the list. An `integer`
+  list types it `xs:int`, since the largest integer key, CL135's 11,210,200, fits well within it; a `string` list
+  types it `xs:string`. Whether a value is in the list is checked by the portal's tester and by NHIS.
+- **Polymorphic elements.**
+  - Variants that share a tag become one element. Its value takes the loosest of the variants' types: their common
+    type when they all have the same one, else `xs:string` with no restriction. `doseQuantityCode` is a UCUM string
+    or a CL035 key, so it is a string.
+  - Variants with tags of their own (`valueQuantity`, `valueCode`, `valueString`) are separate optional elements,
+    like the members of a choice. The conditions say which one applies.
+- **Fixed values** become `fixed` on their attribute (`messageType` is `P001` in P001). **Default values** are
+  documentation only: an XSD cannot supply an absent element, and several defaults are not literals.
+- **Value types** come from the workbook's "Data types" column:
+
+  | Data type | XSD |
+  |---|---|
+  | String | `xs:string` |
+  | Codeable Concept, or any type with a code list | the list's key type: `xs:int` or `xs:string` |
+  | Date and Time | `xs:dateTime` |
+  | Date | `xs:date` |
+  | Boolean | `xs:boolean` |
+  | Decimal | `xs:decimal` |
+  | Positive Int | `xs:positiveInteger` |
+  | Unsigned Int | `xs:unsignedInt` |
+
+  A type the table does not name is `xs:string`, and the import has already reported the row.
+- **Restrictions** come from the workbook's structured constraint (§4.3).
+  - `max=36, chars=an` becomes `maxLength 36` plus the `an` pattern.
+  - The character classes take today's `NHIS-Commons` 1.13.1 patterns verbatim:
+    - `n` is `numericString`'s `[0-9]+`;
+    - `an` is `alphanumericString`'s `[a-zA-Z0-9\- ]+`;
+    - `a` is `alphaString`'s `[a-zа-яA-ZА-Я\- ]+`.
+
+    `ans` has no definition there and adds no pattern.
+  - On a number, the bounds are `minInclusive` and `maxInclusive`.
+  - A constraint the importer could not read adds nothing, since the import has already reported it.
+
+  Today's XSDs already enforce these classes on most fields. In e-Dental 1.0.5, 93 of the 101 fields with a class
+  have the pattern, so the drift report lists the other eight.
+- **Attributes.** A field's `value` is required, as in every published field type. Every other attribute (`name`,
+  `nhifCode`) is required when its row is `R`, and optional otherwise.
+- **Each message's header** has the fields its own rows list. There is no shared header.
+- **Only the attributes the workbook lists.** Today every field type carries an optional `dataType` attribute. No
+  workbook lists it and none of the 93 published samples uses it, so it is dropped, and the changelog says so.
+- **Documentation.**
+  - An element's documentation is the workbook's description, in each language it has, marked with `xml:lang`.
+  - A coded value's documentation names its list: "Code list CL035."
+
+Each file's `version` attribute is the version of the module it comes from. A withdrawn message (§4.2) gets no XSD.
+There is no XSD for the nomenclatures.
 
 ---
 
@@ -331,7 +478,8 @@ e-Prescription 1.5.1 (28 sheets) and nomenclatures 1.5.33 (185 sheets):
 ### 5.2 Inputs
 
 For each spec, the workbook of each slot; the rules workbooks; the nomenclatures workbook; and **once**, the XSD set at
-`/api/v1/`, to learn the type name each element uses — the workbooks do not contain them.
+`/api/v1/`. The XSD set has two uses: to learn the blueprints (§4.4), which the workbooks do not contain, and as the
+baseline of the drift report (§5.5).
 
 ### 5.3 Stages
 
@@ -342,8 +490,8 @@ Five pure stages, each tested on its own:
    "END of" rows.
 3. **Interpret** — cardinality and R/C/O; constraint text into parts; references collected; conditions parsed into the
    language of §6, their paths resolved to elements.
-4. **Link** — code lists against the same slot's nomenclatures, rules against the rules spec, XSD type names from the
-   imported schemas. Linking also checks each rule's error code against CL999. A reference to a removed list or a
+4. **Link** — code lists against the same slot's nomenclatures, rules against the rules spec, elements to their
+   blueprints (§4.4). Linking also checks each rule's error code against CL999. A reference to a removed list or a
    withdrawn rule is a warning: the target exists but should no longer be used.
 5. **Report** — every anomaly with sheet, row and cell, at one of two levels:
    - **blocking** — nothing is written; the source is fixed and re-imported. Examples:
@@ -365,10 +513,47 @@ Five pure stages, each tested on its own:
 
 ### 5.5 Acceptance: the round trip
 
-Import workbook and XSDs → generate XSDs from the model → compare structurally with the originals. Because the
-published XSDs are stale, the result is a **drift report**, not equality: each difference is an importer defect or real
-drift between workbook and XSD, and the report says which side has what. Wherever a type exists today, the generated
-XSD keeps its exact name and shape.
+Import a workbook, generate its XSDs, and compare **what they accept** with what the published XSD of the same
+message accepts:
+- the tags and their order;
+- cardinality;
+- attributes, with their value types and restrictions.
+
+How a schema is organised, its type names and what it shares, is not compared (§4.10). Neither is `dataType`, which
+§4.10 drops.
+
+- **Like for like.** Two published sets are the exact version of a workbook his.bg still serves (§5.8): e-Dental
+  1.0.5 and e-Hospitalization 1.0.6. XSDs generated from those workbooks must accept what the published ones accept,
+  except for the differences the report lists and explains. These are the generator's acceptance tests. Five
+  e-Hospitalization 1.0.6 messages repeat one identifier row (a defect 1.1.1 no longer has), so their import blocks,
+  and the comparison covers the other twelve.
+- **Across versions.** Everywhere else the published XSD is older than the workbook; e-Prescription's is six versions
+  older. Here the report also shows real drift. A difference involving a tag that the workbook's change notes name,
+  in a version after the XSD's, is attributed to that change. A difference no note explains is flagged for review.
+- **A real XSD validator**, libxml2's `xmllint` compiled to WebAssembly and used only in tests, checks two things:
+  - every generated file is a valid schema;
+  - for each like-for-like message, a synthetic message built from the model is accepted by both the published and
+    the generated XSD. The synthetic message has every element once, each with a value of its type. Where the
+    published XSD makes a choice, it has only one of the alternatives.
+
+  The published `…-Simplified.xml` samples cannot serve here. They are templates whose values are placeholders
+  (`[string]`, `[code]`, `[dateTime]`), and no XSD accepts those (§5.8).
+
+The result is a **drift report**, not equality. The report gives each difference a cause, where it can establish one
+by itself:
+- **shared type:** a field today's shared type allows and the message does not list;
+- **choice:** a choice today's XSD makes and the workbook leaves to conditions;
+- **deliberate:** what §4.10 changes on purpose, such as an integer code typed `xs:int` or a fixed value;
+- **change note:** across versions, a tag the workbook's change notes name in a version after the XSD's;
+- **unexplained:** anything else.
+
+A person reads every unexplained difference. Each is one of two things:
+- an importer or generator defect, fixed until none is left;
+- real drift between workbook and XSD, which resolves in the workbook's favour.
+
+For the two like-for-like pairs, the report is kept in the repository and the acceptance test compares against it.
+A change in what the generator produces then shows in review as a change to that file. For each difference, the
+report says which side has what.
 
 ### 5.6 Where it runs
 
@@ -436,6 +621,86 @@ The streaming reader, measured on nomenclatures 1.5.33:
   - importing the whole workbook into the model takes **1.7 s at a 303 MB peak**;
   - the full reader takes 751 MB.
 
+### 5.8 Measured: the published XSD set
+
+Measured on 2026-11-02 from `/api/v1/`, his.bg's uploads and the Internet Archive.
+
+**What is published:**
+- **117 XSDs** in the namespace `https://www.his.bg`:
+  - one per message of seven modules. Long-term care has none.
+  - `NHIS-Fields`, with 254 field types;
+  - `NHIS-Entities`, with 24 business objects;
+  - `NHIS-Commons` and `NHIS-Nomenclatures`.
+
+  A message XSD includes `NHIS-Entities`, which includes the rest in a chain. Some message types extend shared ones
+  (`patientP001` extends `patientExtended`). Some declare groups inline. Some make choices.
+- **107 sample messages** (`…-Simplified.xml`) are linked, and 14 of the links are dead (HEL-22). The samples are
+  templates: their values are placeholders such as `[string]` and `[dateTime]`.
+
+**Versions.** A module's files were regenerated together, so they carry the version they were cut at. The few that
+differ (D099, H099, P011) are messages that did not change. No module's XSDs are at its current production version:
+
+| Module | Published XSDs | Production workbook |
+|---|---|---|
+| e-Prescription | 1.3.2 | 1.5.1 |
+| e-Referral | 1.4.1 | 1.4.4 |
+| e-Dental | 1.0.5 | 1.0.7 |
+| e-Hospitalization | 1.0.6 | 1.1.1 |
+| e-Examination | 1.1.2 | 1.3.10 |
+| e-Immunization | 1.1.1 | 1.2.2 |
+| Общи медицински услуги | 1.0.8 and 1.1.1 | 1.2.2 |
+| shared files | 1.13.1 | — |
+| `NHIS-Nomenclatures` | 1.4.3 | 1.5.33 |
+
+**What survives.**
+- his.bg still serves 16 workbooks it no longer links: modules, nomenclatures and rules from 2024. The Internet
+  Archive's index finds them.
+- The archive also holds 283 versions of the `/api/v1/` files from 2021–2024. e-Prescription's stopped at 1.3.2 in
+  May 2022. The other modules' and the shared files' were last refreshed in 2024.
+- Two old workbooks are the exact version of today's XSDs: **e-Dental 1.0.5** and **e-Hospitalization 1.0.6**.
+
+**Like for like:** what the XSD accepts, against what the workbook of the same version specifies.
+
+| Pair | Identities in both | Only in the XSD | Cardinality differs | Code list differs |
+|---|---|---|---|---|
+| e-Dental 1.0.5 | 346 | 7 | 3 | 1 |
+| e-Hospitalization 1.0.6 | 606 | 30 | 15 | 0 |
+
+**Why they differ.**
+- **Shared types.** The workbook lists the fields a message uses; the shared type allows them all.
+  - Of e-Hospitalization's 30 XSD-only identities, 24 sit in shared types:
+    - 9 are `senderISName`, which the shared `header` allows in response messages;
+    - 4 each are in `addressBase`, `humanNameBase` and the patient's `various`;
+    - 2 are in `patient`, and 1 in `medicalPractitionerSimple`.
+  - Of its 15 cardinality differences, 8 sit in shared types, e.g. `diagnosisBasic.additionalCode` 0..1 against the
+    workbook's 0..*. Three are choices; four sit in the message's own types.
+- **Type names follow no single convention.** Only 87 of e-Dental's 346 typed identities are `<tag>Base`; `category`
+  is a `prescriptionTypeBase`, `subject` a `patient`.
+
+**Code lists are not enforced today.** 109 of the 110 `CLxxx` types are plain `xs:string`. Only CL999 lists values, 3
+of them.
+
+**Entity names in conditions.** The eight production workbooks have 194 unresolved condition paths that are not
+relative (plan 3). Measured with the blueprints and bindings of §4.4 and the rule of §6.2, **67 of them resolve**:
+
+| Entity | Paths | Modules |
+|---|---|---|
+| `practitioner` | 42 | six; the enclosing rule tells R010's requester and performer apart |
+| `address` | 13 | e-Referral 9, e-Hospitalization 4 |
+| `patient` | 12 | e-Prescription 6, e-Referral 6 |
+
+Some of these are in messages with no published XSD (P018, C047, C052, I007). They bind through the workbook's names
+or a sibling message.
+
+32 paths start with a blueprint's name and still resolve to nothing:
+- `diagnosticReport` 12 and `procedure` 6 are partial paths that land on a polymorphic variant with a tag of its own
+  (`…result.valueQuantity`, HEL-23);
+- `dispense` 12 skip a level the message has (`'dispense.medication.…'` without `group`), or are typos
+  (`'dispense. isPatientReceiver'`, HEL-20);
+- `address` 2, CDH04's `'address.ekatte'` in H002 and H003, name a field the address does not have.
+
+The unresolved paths drop from 194 to 127.
+
 ---
 
 ## 6. Conditions language
@@ -492,7 +757,21 @@ ELSE THIS.value IS null
     rest of the path starts; the first that holds it wins;
   - **partial** (`'medication.mkb'`): the one element of the message whose path ends so.
 - **Entity names:** a path starting with an entity's name rather than a tag (`'patient.…'`, `'practitioner.…'`)
-  resolves only once the XSD types are known (plan 4). Until then it is an unresolved path.
+  resolves through the blueprints (§4.4).
+  - **Which blueprint.** The entity's name matches a blueprint as a workbook's name does (§4.4): `'patient'` is the
+    Patient, and `'practitioner'` the Practitioner, whose XSD types are `medicalPractitioner…`. A camel-cased name
+    is split into its words first, so `'diagnosticReport'` is the Diagnostic Report.
+  - **When.** Only when the path does not already resolve as an absolute or partial path. No binding plan 3 makes
+    changes.
+  - **Which element.** The entity is the element of the naming element's message that is bound to that blueprint.
+    When there are several (R010's requester and performer), it is the one that encloses the naming element.
+  - **Then the rest.** The rest of the path must then name exactly one element under it. Anything else is an
+    unresolved path, as before.
+
+  67 production paths resolve this way: `'practitioner.…'` 42, `'address.…'` 13 and `'patient.…'` 12 (§5.8).
+- **Partial paths onto a polymorphic element.** These stay unresolved, as in plan 3. Examples are
+  `'diagnosticReport.result.valueQuantity'`, where the variant has a tag of its own, and a path that skips a level
+  the message has. Letting the binder accept a variant is its own change (HEL-23).
 
 ### 6.3 Predicates (IF)
 
@@ -733,8 +1012,10 @@ area uses the framework's application shell. Accessibility target WCAG 2.1 AA (E
 
 - **Runs in the browser; the message never leaves the vendor's machine.** It validates against the published model:
   structure, code lists (only those the message type uses are downloaded) and conditions.
-- **Equivalence with the XSDs is proven in CI**: a corpus of synthetic messages is validated by a real XSD validator
-  against the generated XSDs and by the model validator; the verdicts must agree.
+- **Equivalence with the XSDs is proven in CI.** A corpus of synthetic messages is validated by a real XSD validator
+  against the generated XSDs, and by the model validator. Their verdicts must agree on everything an XSD expresses:
+  structure, cardinality, value types and restrictions. Code-list membership and conditions are checked only by the
+  model (§4.10), so there the tester is stricter than the XSD.
 - The page states plainly: synthetic data only. Sending to the test environment comes later, when the network allows.
 
 ### 8.7 Environment status
@@ -810,7 +1091,7 @@ CI on GitHub Actions: lint, tests on SQLite and PostgreSQL, container build, Cod
 
 | Area | How |
 |---|---|
-| `spec-model` | Unit tests for parser and evaluator, plus generated random cases; the XSD round trip against the public `/api/v1/` XSDs and the public e-Prescription 1.5.1 workbook |
+| `spec-model` | Unit tests for parser and evaluator, plus generated random cases. The XSD round trip (§5.5): the like-for-like pairs e-Dental 1.0.5 and e-Hospitalization 1.0.6 against the public `/api/v1/` XSDs, checked by `xmllint` |
 | Importer | One synthetic workbook per anomaly class, built in code |
 | Data layer | The same suite on SQLite and PostgreSQL |
 | Tester | Model validator and a real XSD validator agree on a synthetic corpus |
@@ -865,3 +1146,6 @@ Space" may not be migratable); XLSX export.
 | S3-compatible service in the data centre | Operations |
 | Brand assets | Information Services |
 | Data defects in the current sources (HEL-2 … HEL-12) | Spec team |
+| Dead sample-message links on the specifications page (HEL-22) | his.bg |
+| One field of one business object constrained differently between messages (HEL-24) | Spec team |
+| Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |
