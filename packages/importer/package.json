@@ -43,12 +43,14 @@
         "#side-sheets": "./interpret/side-sheets.js",
         "#stream-reader": "./read/stream-reader.js",
         "#workbook-checks": "./importer/workbook-checks.js",
-        "#workbook-reader": "./read/workbook-reader.js"
+        "#workbook-reader": "./read/workbook-reader.js",
+        "#xsd-reader": "./read/xsd-reader.js"
     },
     "dependencies": {
         "@health-dev-portal/spec-model": "*",
         "exceljs": "4.4.0",
-        "jszip": "3.10.2"
+        "jszip": "3.10.2",
+        "saxes": "5.0.1"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

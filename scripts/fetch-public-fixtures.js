@@ -76,17 +76,44 @@ const FIXTURES = Object.freeze( [ {
     file: "eimmunization-1.2.2.xlsx",
     url: "https://his.bg/upload/618/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%98%D0%BC%D1%83%D0%BD%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.2.2.xlsx",
     sha256: "31a5c1a91aa814ce1c37ae56cac19e66dc9223a9409f0e11d8aa42d266a5ac76"
+}, {
+    file: "edental-1.0.5.xlsx",
+    // The exact version of e-Dental's published XSDs, so the generator's like-for-like acceptance test (design record
+    // §5.5, §5.8). his.bg no longer links it but still serves it; the Internet Archive's index found it.
+    url: "https://www.his.bg/upload/312/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%94%D0%B5%D0%BD%D1%82%D0%B0%D0%BB%D0%BD%D0%BE+%D0%BB%D0%B5%D1%87%D0%B5%D0%BD%D0%B8%D0%B5+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.0.5.xlsx",
+    sha256: "3ecfdc3c691fccc6f795fca3027a6283f26c881b0df65676c012c8d076e7f01c"
+}, {
+    file: "ehospitalization-1.0.6.xlsx",
+    // As e-Dental 1.0.5: the exact version of e-Hospitalization's published XSDs.
+    url: "https://www.his.bg/upload/261/%D0%9D%D0%97%D0%98%D0%A1+%D0%95-%D0%A5%D0%BE%D1%81%D0%BF%D0%B8%D1%82%D0%B0%D0%BB%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F+-+API+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+v1.0.6.xlsx",
+    sha256: "e09a49985f7d05ca5a68debf84896480e7353623ec49a3ba03baa8a70185e8a4"
 } ] );
+
+// The published XSD set at /api/v1/, read once for the blueprints and as the drift report's baseline (design record
+// §5.2). 118 files are too many to list here, so scripts/api-v1.sha256 pins each, measured on 2026-11-02.
+const API_V1 = Object.freeze( {
+    directory: "api-v1",
+    url: "https://www.his.bg/api/v1/",
+    manifest: path.resolve( __dirname, "api-v1.sha256" )
+} );
+
+const apiV1Fixtures = () => fs.readFileSync( API_V1.manifest, "utf8" ).split( "\n" ).filter( Boolean ).map( ( line ) => {
+    const [ sha256, file ] = line.split( " " );
+    return { file: `${ API_V1.directory }/${ file }`, url: `${ API_V1.url }${ file }`, sha256: sha256 };
+} );
 
 const DOWNLOAD_TIMEOUT_MS = 60000;
 
 const digest = ( buffer ) => crypto.createHash( "sha256" ).update( buffer ).digest( "hex" );
 
-async function fetchFixture( fixture ) {
+// Returns whether the file had to be downloaded, so the 118 files of the XSD set can be reported in one line.
+async function fetchFixture( fixture, { quiet = false } = {} ) {
     const target = path.join( DIRECTORY, fixture.file );
     if ( fs.existsSync( target ) && digest( fs.readFileSync( target ) ) === fixture.sha256 ) {
-        console.log( `${ fixture.file }: present` );
-        return;
+        if ( !quiet ) {
+            console.log( `${ fixture.file }: present` );
+        }
+        return false;
     }
     // One deadline for the request and the body together: a server sending slowly must fail the step, not hold it.
     const response = await fetch( fixture.url, { signal: AbortSignal.timeout( DOWNLOAD_TIMEOUT_MS ) } );
@@ -100,13 +127,20 @@ async function fetchFixture( fixture ) {
     }
     fs.writeFileSync( target, buffer );
     console.log( `${ fixture.file }: downloaded, ${ buffer.length } bytes` );
+    return true;
 }
 
 ( async () => {
-    fs.mkdirSync( DIRECTORY, { recursive: true } );
+    fs.mkdirSync( path.join( DIRECTORY, API_V1.directory ), { recursive: true } );
     for ( const fixture of FIXTURES ) {
         await fetchFixture( fixture );
     }
+    const set = apiV1Fixtures();
+    let present = 0;
+    for ( const fixture of set ) {
+        present += ( await fetchFixture( fixture, { quiet: true } ) ) ? 0 : 1;
+    }
+    console.log( `${ API_V1.directory }: ${ set.length } files, ${ present } of them present` );
 } )().catch( ( error ) => {
     console.error( error.message );
     process.exitCode = 1;

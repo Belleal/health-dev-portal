@@ -262,4 +262,50 @@
  * @property {Object} details
  */
 
+/**
+ * @typedef {Object} ValueType The simple type of an attribute value, as an XSD built-in and its facets (design record
+ *     §4.10). Through a chain of restrictions, patterns accumulate and every other facet takes the nearest definition.
+ * @property {string} base The built-in's local name: `string`, `int`, `decimal`, `date`, `dateTime`, `boolean`,
+ *     `positiveInteger`, `unsignedInt`, or another a published file uses.
+ * @property {number|null} minLength `xs:length` reads as equal `minLength` and `maxLength`.
+ * @property {number|null} maxLength
+ * @property {string[]} patterns Every one must match.
+ * @property {string|null} minInclusive
+ * @property {string|null} maxInclusive
+ * @property {string[]} enumeration
+ * @property {number|null} totalDigits
+ * @property {number|null} fractionDigits
+ */
+
+/**
+ * @typedef {Object} SchemaAttribute An attribute of a field in a schema shape.
+ * @property {string} name e.g. `value`, `name`, `nhifCode`.
+ * @property {boolean} required
+ * @property {ValueType} value
+ * @property {string|null} fixed
+ * @property {string|null} documentation A coded value's names its list: `Code list CL035.`
+ */
+
+/**
+ * @typedef {Object} SchemaOrigin Where a published particle comes from.
+ * @property {string} file The file whose type declared it.
+ * @property {string|null} choice `"<parent path>#<n>"` for the n-th `xs:choice` of its parent, counting from 1, when it
+ *     sits inside one.
+ */
+
+/**
+ * @typedef {Object} SchemaNode One element of a message as an XSD describes it (design record §5.5). A published and a
+ * generated XSD both reduce to it, so comparing them is comparing two trees.
+ * @property {string} tag
+ * @property {string} path The tag path below `message` (`contents/prescription/lrn`); the root's is `""`.
+ * @property {string} kind `group`, `field` or `signature`.
+ * @property {number} min
+ * @property {number|null} max `null` is unbounded.
+ * @property {string|null} type The type it is declared with; `null` for an inline type or the signature.
+ * @property {SchemaAttribute[]} attributes A field's; a group has none.
+ * @property {SchemaNode[]} children A group's, in order; a field has none.
+ * @property {LocalText|null} documentation
+ * @property {SchemaOrigin|null} origin A published node's; `null` on a generated one.
+ */
+
 module.exports = {};
