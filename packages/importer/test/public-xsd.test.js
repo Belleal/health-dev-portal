@@ -26,9 +26,21 @@ const fs = require( "node:fs" );
 const path = require( "node:path" );
 const { expandMessage, readXsdSet } = require( "#xsd-reader" );
 const { learnCatalogue } = require( "#blueprint-catalogue" );
+const { importSet } = require( "#set-importer" );
 
-const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public/api-v1" );
-const PRESENT = fs.existsSync( path.join( DIRECTORY, "NHIS-Entities.xsd" ) );
+const WORKBOOKS = path.resolve( __dirname, "../../../.fixtures/public" );
+const DIRECTORY = path.join( WORKBOOKS, "api-v1" );
+const MODULES = Object.freeze( {
+    "e-prescription": "eprescription-1.5.1.xlsx",
+    "common-services": "common-services-1.2.2.xlsx",
+    "e-referral": "ereferral-1.4.4.xlsx",
+    "e-dental": "edental-1.0.7.xlsx",
+    "e-examination": "eexamination-1.3.10.xlsx",
+    "e-hospitalization": "ehospitalization-1.1.1.xlsx",
+    "long-term-care": "longterm-care-1.0.4.xlsx",
+    "e-immunization": "eimmunization-1.2.2.xlsx"
+} );
+const PRESENT = [ path.join( DIRECTORY, "NHIS-Entities.xsd" ), ...Object.values( MODULES ).map( ( file ) => path.join( WORKBOOKS, file ) ) ].every( fs.existsSync );
 
 // In CI a missing fixture is a failure, never a skip: a skipped regression test looks exactly like a passing one.
 if ( !PRESENT && process.env.CI ) {
@@ -97,6 +109,36 @@ describe( "The published XSD set", { skip: PRESENT ? false : "run `npm run fixtu
 
         it( "is plain data: it survives JSON", () => {
             assert.deepEqual( JSON.parse( JSON.stringify( catalogue ) ), catalogue );
+        } );
+
+        describe( "bound to the eight production modules", () => {
+            let modules;
+            const ofType = ( result, type ) => result.anomalies.filter( ( anomaly ) => anomaly.type === type );
+
+            before( async () => {
+                modules = ( await importSet( { catalogue: catalogue, modules: Object.entries( MODULES )
+                    .map( ( [ spec, file ] ) => ( { spec: spec, source: path.join( WORKBOOKS, file ) } ) ) } ) ).modules;
+            } );
+
+            it( "binds 246 groups: 108 by name, 104 by type, 34 by sibling (design record §4.4)", () => {
+                const by = {};
+                modules.flatMap( ( result ) => result.version.blueprintBindings ).forEach( ( binding ) => {
+                    by[ binding.by ] = ( by[ binding.by ] || 0 ) + 1;
+                } );
+                assert.deepEqual( by, { name: 108, type: 104, sibling: 34 } );
+            } );
+
+            it( "reports no name that differs, and the five fields of HEL-24", () => {
+                assert.equal( modules.flatMap( ( result ) => ofType( result, "blueprint-name-differs" ) ).length, 0 );
+                assert.deepEqual( modules.flatMap( ( result ) => ofType( result, "blueprint-field-differs" )
+                    .map( ( anomaly ) => `${ result.version.spec } ${ anomaly.details.blueprint } ${ anomaly.details.field }` ) ), [
+                    "common-services addressBase line@value",
+                    "e-referral diagnosisBasic note@value",
+                    "e-referral medicalPractitionerSimple pmi@value",
+                    "e-referral medicalPractitionerSimple pmiDeputy@value",
+                    "e-immunization addressBase line@value"
+                ] );
+            } );
         } );
     } );
 } );

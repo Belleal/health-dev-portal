@@ -114,7 +114,10 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "unresolved-relative-path": { level: WARNING, text: "Condition {id} in {message}: '{path}' names no single element as seen from {element}, so the condition is not checked there." },
     "condition-type-mismatch": { level: WARNING, text: "Condition {id} in {message}: {operator} does not apply to {identity}, which is {dataType}." },
     "unknown-condition-value": { level: BLOCKING, text: "Condition {id}: '{value}' is not a key of {list}, the code list of {identity}." },
-    "unknown-list-column": { level: WARNING, text: "Condition {id}: {list} has no column \"{column}\"." }
+    "unknown-list-column": { level: WARNING, text: "Condition {id}: {list} has no column \"{column}\"." },
+    // Blueprints (design record §4.4)
+    "blueprint-name-differs": { level: WARNING, text: "{identity} in {message} is named \"{name}\", which is {named}, but its {by} makes it {bound}." },
+    "blueprint-field-differs": { level: WARNING, text: "{field} of {blueprint} differs between messages: {variants}." }
 } );
 
 /**

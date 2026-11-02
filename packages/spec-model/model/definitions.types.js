@@ -185,6 +185,8 @@
  * @property {ConditionText[]} conditions
  * @property {import( "#condition-binding" ).ConditionBinding[]} conditionBindings One per element naming a condition that
  *     could be read.
+ * @property {import( "#blueprints" ).BlueprintBinding[]} blueprintBindings The groups bound to blueprints; empty when the
+ *     import had no catalogue (§4.4).
  * @property {DictionaryEntry[]} dictionary
  * @property {ChangeVersion[]} changeNotes Oldest first.
  */

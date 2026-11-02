@@ -10,6 +10,7 @@
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
+        "./blueprints": "./model/blueprints.js",
         "./condition-binding": "./model/condition-binding.js",
         "./condition-checks": "./model/condition-checks.js",
         "./condition-parser": "./model/condition-parser.js",
@@ -26,6 +27,7 @@
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#blueprints": "./model/blueprints.js",
         "#condition-binding": "./model/condition-binding.js",
         "#condition-checks": "./model/condition-checks.js",
         "#condition-printer": "./model/condition-printer.js",
