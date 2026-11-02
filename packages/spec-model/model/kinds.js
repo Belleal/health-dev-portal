@@ -94,7 +94,8 @@ module.exports.ANOMALY_LEVEL = Object.freeze( {
 } );
 
 /**
- * The kinds of spec, each with its own version line (design record §4.1).
+ * The kinds of spec, each with its own version line (design record §4.1). The shared type library behind today's XSDs
+ * is none: its business objects are internal blueprints without a version line (§4.4).
  *
  * @readonly
  * @enum {string}
@@ -103,8 +104,19 @@ module.exports.ANOMALY_LEVEL = Object.freeze( {
 module.exports.SPEC_KIND = Object.freeze( {
     MODULE: "module",
     RULES: "rules",
-    NOMENCLATURES: "nomenclatures",
-    COMMON_SCHEMA: "common-schema"
+    NOMENCLATURES: "nomenclatures"
+} );
+
+/**
+ * The type of a code list's keys (design record §4.6), by which the XSDs type a coded value (§4.10).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.KEY_TYPE = Object.freeze( {
+    INTEGER: "integer",
+    STRING: "string"
 } );
 
 /**

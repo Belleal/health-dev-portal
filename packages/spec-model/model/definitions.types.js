@@ -215,6 +215,7 @@
  * @property {string|null} visibility
  * @property {string|null} remark The index sheet's note on the list.
  * @property {string[]} notes The note rows above the list's header, e.g. `Източник: НСЦРЛП`.
+ * @property {string} keyType One of `KEY_TYPE`: the type a generated XSD gives a value of this list (§4.6, §4.10).
  * @property {CodeListColumn[]} columns
  * @property {CodeListEntry[]} entries
  * @property {SourceRef} source The header row, or the index row of a removed list without a sheet.

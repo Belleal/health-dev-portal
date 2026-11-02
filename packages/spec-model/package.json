@@ -19,6 +19,7 @@
         "./evaluator": "./model/evaluator.js",
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
+        "./key-type": "./model/key-type.js",
         "./kinds": "./model/kinds.js",
         "./links": "./model/links.js",
         "./validation": "./model/validation.js"
@@ -32,6 +33,7 @@
         "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
+        "#key-type": "./model/key-type.js",
         "#kinds": "./model/kinds.js",
         "#links": "./model/links.js"
     },

@@ -64,6 +64,13 @@ describe( "Nomenclatures 1.5.33, the published workbook", { skip: PRESENT ? fals
         assert.equal( list( "CL011" ).entries.length, 39005 );
     } );
 
+    it( "types every list's keys (design record §4.6)", () => {
+        const lists = result.version.codeLists;
+        assert.deepEqual( [ lists.filter( ( candidate ) => candidate.keyType === "integer" ).length, lists.filter( ( candidate ) => candidate.keyType === "string" ).length ], [ 122, 60 ] );
+        assert.deepEqual( [ "CL001", "CL135", "CL007", "CL011", "CL015", "CL134", "CL122", "CL068" ].map( ( id ) => list( id ).keyType ),
+            [ "integer", "integer", "string", "string", "string", "string", "string", "string" ] );
+    } );
+
     it( "takes each list's status from the index, keeping CL068 though it has no sheet", () => {
         assert.deepEqual( countBy( result.version.codeLists, ( candidate ) => candidate.status ),
             { "in-use": 173, "removed": 3, "under-revision": 1, "reserved": 2, "in-development": 2, "incomplete": 1 } );
