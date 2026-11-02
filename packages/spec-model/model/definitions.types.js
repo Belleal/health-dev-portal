@@ -308,4 +308,18 @@
  * @property {SchemaOrigin|null} origin A published node's; `null` on a generated one.
  */
 
+/**
+ * @typedef {Object} Blueprint A business object many messages carry, such as a patient (design record §4.4). Internal:
+ *     never published, no version line.
+ * @property {string} key The NHIS-Entities type its types' derivation chains start from, e.g. `medicalPractitionerSimple`.
+ * @property {string[]} types Every type that folds into it, the key first.
+ */
+
+/**
+ * @typedef {Object} BlueprintCatalogue What the published XSD set teaches, learned once (design record §5.2). Plain data.
+ * @property {Blueprint[]} blueprints
+ * @property {Object<string, Object<string, string>>} published Per message code, then per group's tag path, the key of
+ *     the blueprint its published type folds into.
+ */
+
 module.exports = {};

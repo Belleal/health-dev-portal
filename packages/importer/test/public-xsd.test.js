@@ -25,6 +25,7 @@ const assert = require( "node:assert/strict" );
 const fs = require( "node:fs" );
 const path = require( "node:path" );
 const { expandMessage, readXsdSet } = require( "#xsd-reader" );
+const { learnCatalogue } = require( "#blueprint-catalogue" );
 
 const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public/api-v1" );
 const PRESENT = fs.existsSync( path.join( DIRECTORY, "NHIS-Entities.xsd" ) );
@@ -71,5 +72,31 @@ describe( "The published XSD set", { skip: PRESENT ? false : "run `npm run fixtu
         for ( const code of set.messages.keys() ) {
             assert.equal( expandMessage( set, code ).tag, "message", code );
         }
+    } );
+
+    describe( "its blueprints (design record §4.4)", () => {
+        let catalogue;
+
+        before( () => {
+            catalogue = learnCatalogue( set );
+        } );
+
+        it( "learns 18 blueprints from the published set", () => {
+            assert.equal( catalogue.blueprints.length, 18 );
+            const typesOf = ( key ) => catalogue.blueprints.find( ( blueprint ) => blueprint.key === key ).types;
+            assert.deepEqual( [ ...typesOf( "medicalPractitionerSimple" ) ].sort(), [ "medicalPractitioner", "medicalPractitionerSimple",
+                "medicalPractitionerWithAccompanying", "medicalPractitionerWithAccompanyingAndName", "medicalPractitionerWithName" ] );
+            assert.deepEqual( [ ...typesOf( "patient" ) ].sort(), [ "patient", "patientExtended", "patientExtendedWithID", "patientP001", "patientP004", "patientP011" ] );
+            assert.deepEqual( [ ...typesOf( "procedure" ) ].sort(), [ "procedure", "procedureR010" ] );
+            assert.deepEqual( [ ...typesOf( "diagnosisBasic" ) ].sort(), [ "diagnosisBasic", "diagnosisFull" ] );
+        } );
+
+        it( "binds 197 groups of the published messages", () => {
+            assert.equal( Object.values( catalogue.published ).reduce( ( sum, paths ) => sum + Object.keys( paths ).length, 0 ), 197 );
+        } );
+
+        it( "is plain data: it survives JSON", () => {
+            assert.deepEqual( JSON.parse( JSON.stringify( catalogue ) ), catalogue );
+        } );
     } );
 } );

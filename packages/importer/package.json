@@ -19,9 +19,11 @@
         "./report": "./report/format.js",
         "./rules": "./importer/rules-importer.js",
         "./set": "./importer/set-importer.js",
-        "./stream-reader": "./read/stream-reader.js"
+        "./stream-reader": "./read/stream-reader.js",
+        "./xsd": "./importer/xsd-importer.js"
     },
     "imports": {
+        "#blueprint-catalogue": "./interpret/blueprint-catalogue.js",
         "#cells": "./interpret/cells.js",
         "#change-notes": "./interpret/change-notes.js",
         "#code-list-sheet": "./interpret/code-list-sheet.js",
@@ -44,6 +46,7 @@
         "#stream-reader": "./read/stream-reader.js",
         "#workbook-checks": "./importer/workbook-checks.js",
         "#workbook-reader": "./read/workbook-reader.js",
+        "#xsd-importer": "./importer/xsd-importer.js",
         "#xsd-reader": "./read/xsd-reader.js"
     },
     "dependencies": {
