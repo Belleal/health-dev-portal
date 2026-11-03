@@ -1,0 +1,135 @@
+/*
+ * health-dev-portal — the developer portal of the Bulgarian National Health Information System (НЗИС).
+ * Copyright © 2026 the health-dev-portal contributors
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission – subsequent
+ * versions of the EUPL (the "Licence"); you may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ *     https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed
+ * on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * SPDX-License-Identifier: EUPL-1.2
+ */
+
+/*
+ * The generated XSDs of the eight production modules (design record §4.10, §5.5): each reads back into the shape it
+ * was written from, and each compiles in libxml2's xmllint, compiled to WebAssembly.
+ */
+
+const { describe, it, before } = require( "node:test" );
+const assert = require( "node:assert/strict" );
+const fs = require( "node:fs" );
+const path = require( "node:path" );
+const { synthesizeMessage } = require( "@health-dev-portal/spec-model/synthetic-message" );
+const { messageShape } = require( "@health-dev-portal/spec-model/xsd-shape" );
+const { generateXsds } = require( "@health-dev-portal/spec-model/xsd-writer" );
+const { importSet } = require( "#set-importer" );
+const { expandMessage, readXsdSet } = require( "#xsd-reader" );
+const { errorsOf, inBatches, validateXML, xmldsig } = require( "./support/xmllint" );
+
+const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public" );
+const XMLDSIG = path.join( DIRECTORY, "api-v1", "xmldsig-core-schema.xsd" );
+const NOMENCLATURES = "nomenclatures-1.5.33.xlsx";
+const MODULES = Object.freeze( {
+    "e-prescription": "eprescription-1.5.1.xlsx",
+    "common-services": "common-services-1.2.2.xlsx",
+    "e-referral": "ereferral-1.4.4.xlsx",
+    "e-dental": "edental-1.0.7.xlsx",
+    "e-examination": "eexamination-1.3.10.xlsx",
+    "e-hospitalization": "ehospitalization-1.1.1.xlsx",
+    "long-term-care": "longterm-care-1.0.4.xlsx",
+    "e-immunization": "eimmunization-1.2.2.xlsx"
+} );
+const PRESENT = [ XMLDSIG, ...[ NOMENCLATURES, ...Object.values( MODULES ) ].map( ( file ) => path.join( DIRECTORY, file ) ) ].every( fs.existsSync );
+
+// In CI a missing fixture is a failure, never a skip: a skipped regression test looks exactly like a passing one.
+if ( !PRESENT && process.env.CI ) {
+    throw new Error( "A public fixture is missing: CI must run `npm run fixtures:fetch` before the tests." );
+}
+
+const withoutOrigin = ( node ) => ( { ...node, origin: null, children: node.children.map( withoutOrigin ) } );
+
+describe( "The generated XSDs of the production modules", { skip: PRESENT ? false : "run `npm run fixtures:fetch` first" }, () => {
+    let generated;
+    let repeated;
+    let fixedNotKeys;
+    let optionalWithMinimum;
+
+    before( async () => {
+        const set = await importSet( {
+            nomenclatures: { source: path.join( DIRECTORY, NOMENCLATURES ) },
+            modules: Object.entries( MODULES ).map( ( [ spec, file ] ) => ( { spec: spec, source: path.join( DIRECTORY, file ) } ) )
+        } );
+        const lists = new Map( set.nomenclatures.version.codeLists.map( ( list ) => [ list.id, list ] ) );
+        // A message whose tree repeats an identity cannot be generated: its import blocks, and nothing is written. In
+        // e-Examination 1.3.10 four do, from one mis-indented group (HEL-19); every other message is generated.
+        repeated = set.modules.flatMap( ( result ) => result.anomalies.filter( ( anomaly ) => anomaly.type === "duplicate-identity" ).map( ( anomaly ) => anomaly.sheet ) );
+        fixedNotKeys = set.modules.flatMap( ( result ) => result.anomalies.filter( ( anomaly ) => anomaly.type === "fixed-value-not-a-key" ) );
+        optionalWithMinimum = Object.fromEntries( set.modules.map( ( result ) => [ result.version.spec, result.anomalies.filter( ( anomaly ) => anomaly.type === "optional-with-minimum" ).length ] )
+            .filter( ( [ , count ] ) => count > 0 ) );
+        generated = set.modules.flatMap( ( result ) => generateXsds( { ...result.version, messages: result.version.messages.filter( ( message ) => !repeated.includes( message.code ) ) },
+            set.nomenclatures.version ).map( ( file ) => ( { ...file, message: result.version.messages.find( ( message ) => message.code === file.code ), lists: lists } ) ) );
+    } );
+
+    it( "reports the one fixed value that is not a key of its list, and does not fix it", () => {
+        assert.deepEqual( fixedNotKeys.map( ( anomaly ) => [ anomaly.sheet, anomaly.details.identity, anomaly.details.value, anomaly.details.id ] ),
+            [ [ "I006", "header/senderId@value", "NHIS", "CL018" ] ] );
+        assert.ok( !generated.find( ( file ) => file.code === "I006" ).text.includes( "fixed=\"NHIS\"" ) );
+    } );
+
+    // Final review: an O or C row whose cardinality demands one became a required element, and C051 refused a message
+    // carrying only nrnCertificate, one of three alternatives.
+    it( "reports the 25 O or C rows whose cardinality demands one, and makes each optional", () => {
+        assert.deepEqual( optionalWithMinimum, { "e-prescription": 1, "common-services": 3, "e-referral": 3, "e-dental": 6, "e-examination": 9, "e-hospitalization": 3 } );
+        const c051 = generated.find( ( file ) => file.code === "C051" );
+        const shape = messageShape( c051.message, c051.lists );
+        const at = ( node, tag ) => node.tag === tag ? node : node.children.reduce( ( found, child ) => found || at( child, tag ), null );
+        assert.deepEqual( [ "nrnCertificate", "identifierType", "identifier" ].map( ( tag ) => at( shape, tag ).min ), [ 0, 0, 0 ] );
+    } );
+
+    it( "writes one for each of the 172 messages that are not withdrawn and do not repeat an identity", () => {
+        assert.deepEqual( [ ...new Set( repeated ) ], [ "X003", "X006", "X009", "X013" ] );
+        assert.equal( generated.length, 172 );
+    } );
+
+    it( "reads a generated XSD back into the shape it was written from", () => {
+        for ( const file of generated ) {
+            const read = expandMessage( readXsdSet( [ { name: file.fileName, text: file.text } ] ), file.code );
+            assert.deepEqual( withoutOrigin( read ), messageShape( file.message, file.lists ), file.code );
+        }
+    } );
+
+    it( "writes a schema xmllint compiles, for every production message", async () => {
+        const compile = ( text ) => validateXML( {
+            xml: [ { fileName: "message.xml", contents: "<message xmlns=\"https://www.his.bg\"/>" } ],
+            schema: [ { fileName: "NHIS-X000.xsd", contents: text } ],
+            preload: [ xmldsig() ]
+        } );
+        // The check is only worth something if a schema that does not compile fails it.
+        await assert.rejects( compile( generated[ 0 ].text.replace( "type=\"nhis:Message\"", "type=\"nhis:Missing\"" ) ), /failed to compile/ );
+        const results = await inBatches( generated, 8, async ( file ) => {
+            try {
+                await compile( file.text );
+                return null;
+            } catch ( error ) {
+                return `${ file.code }: ${ error.message.split( "\n" )[ 0 ] }`;
+            }
+        } );
+        assert.deepEqual( results.filter( Boolean ), [] );
+    } );
+
+    // Design record §5.5: a synthetic message — every element once, each value one its type accepts — is what the
+    // generated XSD and the model agree on. The empty signature is xmldsig's to refuse, and set aside.
+    it( "accepts a synthetic message of each, for every production message", async () => {
+        const results = await inBatches( generated, 8, async ( file ) => {
+            const errors = await errorsOf( synthesizeMessage( messageShape( file.message, file.lists ) ),
+                { schema: [ { fileName: file.fileName, contents: file.text } ], preload: [ xmldsig() ] } );
+            return errors.length ? `${ file.code }: ${ errors[ 0 ] }` : null;
+        } );
+        assert.deepEqual( results.filter( Boolean ), [] );
+    } );
+} );

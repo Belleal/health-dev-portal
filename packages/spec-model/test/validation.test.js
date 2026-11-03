@@ -71,6 +71,15 @@ describe( "validateMessageTree", () => {
         assert.deepEqual( types( validateMessageTree( [ node( { cardinality: { min: 0, max: 1 } } ) ] ) ), [ "required-with-zero-minimum" ] );
     } );
 
+    // The mirror case, from plan 4's final review: C051's nrnCertificate is O 1..1. A generated XSD makes it optional,
+    // as the requirement says, so the row is reported rather than silently read one way.
+    it( "warns about an optional or conditional element whose cardinality demands one", () => {
+        assert.deepEqual( validateMessageTree( [ node( { requirement: "O", cardinality: { min: 1, max: 1 } } ) ] ).map( ( anomaly ) => [ anomaly.type, anomaly.message ] ),
+            [ [ "optional-with-minimum", "Element contents/x@value is O but has cardinality 1..1; a generated XSD makes it optional." ] ] );
+        assert.deepEqual( types( validateMessageTree( [ node( { requirement: "C", cardinality: { min: 1, max: 1 }, conditions: [ "CDP01" ] } ) ] ) ),
+            [ "optional-with-minimum" ] );
+    } );
+
     it( "warns about an empty group and a polymorphic element with fewer than two variants", () => {
         const tree = [
             node( { identity: "g", kind: "group" } ),

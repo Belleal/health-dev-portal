@@ -77,6 +77,7 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "attribute-with-children": { level: BLOCKING, text: "\"{name}\" sits under the attribute row \"{attribute}\", which cannot hold elements." },
     "conditional-without-condition": { level: WARNING, text: "Conditional element {identity} names no condition." },
     "required-with-zero-minimum": { level: WARNING, text: "Required element {identity} has cardinality {value}." },
+    "optional-with-minimum": { level: WARNING, text: "Element {identity} is {requirement} but has cardinality {value}; a generated XSD makes it optional." },
     "empty-group": { level: WARNING, text: "Group {identity} has no elements." },
     "single-variant": { level: WARNING, text: "Polymorphic element {identity} has {count} variant(s); it needs at least two." },
     // Side sheets
@@ -104,6 +105,7 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "removed-code-list": { level: WARNING, text: "{identity} names code list {id}, which the nomenclatures mark as removed." },
     "unknown-rule": { level: BLOCKING, text: "{identity} names rule {id}, which the rules do not define." },
     "withdrawn-rule": { level: WARNING, text: "{identity} names rule {id}, which is withdrawn." },
+    "fixed-value-not-a-key": { level: WARNING, text: "{identity} is fixed to '{value}', which is not a key of {id}." },
     "unknown-error-code": { level: WARNING, text: "Rule {id} returns error code {code}, which CL999 does not define." },
     // Conditions (design record §6)
     "non-canonical-condition": { level: WARNING, text: "Condition {id} uses forms the language writes differently ({forms}); it reads as: {printed}" },
@@ -114,7 +116,10 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "unresolved-relative-path": { level: WARNING, text: "Condition {id} in {message}: '{path}' names no single element as seen from {element}, so the condition is not checked there." },
     "condition-type-mismatch": { level: WARNING, text: "Condition {id} in {message}: {operator} does not apply to {identity}, which is {dataType}." },
     "unknown-condition-value": { level: BLOCKING, text: "Condition {id}: '{value}' is not a key of {list}, the code list of {identity}." },
-    "unknown-list-column": { level: WARNING, text: "Condition {id}: {list} has no column \"{column}\"." }
+    "unknown-list-column": { level: WARNING, text: "Condition {id}: {list} has no column \"{column}\"." },
+    // Blueprints (design record §4.4)
+    "blueprint-name-differs": { level: WARNING, text: "{identity} in {message} is named \"{name}\", which is {named}, but its {by} makes it {bound}." },
+    "blueprint-field-differs": { level: WARNING, text: "{field} of {blueprint} differs between messages: {variants}." }
 } );
 
 /**

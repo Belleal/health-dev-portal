@@ -10,6 +10,7 @@
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
+        "./blueprints": "./model/blueprints.js",
         "./condition-binding": "./model/condition-binding.js",
         "./condition-checks": "./model/condition-checks.js",
         "./condition-parser": "./model/condition-parser.js",
@@ -19,12 +20,18 @@
         "./evaluator": "./model/evaluator.js",
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
+        "./key-type": "./model/key-type.js",
         "./kinds": "./model/kinds.js",
         "./links": "./model/links.js",
-        "./validation": "./model/validation.js"
+        "./schema-compare": "./model/schema-compare.js",
+        "./synthetic-message": "./model/synthetic-message.js",
+        "./validation": "./model/validation.js",
+        "./xsd-shape": "./model/xsd-shape.js",
+        "./xsd-writer": "./model/xsd-writer.js"
     },
     "imports": {
         "#anomalies": "./model/anomalies.js",
+        "#blueprints": "./model/blueprints.js",
         "#condition-binding": "./model/condition-binding.js",
         "#condition-checks": "./model/condition-checks.js",
         "#condition-printer": "./model/condition-printer.js",
@@ -32,8 +39,10 @@
         "#definitions": "./model/definitions.types.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
+        "#key-type": "./model/key-type.js",
         "#kinds": "./model/kinds.js",
-        "#links": "./model/links.js"
+        "#links": "./model/links.js",
+        "#xsd-shape": "./model/xsd-shape.js"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

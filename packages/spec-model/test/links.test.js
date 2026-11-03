@@ -57,6 +57,16 @@ describe( "linkModule", () => {
         [ "removed-code-list", "withdrawn-rule" ] );
     } );
 
+    // e-Immunization I006 fixes its senderId to "NHIS", which is no key of CL018 (design record §4.10).
+    it( "warns about a fixed value that is not a key of the element's code list", () => {
+        const anomalies = linkModule( moduleOf( element( { identity: "header/senderId@value", codeList: "CL018", fixedValue: "NHIS" } ),
+            element( { identity: "header/sender@value", codeList: "CL018", fixedValue: "4" } ) ), { nomenclatures: nomenclaturesOf( [ "CL018", "in-use", [ "1", "4" ] ] ) } );
+        // CodeRabbit on #12: the text said a generated XSD leaves the value unfixed, which holds only when the value does
+        // not fit the list's key type — "NHIS" on CL018's integers, not "99" on them.
+        assert.deepEqual( anomalies.map( ( anomaly ) => [ anomaly.type, anomaly.level, anomaly.message ] ), [ [ "fixed-value-not-a-key", "warning",
+            "header/senderId@value is fixed to 'NHIS', which is not a key of CL018." ] ] );
+    } );
+
     it( "checks nested elements, each reference once, and names an element without identity by its name", () => {
         const child = element( { identity: null, rules: [ "RL404", "RL405" ], source: { sheet: "P001", row: 6 } } );
         const anomalies = linkModule( moduleOf( element( { children: [ child ] } ) ), { rules: rulesOf( [ "RL001", "active" ] ) } );

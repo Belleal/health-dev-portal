@@ -18,6 +18,7 @@
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
 const { deepFreeze } = require( "@health-dev-portal/spec-model/freeze" );
 const { CODE_LIST_STATUS, SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { keyTypeOf } = require( "@health-dev-portal/spec-model/key-type" );
 const { readChangeNotes } = require( "#change-notes" );
 const { readCodeListSheet } = require( "#code-list-sheet" );
 const { readNomenclatureIndex } = require( "#nomenclature-index" );
@@ -47,12 +48,14 @@ function joinIndex( id, listed, read, codeLists, anomalies ) {
             status: listed.status,
             dynamic: listed.dynamic,
             visibility: listed.visibility,
-            remark: listed.remark
+            remark: listed.remark,
+            // Keys are folded by now, so a look-alike key types as what it reads as (design record §4.6).
+            keyType: keyTypeOf( read.codeList.entries.map( ( entry ) => entry.key ) )
         } );
     } else if ( listed && listed.status === CODE_LIST_STATUS.REMOVED ) {
         // CL068 in 1.5.33: removed, and its sheet with it. A module may still name it, which linking reports.
         codeLists.push( { id: id, name: { bg: listed.name, en: null }, status: listed.status, dynamic: listed.dynamic,
-            visibility: listed.visibility, remark: listed.remark, notes: [], columns: [], entries: [], source: listed.source } );
+            visibility: listed.visibility, remark: listed.remark, notes: [], keyType: keyTypeOf( [] ), columns: [], entries: [], source: listed.source } );
     } else if ( listed ) {
         anomalies.push( createAnomaly( "list-without-sheet", listed.source, { id: id, status: listed.status || "unknown" } ) );
     } else {

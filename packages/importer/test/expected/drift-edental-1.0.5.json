@@ -1,0 +1,1425 @@
+{
+  "notes": {
+    "* header/senderISName@value value-type unexplained": "Real drift. The workbook gives chars=an, so the generated XSD keeps a system's name to Latin letters, digits, hyphen and space; today's shared header had no class. A Cyrillic name would be refused: a question for the spec team (HEL-26).",
+    "* header/messageId@value value-type unexplained": "Real drift. Today's type restricts messageId to the uuid pattern [a-zA-Z0-9\\-]+; the workbook gives min=36, max=36 alone, so the generated XSD is looser.",
+    "* header/messageType@value value-type unexplained": "Real drift. Today's shared pattern ([RPCIXH][0-9]{3}) leaves out D and L, so today's XSDs refuse every e-Dental messageType; the generated XSD fixes the value and applies the workbook's an class.",
+    "* contents/dentalTreatment/lrn@value value-type unexplained": "Real drift. Today's lrn has the an class; this workbook gives max=36 alone.",
+    "* contents/lrn@value value-type unexplained": "Real drift. Today's lrn has the an class; this workbook gives max=36 alone.",
+    "* contents/results/dentalTreatment/lrn@value value-type unexplained": "Real drift. Today's lrn has the an class; this workbook gives max=36 alone.",
+    "* contents/dentalTreatment/basedOn@value value-type unexplained": "Real drift. The workbook makes basedOn an NRN, min=12, max=12, chars=an; today's type allowed any 36 characters.",
+    "* contents/results/dentalTreatment/basedOn@value value-type unexplained": "Real drift. The workbook makes basedOn an NRN, min=12, max=12, chars=an; today's type allowed any 36 characters.",
+    "* contents/subject/email@value value-type unexplained": "Real drift. Today's email type has the pattern [^@]+@[^.]+\\..+; the workbook gives max=255 alone.",
+    "* contents/results/subject/email@value value-type unexplained": "Real drift. Today's email type has the pattern [^@]+@[^.]+\\..+; the workbook gives max=255 alone.",
+    "* contents/performer/email@value value-type unexplained": "Real drift. Today's email type has the pattern [^@]+@[^.]+\\..+; the workbook gives max=255 alone.",
+    "* contents/results/performer/email@value value-type unexplained": "Real drift. Today's email type has the pattern [^@]+@[^.]+\\..+; the workbook gives max=255 alone.",
+    "* contents/performer order unexplained": "Real drift, and a wire difference (HEL-26). Today's medicalPractitioner extends medicalPractitionerSimple, so its own fields follow the base's: pmi qualification practiceNumber phone email, then pmiDeputy role rhifAreaNumber nhifNumber. The workbook interleaves them. A message in today's order is refused by the generated XSD; the spec team settles which order NHIS reads.",
+    "* contents/results/performer order unexplained": "Real drift, and a wire difference (HEL-26). Today's medicalPractitioner extends medicalPractitionerSimple, so its own fields follow the base's: pmi qualification practiceNumber phone email, then pmiDeputy role rhifAreaNumber nhifNumber. The workbook interleaves them. A message in today's order is refused by the generated XSD; the spec team settles which order NHIS reads.",
+    "* contents/performer/pmi@value value-type unexplained": "Real drift. Today exactly 10 digits; the workbook max=10, chars=n (e-Referral is not consistent either, HEL-24).",
+    "* contents/performer/pmiDeputy@value value-type unexplained": "Real drift. Today exactly 10 digits; the workbook max=10, chars=n (e-Referral is not consistent either, HEL-24).",
+    "* contents/results/performer/pmi@value value-type unexplained": "Real drift. Today exactly 10 digits; the workbook max=10, chars=n (e-Referral is not consistent either, HEL-24).",
+    "* contents/results/performer/pmiDeputy@value value-type unexplained": "Real drift. Today exactly 10 digits; the workbook max=10, chars=n (e-Referral is not consistent either, HEL-24).",
+    "* contents/results cardinality unexplained": "Real drift. Today at most 20 results; the workbook 0..*.",
+    "* contents/results/dentalTreatment/dentalProcedure/status cardinality unexplained": "Real drift. The workbook requires the procedure's status; today it is optional.",
+    "* contents/error/description cardinality unexplained": "Real drift. The shared error type allows one description; the workbook any number.",
+    "* contents/error/description@value value-type unexplained": "Real drift. The shared error description holds 2000 characters; the workbook min=1, max=255.",
+    "* header/senderISName only-published unexplained": "Real drift. Today's shared header requires senderISName in every message, responses included; the workbook lists it in requests only. NHIS sends the responses, so a vendor only reads them, but a response without it is refused by today's XSD."
+  },
+  "skipped": [],
+  "entries": [
+    {
+      "message": "D001",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "header/senderISName",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 1, maxLength 255",
+      "generated": "string, minLength 1, maxLength 255, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "header/recipientId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D001",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/lrn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36, pattern [a-zA-Z0-9\\- ]+",
+      "generated": "string, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/basedOn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36",
+      "generated": "string, minLength 12, maxLength 12, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/dentalProcedure/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/dentalProcedure/type",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/dentalProcedure/financingSource",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/dentalProcedure/tooth/toothIndex",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/dentalTreatment/dentalProcedure/diagnosis/code",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/subject/identifierType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/subject/gender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/subject/email",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 255, pattern [^@]+@[^.]+\\..+",
+      "generated": "string, maxLength 255",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer",
+      "attribute": null,
+      "kind": "order",
+      "published": "pmi qualification practiceNumber phone email pmiDeputy role rhifAreaNumber nhifNumber",
+      "generated": "pmi pmiDeputy qualification role practiceNumber rhifAreaNumber nhifNumber phone email",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer/pmi",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 10, maxLength 10, pattern [0-9]+",
+      "generated": "string, maxLength 10, pattern [0-9]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer/qualification",
+      "attribute": "nhifCode",
+      "kind": "value-type",
+      "published": "string, minLength 2, maxLength 2, pattern [0-9]+",
+      "generated": "string",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer/email",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 255, pattern [^@]+@[^.]+\\..+",
+      "generated": "string, maxLength 255",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer/pmiDeputy",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 10, maxLength 10, pattern [0-9]+",
+      "generated": "string, maxLength 10, pattern [0-9]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D001",
+      "path": "contents/performer/role",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D002",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D002",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D002",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D002",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D002",
+      "path": "contents/lrn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36, pattern [a-zA-Z0-9\\- ]+",
+      "generated": "string, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D002",
+      "path": "contents/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/senderISName",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 1, maxLength 255",
+      "generated": "string, minLength 1, maxLength 255, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D003",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/recipientId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D003",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D003",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D003",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/basedOn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36",
+      "generated": "string, minLength 12, maxLength 12, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/dentalProcedure/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/dentalProcedure/type",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/dentalProcedure/financingSource",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/dentalProcedure/tooth/toothIndex",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D003",
+      "path": "contents/dentalTreatment/dentalProcedure/diagnosis/code",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D004",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D004",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D004",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D004",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D004",
+      "path": "contents/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/senderISName",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 1, maxLength 255",
+      "generated": "string, minLength 1, maxLength 255, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D005",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/recipientId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D005",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D005",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D005",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D005",
+      "path": "contents/identifierType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D006",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results",
+      "attribute": null,
+      "kind": "cardinality",
+      "published": "0..20",
+      "generated": "0..*",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/lrn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36, pattern [a-zA-Z0-9\\- ]+",
+      "generated": "string, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/basedOn",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 36",
+      "generated": "string, minLength 12, maxLength 12, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/status",
+      "attribute": null,
+      "kind": "cardinality",
+      "published": "0..1",
+      "generated": "1..1",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/type",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/financingSource",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/tooth/toothIndex",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/dentalTreatment/dentalProcedure/diagnosis/code",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/subject/identifierType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/subject/gender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/subject/email",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 255, pattern [^@]+@[^.]+\\..+",
+      "generated": "string, maxLength 255",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer",
+      "attribute": null,
+      "kind": "order",
+      "published": "pmi qualification practiceNumber phone email pmiDeputy role rhifAreaNumber nhifNumber",
+      "generated": "pmi pmiDeputy qualification role practiceNumber rhifAreaNumber nhifNumber phone email",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer/pmi",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 10, maxLength 10, pattern [0-9]+",
+      "generated": "string, maxLength 10, pattern [0-9]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer/qualification",
+      "attribute": "nhifCode",
+      "kind": "only-published",
+      "published": "present",
+      "generated": null,
+      "cause": "shared-type"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer/email",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 255, pattern [^@]+@[^.]+\\..+",
+      "generated": "string, maxLength 255",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer/pmiDeputy",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 10, maxLength 10, pattern [0-9]+",
+      "generated": "string, maxLength 10, pattern [0-9]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D006",
+      "path": "contents/results/performer/role",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/senderISName",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 1, maxLength 255",
+      "generated": "string, minLength 1, maxLength 255, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D007",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/recipientId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D007",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D007",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D007",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D007",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D008",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D008",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D008",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D008",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D008",
+      "path": "contents/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/senderISName",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 1, maxLength 255",
+      "generated": "string, minLength 1, maxLength 255, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D009",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/recipientId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D009",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D009",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D009",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D009",
+      "path": "contents/identifierType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D010",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D010",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D010",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D010",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalStatus/tooth/toothIndex",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalProcedure/status",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalProcedure/type",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalProcedure/financingSource",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalProcedure/tooth/toothIndex",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D010",
+      "path": "contents/dentalProcedure/diagnosis/code",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/sender",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "4",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/senderId",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "NHIS",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/senderISName",
+      "attribute": null,
+      "kind": "only-published",
+      "published": "field",
+      "generated": null,
+      "cause": "unexplained"
+    },
+    {
+      "message": "D099",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string",
+      "generated": "int",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/recipient",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "2",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "header/messageId",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 36, maxLength 36, pattern [a-zA-Z0-9\\-]+",
+      "generated": "string, minLength 36, maxLength 36",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D099",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, minLength 4, maxLength 4, pattern ([RPCIXH][0-9]{3})",
+      "generated": "string, minLength 4, maxLength 4, pattern [a-zA-Z0-9\\- ]+",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D099",
+      "path": "header/messageType",
+      "attribute": "value",
+      "kind": "fixed",
+      "published": null,
+      "generated": "D099",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "contents/error/type",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, enumeration E001 | E002 | E003",
+      "generated": "string",
+      "cause": "deliberate"
+    },
+    {
+      "message": "D099",
+      "path": "contents/error/description",
+      "attribute": null,
+      "kind": "cardinality",
+      "published": "0..1",
+      "generated": "0..*",
+      "cause": "unexplained"
+    },
+    {
+      "message": "D099",
+      "path": "contents/error/description",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "string, maxLength 2000",
+      "generated": "string, minLength 1, maxLength 255",
+      "cause": "unexplained"
+    }
+  ]
+}

@@ -25,7 +25,9 @@ const FORMATS = Object.freeze( {
     "YYYY-MM-DD": "date",
     "ISO 8601": "date-time",
     "YYMMDD": "yymmdd",
-    "true/false": "boolean"
+    "true/false": "boolean",
+    // e-Hospitalization's epicrisis fileData; the published XSD types it xs:base64Binary.
+    "base64": "base64"
 } );
 
 const REFERENCE_PATTERNS = Object.freeze( {

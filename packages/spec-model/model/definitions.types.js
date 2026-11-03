@@ -39,10 +39,11 @@
  * @property {string} raw
  * @property {number} [minLength]
  * @property {number} [maxLength]
- * @property {number} [minValue] On numeric types the bounds are values, not lengths.
+ * @property {number} [minValue] On numeric types the bounds are read as values, not lengths. The workbooks' own use
+ *     suggests digit counts (sick-leave days `max=2`), so a generated XSD writes neither (design record §4.10).
  * @property {number} [maxValue]
  * @property {string} [charset] e.g. `an` (alphanumeric).
- * @property {string} [format] `date`, `date-time`, `yymmdd` or `boolean`.
+ * @property {string} [format] `date`, `date-time`, `yymmdd`, `boolean` or `base64`.
  */
 
 /**
@@ -185,6 +186,8 @@
  * @property {ConditionText[]} conditions
  * @property {import( "#condition-binding" ).ConditionBinding[]} conditionBindings One per element naming a condition that
  *     could be read.
+ * @property {import( "#blueprints" ).BlueprintBinding[]} blueprintBindings The groups bound to blueprints; empty when the
+ *     import had no catalogue (§4.4).
  * @property {DictionaryEntry[]} dictionary
  * @property {ChangeVersion[]} changeNotes Oldest first.
  */
@@ -215,6 +218,7 @@
  * @property {string|null} visibility
  * @property {string|null} remark The index sheet's note on the list.
  * @property {string[]} notes The note rows above the list's header, e.g. `Източник: НСЦРЛП`.
+ * @property {string} keyType One of `KEY_TYPE`: the type a generated XSD gives a value of this list (§4.6, §4.10).
  * @property {CodeListColumn[]} columns
  * @property {CodeListEntry[]} entries
  * @property {SourceRef} source The header row, or the index row of a removed list without a sheet.
@@ -259,6 +263,85 @@
  * @property {number|null} row
  * @property {number|null} column
  * @property {Object} details
+ */
+
+/**
+ * @typedef {Object} ValueType The simple type of an attribute value, as an XSD built-in and its facets (design record
+ *     §4.10). Through a chain of restrictions, patterns accumulate and every other facet takes the nearest definition.
+ * @property {string} base The built-in's local name: `string`, `int`, `decimal`, `date`, `dateTime`, `boolean`,
+ *     `positiveInteger`, `unsignedInt`, or another a published file uses.
+ * @property {number|null} minLength `xs:length` reads as equal `minLength` and `maxLength`.
+ * @property {number|null} maxLength
+ * @property {string[]} patterns Every one must match.
+ * @property {string|null} minInclusive
+ * @property {string|null} maxInclusive
+ * @property {string[]} enumeration
+ * @property {number|null} totalDigits
+ * @property {number|null} fractionDigits
+ */
+
+/**
+ * @typedef {Object} SchemaAttribute An attribute of a field in a schema shape.
+ * @property {string} name e.g. `value`, `name`, `nhifCode`.
+ * @property {boolean} required
+ * @property {ValueType} value
+ * @property {string|null} fixed
+ * @property {string|null} documentation A coded value's names its list: `Code list CL035.`
+ */
+
+/**
+ * @typedef {Object} SchemaOrigin Where a published particle comes from.
+ * @property {string} file The file whose type declared it.
+ * @property {string|null} choice `"<parent path>#<n>"` for the n-th `xs:choice` of its parent, counting from 1, when it
+ *     sits inside one.
+ * @property {string|null} typeFile The file that defines its type, where the type's attributes come from; `null` for
+ *     the signature.
+ */
+
+/**
+ * @typedef {Object} SchemaNode One element of a message as an XSD describes it (design record §5.5). A published and a
+ * generated XSD both reduce to it, so comparing them is comparing two trees.
+ * @property {string} tag
+ * @property {string} path The tag path below `message` (`contents/prescription/lrn`); the root's is `""`.
+ * @property {string} kind `group`, `field` or `signature`.
+ * @property {number} min
+ * @property {number|null} max `null` is unbounded.
+ * @property {string|null} type The type it is declared with; `null` for an inline type or the signature.
+ * @property {SchemaAttribute[]} attributes A field's; a group has none.
+ * @property {SchemaNode[]} children A group's, in order; a field has none.
+ * @property {LocalText|null} documentation
+ * @property {SchemaOrigin|null} origin A published node's; `null` on a generated one.
+ */
+
+/**
+ * @typedef {Object} SchemaDifference One way two XSDs of a message accept different things (design record §5.5).
+ * @property {string} message The message's code.
+ * @property {string} path The element's tag path.
+ * @property {string|null} attribute The attribute's name, when the difference is in one.
+ * @property {string} kind `only-published`, `only-generated`, `kind`, `cardinality`, `order`, `required`, `value-type` or
+ *     `fixed`.
+ * @property {string|null} published What the published XSD has, in words: `0..1`, the child tags, a value type; `null`
+ *     when it has nothing.
+ * @property {string|null} generated What the generated XSD has, alike.
+ */
+
+/**
+ * @typedef {SchemaDifference & {cause: string}} DriftEntry A difference and the cause the report can establish:
+ *     `shared-type`, `choice`, `deliberate`, `change-note` or `unexplained` (design record §5.5).
+ */
+
+/**
+ * @typedef {Object} Blueprint A business object many messages carry, such as a patient (design record §4.4). Internal:
+ *     never published, no version line.
+ * @property {string} key The NHIS-Entities type its types' derivation chains start from, e.g. `medicalPractitionerSimple`.
+ * @property {string[]} types Every type that folds into it, the key first.
+ */
+
+/**
+ * @typedef {Object} BlueprintCatalogue What the published XSD set teaches, learned once (design record §5.2). Plain data.
+ * @property {Blueprint[]} blueprints
+ * @property {Object<string, Object<string, string>>} published Per message code, then per group's tag path, the key of
+ *     the blueprint its published type folds into.
  */
 
 module.exports = {};

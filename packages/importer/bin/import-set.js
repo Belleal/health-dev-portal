@@ -21,9 +21,15 @@ const fs = require( "node:fs" );
 const { parseArgs } = require( "node:util" );
 const { hasBlocking } = require( "@health-dev-portal/spec-model/anomalies" );
 const { UnreadableWorkbookError, importSet } = require( "#set-importer" );
+const { importXsdSet } = require( "#xsd-importer" );
+const { UnreadableSchemaError } = require( "#xsd-reader" );
 const { formatSetReport } = require( "#report" );
 
-const USAGE = "Usage: hdp-import-set [--nomenclatures <file>] [--rules <file>] [--module <spec>=<file>]... [--json <set.json>]";
+const USAGE = "Usage: hdp-import-set [--nomenclatures <file>] [--rules <file>] [--module <spec>=<file>]... [--xsd <directory>] [--json <set.json>]";
+
+// The published XSD set the blueprints are learned from (design record §5.2). importXsdSet names whatever it cannot
+// read, the directory included, so it reads as one line like a workbook that cannot be read.
+const catalogueFrom = async ( directory ) => ( await importXsdSet( directory ) ).catalogue;
 
 const MODULE = /^([^=\s]+)=(.+)$/;
 
@@ -34,6 +40,7 @@ async function main( argv ) {
             nomenclatures: { type: "string" },
             rules: { type: "string" },
             module: { type: "string", multiple: true },
+            xsd: { type: "string" },
             json: { type: "string" }
         } } );
     } catch ( error ) {
@@ -46,7 +53,7 @@ async function main( argv ) {
     // An option given with an empty value — `--nomenclatures="$UNSET"` — is a mistake, not an option left out: read as
     // absent, it imported the set without that workbook and could accept it (CodeRabbit on #6).
     const given = ( name ) => values[ name ] !== undefined;
-    const empty = [ "nomenclatures", "rules", "json" ].some( ( name ) => given( name ) && values[ name ].trim() === "" );
+    const empty = [ "nomenclatures", "rules", "xsd", "json" ].some( ( name ) => given( name ) && values[ name ].trim() === "" );
     if ( empty || modules.some( ( match ) => !match ) || ( !given( "nomenclatures" ) && !given( "rules" ) && modules.length === 0 ) ) {
         console.error( USAGE );
         return 2;
@@ -54,7 +61,8 @@ async function main( argv ) {
     const set = await importSet( {
         nomenclatures: given( "nomenclatures" ) ? { source: values.nomenclatures } : undefined,
         rules: given( "rules" ) ? { source: values.rules } : undefined,
-        modules: modules.map( ( match ) => ( { spec: match[ 1 ], source: match[ 2 ] } ) )
+        modules: modules.map( ( match ) => ( { spec: match[ 1 ], source: match[ 2 ] } ) ),
+        catalogue: given( "xsd" ) ? await catalogueFrom( values.xsd ) : undefined
     } );
     console.log( formatSetReport( set ) );
     if ( given( "json" ) ) {
@@ -68,6 +76,6 @@ async function main( argv ) {
 main( process.argv.slice( 2 ) ).then( ( code ) => {
     process.exitCode = code;
 }, ( error ) => {
-    console.error( error instanceof UnreadableWorkbookError ? error.message : error.stack );
+    console.error( error instanceof UnreadableWorkbookError || error instanceof UnreadableSchemaError ? error.message : error.stack );
     process.exitCode = 1;
 } );

@@ -48,6 +48,22 @@ describe( "importModuleWorkbook", () => {
         assert.ok( Object.isFrozen( version.messages[ 0 ] ) );
     } );
 
+    it( "binds blueprints with a catalogue, and nothing without one (design record §4.4)", () => {
+        const catalogue = {
+            blueprints: [ { key: "prescriptionObject", types: [ "prescriptionObject" ] }, { key: "headerObject", types: [ "headerObject" ] } ],
+            published: { P001: { "contents/prescription": "prescriptionObject", header: "headerObject" } }
+        };
+        const bound = importModuleWorkbook( workbook( moduleSheets() ), { spec: "e-prescription", catalogue: catalogue } );
+        const of = ( code ) => bound.version.blueprintBindings.filter( ( binding ) => binding.message === code );
+        assert.deepEqual( of( "P001" ), [
+            { message: "P001", element: "header", blueprint: "headerObject", by: "type" },
+            { message: "P001", element: "contents/prescription", blueprint: "prescriptionObject", by: "type" }
+        ] );
+        assert.deepEqual( of( "P002" ), [ { message: "P002", element: "header", blueprint: "headerObject", by: "sibling" } ] );
+        assert.deepEqual( bound.anomalies, [] );
+        assert.deepEqual( importModuleWorkbook( workbook( moduleSheets() ), { spec: "e-prescription" } ).version.blueprintBindings, [] );
+    } );
+
     it( "takes each message's lifecycle from its tab colour", () => {
         const sheets = replace( replace( moduleSheets(),
             "P002", messageSheet( "P002", confirmationRows(), "ED7D31" ) ),

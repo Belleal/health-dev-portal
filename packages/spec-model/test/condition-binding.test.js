@@ -62,3 +62,61 @@ describe( "bindCondition", () => {
             { "..medication.medicationCode": null, "prescription.lrn": "contents/prescription/lrn@value" } );
     } );
 } );
+
+describe( "bindCondition, through blueprints (design record §6.2)", () => {
+
+    // An R010-like message: a requester and a performer, both practitioners, and a diagnostic report whose result is a
+    // polymorphic element with variants of their own tags.
+    const node = ( identity, kind, children = [] ) => {
+        const path = identity.replace( /[@#].*$/, "" );
+        return { identity: identity, path: path, kind: kind, tag: path.split( "/" ).pop(),
+            attribute: identity.includes( "@" ) ? identity.split( "@" )[ 1 ].replace( /#.*$/, "" ) : null, children: children };
+    };
+    const MESSAGE = { code: "R010", elements: [ node( "contents", "group", [
+        node( "contents/referral", "group", [ node( "contents/referral/note@value", "field" ) ] ),
+        node( "contents/requester", "group", [ node( "contents/requester/qualification@value", "field" ) ] ),
+        node( "contents/performer", "group", [ node( "contents/performer/qualification@value", "field" ), node( "contents/performer/note@value", "field" ) ] ),
+        node( "contents/report", "group", [ node( "contents/report/result", "group", [ node( "contents/report/result/value@value", "polymorphic", [
+            node( "contents/report/result/valueQuantity@value#1", "field" ), node( "contents/report/result/valueString@value#2", "field" ) ] ) ] ) ] ),
+        node( "contents/practice", "group", [ node( "contents/practice/practitioner", "group", [ node( "contents/practice/practitioner/code@value", "field" ) ] ) ] )
+    ] ) ] };
+    const BLUEPRINTS = [ { key: "medicalPractitionerSimple", types: [ "medicalPractitionerSimple" ] }, { key: "diagnosticReport", types: [ "diagnosticReport" ] } ];
+    const bound = ( element, blueprint ) => ( { message: "R010", element: element, blueprint: blueprint, by: "type" } );
+    const at = ( identity ) => {
+        const visit = ( elements ) => elements.reduce( ( found, element ) => found || ( element.identity === identity ? element : visit( element.children ) ), null );
+        return visit( MESSAGE.elements );
+    };
+    const paths = ( text, naming, bindings ) => bindCondition( parseCondition( text ).condition, MESSAGE, at( naming ),
+        bindings ? { blueprints: BLUEPRINTS, bindings: bindings } : undefined ).paths;
+    const QUALIFICATION = "IF 'practitioner.qualification'.value = 'x'\nTHEN THIS.required = 'R'";
+
+    it( "resolves an entity path through the one element bound to its blueprint", () => {
+        assert.equal( paths( QUALIFICATION, "contents/referral/note@value", [ bound( "contents/requester", "medicalPractitionerSimple" ) ] )[ "practitioner.qualification" ],
+            "contents/requester/qualification@value" );
+    } );
+
+    it( "lets the carrier enclosing the naming element decide between two", () => {
+        const both = [ bound( "contents/requester", "medicalPractitionerSimple" ), bound( "contents/performer", "medicalPractitionerSimple" ) ];
+        assert.equal( paths( QUALIFICATION, "contents/performer/note@value", both )[ "practitioner.qualification" ], "contents/performer/qualification@value" );
+    } );
+
+    it( "leaves an entity path unresolved when no carrier encloses the naming element (Review Focus 4)", () => {
+        const both = [ bound( "contents/requester", "medicalPractitionerSimple" ), bound( "contents/performer", "medicalPractitionerSimple" ) ];
+        assert.equal( paths( QUALIFICATION, "contents/referral/note@value", both )[ "practitioner.qualification" ], null );
+    } );
+
+    it( "never binds a numbered variant through an entity path (HEL-23)", () => {
+        assert.equal( paths( "IF 'diagnosticReport.result.valueQuantity'.value > '1'\nTHEN THIS.required = 'R'", "contents/referral/note@value",
+            [ bound( "contents/report", "diagnosticReport" ) ] )[ "diagnosticReport.result.valueQuantity" ], null );
+    } );
+
+    it( "tries the entity route only after the absolute and partial ones", () => {
+        // 'practitioner.code' is the partial path of contents/practice/practitioner/code, whatever the blueprints say.
+        assert.equal( paths( "IF 'practitioner.code'.value = 'x'\nTHEN THIS.required = 'R'", "contents/referral/note@value",
+            [ bound( "contents/requester", "medicalPractitionerSimple" ) ] )[ "practitioner.code" ], "contents/practice/practitioner/code@value" );
+    } );
+
+    it( "binds exactly as before without a context", () => {
+        assert.equal( paths( QUALIFICATION, "contents/performer/note@value" )[ "practitioner.qualification" ], null );
+    } );
+} );

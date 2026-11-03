@@ -60,11 +60,13 @@ function parseOne( condition, anomalies ) {
  * @method
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ConditionText[]} conditions
  * @param {import( "@health-dev-portal/spec-model/definitions" ).Message[]} messages
+ * @param {{blueprints: import( "@health-dev-portal/spec-model/definitions" ).Blueprint[], bindings: import( "@health-dev-portal/spec-model/blueprints" ).BlueprintBinding[]}} [context]
+ *     The module's blueprint bindings, through which entity names in paths resolve (design record §6.2).
  * @returns {{conditions: import( "@health-dev-portal/spec-model/definitions" ).ConditionText[], bindings: import( "@health-dev-portal/spec-model/condition-binding" ).ConditionBinding[], anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}}
  *     The conditions gain `parsed` and `printed`.
  * @public
  */
-module.exports.importConditions = ( conditions, messages ) => {
+module.exports.importConditions = ( conditions, messages, context ) => {
     const anomalies = [];
     const read = conditions.map( ( condition ) => parseOne( condition, anomalies ) );
     const byId = new Map( read.map( ( condition ) => [ condition.id, condition ] ) );
@@ -87,11 +89,14 @@ module.exports.importConditions = ( conditions, messages ) => {
                 if ( !condition || !condition.parsed ) {
                     continue;
                 }
-                const binding = { ...bindCondition( condition.parsed, message, node ), condition: id };
+                const binding = { ...bindCondition( condition.parsed, message, node, context ), condition: id };
                 bindings.push( binding );
                 for ( const path of Object.keys( binding.paths ).filter( ( key ) => binding.paths[ key ] === null ) ) {
                     // A relative path fails from one naming element and may hold from another of the same message: e-Referral's
-                    // CDR21 in R010 was reported as not checked there at all (final review). Any other path fails alike from all.
+                    // CDR21 in R010 was reported as not checked there at all (final review). Any other path fails alike from all,
+                    // but for an entity path with two carriers, which the naming element decides between (§6.2). None of the
+                    // production paths fails from some elements of a message and holds from others, so it is reported per
+                    // message as before (plan 4, Decision 9).
                     if ( path.startsWith( ".." ) ) {
                         once( JSON.stringify( [ "relative", id, message.code, node.identity, path ] ), "unresolved-relative-path", condition,
                             { message: message.code, element: node.identity, path: path } );

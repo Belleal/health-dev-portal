@@ -27,9 +27,18 @@ const assert = require( "node:assert/strict" );
 const fs = require( "node:fs" );
 const path = require( "node:path" );
 const { importSet } = require( "#set-importer" );
+const { importXsdSet } = require( "#xsd-importer" );
 const { parseCondition } = require( "@health-dev-portal/spec-model/condition-parser" );
 
 const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public" );
+const XSD_DIRECTORY = path.join( DIRECTORY, "api-v1" );
+const XSD_PRESENT = fs.existsSync( path.join( XSD_DIRECTORY, "NHIS-Entities.xsd" ) );
+
+// In CI a missing fixture is a failure, never a skip: the entity-name figures below would skip unseen (CodeRabbit on #12).
+if ( !XSD_PRESENT && process.env.CI ) {
+    throw new Error( "The public XSD set is missing: CI must run `npm run fixtures:fetch` before the tests." );
+}
+
 const NOMENCLATURES = "nomenclatures-1.5.33.xlsx";
 const MODULES = Object.freeze( {
     "e-prescription": "eprescription-1.5.1.xlsx",
@@ -154,5 +163,41 @@ describe( "The conditions of the eight production modules", { skip: PRESENT ? fa
         ] );
         assert.ok( referral.version.conditionBindings.some( ( binding ) => binding.condition === "CDR21" && binding.message === "R010"
             && Object.values( binding.paths ).every( ( identity ) => identity !== null ) ) );
+    } );
+
+    describe( "with the blueprints of the published XSD set (design record §5.8, §6.2)", { skip: XSD_PRESENT ? false : "run `npm run fixtures:fetch` first" }, () => {
+        let bound;
+        const boundModule = ( spec ) => bound.find( ( result ) => result.version.spec === spec );
+
+        before( async () => {
+            const { catalogue } = await importXsdSet( XSD_DIRECTORY );
+            bound = ( await importSet( {
+                catalogue: catalogue,
+                modules: Object.entries( MODULES ).map( ( [ spec, file ] ) => ( { spec: spec, source: path.join( DIRECTORY, file ) } ) )
+            } ) ).modules;
+        } );
+
+        it( "resolves 67 entity paths through blueprints: 194 unresolved paths become 127", () => {
+            assert.deepEqual( Object.fromEntries( bound.map( ( result ) => [ result.version.spec, ofType( result, "unresolved-condition-path" ).length ] ) ), {
+                "e-prescription": 68, "common-services": 8, "e-referral": 27, "e-dental": 0,
+                "e-examination": 21, "e-hospitalization": 3, "long-term-care": 0, "e-immunization": 0
+            } );
+        } );
+
+        it( "leaves the relative paths as they were", () => {
+            assert.deepEqual( bound.map( ( result ) => ofType( result, "unresolved-relative-path" ).length ), [ 0, 0, 14, 0, 93, 6, 0, 0 ] );
+        } );
+
+        it( "tells R010's requester and performer apart by the element naming the condition", () => {
+            const r010 = boundModule( "e-referral" ).version.conditionBindings.filter( ( binding ) => binding.message === "R010"
+                && Object.keys( binding.paths ).some( ( key ) => key.startsWith( "practitioner." ) ) );
+            assert.ok( r010.length > 0 );
+            for ( const binding of r010 ) {
+                const carrier = binding.element.split( "/" ).slice( 0, 3 ).join( "/" );
+                for ( const [ key, identity ] of Object.entries( binding.paths ).filter( ( [ candidate ] ) => candidate.startsWith( "practitioner." ) ) ) {
+                    assert.ok( identity && identity.startsWith( `${ carrier }/` ), `${ binding.condition } ${ key } → ${ identity } from ${ binding.element }` );
+                }
+            }
+        } );
     } );
 } );

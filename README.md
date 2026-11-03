@@ -26,7 +26,8 @@ Requires Node 24 (`.nvmrc`).
 
 ```bash
 npm ci
-npm run fixtures:fetch   # downloads the public workbooks the regression tests read: the eight production modules, nomenclatures and rules
+npm run fixtures:fetch   # downloads the public files the regression tests read: the eight production modules, nomenclatures, rules,
+                         # e-Dental 1.0.5 and e-Hospitalization 1.0.6, and the 118 files of the /api/v1/ XSD set
 npm run lint
 npm test
 ```

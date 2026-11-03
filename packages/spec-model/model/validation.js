@@ -51,6 +51,12 @@ module.exports.validateMessageTree = ( elements ) => {
         if ( node.requirement === REQUIREMENT.REQUIRED && cardinality && cardinality.min === 0 ) {
             anomalies.push( createAnomaly( "required-with-zero-minimum", node.source, { identity: node.identity, value: showCardinality( cardinality ) } ) );
         }
+        // The mirror case. A generated XSD reads such a row as optional, as its requirement says (design record §4.10);
+        // left silent, C051's nrnCertificate (O 1..1) was a required element (plan 4's final review).
+        if ( ( node.requirement === REQUIREMENT.OPTIONAL || node.requirement === REQUIREMENT.CONDITIONAL ) && cardinality && cardinality.min > 0 ) {
+            anomalies.push( createAnomaly( "optional-with-minimum", node.source, { identity: node.identity, requirement: node.requirement,
+                value: showCardinality( cardinality ) } ) );
+        }
         if ( node.kind === ELEMENT_KIND.GROUP && node.children.length === 0 ) {
             anomalies.push( createAnomaly( "empty-group", node.source, { identity: node.identity } ) );
         }

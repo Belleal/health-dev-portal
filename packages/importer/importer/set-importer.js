@@ -79,10 +79,11 @@ const defines = ( result, sheet ) => Boolean( result ) && !result.anomalies.some
  * Imports a set of workbooks of one slot — nomenclatures, rules and modules — and links them: each module's code-list
  * and rule references against the set's nomenclatures and rules, and each rule's error code against CL999 (design
  * record §4.8, §5.3). A kind the set does not include, or whose workbook lacks its defining sheet, is not linked;
- * `linked` says which were. Workbooks are read one after another, so only one is in memory while being read.
+ * `linked` says which were. Workbooks are read one after another, so only one is in memory while being read. A blueprint
+ * catalogue, when given, is passed to every module, which then binds its groups to blueprints (§4.4).
  *
  * @method
- * @param {{nomenclatures?: SetInput, rules?: SetInput, modules?: Array<SetInput & {spec: string}>}} inputs
+ * @param {{nomenclatures?: SetInput, rules?: SetInput, modules?: Array<SetInput & {spec: string}>, catalogue?: import( "@health-dev-portal/spec-model/definitions" ).BlueprintCatalogue}} inputs
  * @returns {Promise<{nomenclatures: Object|null, rules: Object|null, modules: Object[], linked: {codeLists: boolean, rules: boolean, errorCodes: boolean}}>}
  *     Each result is `{ version, anomalies }`, with the link anomalies added to the workbook they concern.
  *     `linked.errorCodes` says whether the rules' error codes were checked against CL999.
@@ -109,7 +110,7 @@ module.exports.importSet = async ( inputs ) => {
     const modules = [];
     for ( const input of inputs.modules || [] ) {
         const workbook = await reading( input, () => readWorkbook( input.source ) );
-        const result = importModuleWorkbook( workbook, { spec: input.spec, fileName: fileNameOf( input ) } );
+        const result = importModuleWorkbook( workbook, { spec: input.spec, fileName: fileNameOf( input ), catalogue: inputs.catalogue } );
         modules.push( withLinks( result, [
             ...linkModule( result.version, {
                 nomenclatures: linked.codeLists ? nomenclatures.version : null,

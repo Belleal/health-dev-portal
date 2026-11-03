@@ -56,6 +56,11 @@ module.exports.linkModule = ( module, targets ) => {
                 anomalies.push( createAnomaly( "unknown-code-list", node.source, details( node.codeList ) ) );
             } else if ( list.status === CODE_LIST_STATUS.REMOVED ) {
                 anomalies.push( createAnomaly( "removed-code-list", node.source, details( node.codeList ) ) );
+            } else if ( node.fixedValue && list.entries.length && !list.entries.some( ( entry ) => entry.key === node.fixedValue ) ) {
+                // A fixed value a sender can never send correctly. A generated XSD types the value by the list's key type,
+                // and leaves it unfixed only when the type refuses it too: "NHIS" on CL018's integers (I006, HEL-25), not
+                // "99" on them (design record §4.10).
+                anomalies.push( createAnomaly( "fixed-value-not-a-key", node.source, { ...details( node.codeList ), value: node.fixedValue } ) );
             }
         }
         if ( rules ) {

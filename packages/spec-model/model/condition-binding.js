@@ -15,6 +15,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
+const { matchBlueprint } = require( "#blueprints" );
 const { EFFECT, PROPERTY } = require( "#conditions" );
 
 /**
@@ -91,7 +92,27 @@ function identityOn( elements, operand ) {
     return field ? field.identity : null;
 }
 
-function resolve( operand, byPath, naming ) {
+// An entity name — 'practitioner.qualification', where no element is tagged practitioner — through the blueprints
+// (design record §6.2): the message's one element bound to the named blueprint, or of several the deepest that encloses
+// the naming element; then the rest of the path as an absolute path from it. So a numbered variant is never bound
+// (HEL-23), and with two carriers and neither enclosing, nothing is: guessing the first would check the wrong one.
+function throughBlueprint( tags, operand, byPath, naming, context ) {
+    const blueprint = matchBlueprint( tags[ 0 ], context.blueprints );
+    if ( !blueprint ) {
+        return null;
+    }
+    let carriers = context.bindings.filter( ( binding ) => binding.message === context.message && binding.blueprint === blueprint ).map( ( binding ) => binding.element );
+    if ( carriers.length > 1 ) {
+        carriers = carriers.filter( ( carrier ) => naming.path && naming.path.startsWith( `${ carrier }/` ) ).sort( ( a, b ) => b.length - a.length ).slice( 0, 1 );
+    }
+    if ( carriers.length !== 1 ) {
+        return null;
+    }
+    const target = [ carriers[ 0 ], ...tags.slice( 1 ) ].join( "/" );
+    return byPath.has( target ) ? identityOn( byPath.get( target ), operand ) : null;
+}
+
+function resolve( operand, byPath, naming, context ) {
     if ( operand.path.self ) {
         return naming.identity;
     }
@@ -122,22 +143,28 @@ function resolve( operand, byPath, naming ) {
     }
     // Partial: the one tag path ending so. A field and its attribute rows share a path, so they count once.
     const endings = [ ...byPath.keys() ].filter( ( path ) => path.endsWith( `/${ joined }` ) );
-    return endings.length === 1 ? identityOn( byPath.get( endings[ 0 ] ), operand ) : null;
+    const partial = endings.length === 1 ? identityOn( byPath.get( endings[ 0 ] ), operand ) : null;
+    // Last, so no binding the absolute and partial routes make ever changes (plan 4, Decision 9).
+    return partial || ( context ? throughBlueprint( tags, operand, byPath, naming, context ) : null );
 }
 
 /**
  * Binds every path of a condition to an element identity, as seen from one element naming it (design record §6.2):
  * `THIS` is that element, a relative path starts from it, and everything resolves within its message. An absolute path
- * is tried first, then a partial one, which must name exactly one element.
+ * is tried first, then a partial one, which must name exactly one element. With the message's blueprint bindings, a
+ * path still unbound whose first segment names a blueprint (`'practitioner.…'`) resolves through it last.
  *
  * @method
  * @param {import( "#definitions" ).Condition} condition
  * @param {import( "#definitions" ).Message} message
  * @param {import( "#definitions" ).ElementNode} element The element naming the condition.
+ * @param {{blueprints: import( "#definitions" ).Blueprint[], bindings: import( "#blueprints" ).BlueprintBinding[]}} [context]
+ *     The blueprints, and the module's blueprint bindings; only this message's are used. Without it the binder is
+ *     plan 3's.
  * @returns {ConditionBinding}
  * @public
  */
-module.exports.bindCondition = ( condition, message, element ) => {
+module.exports.bindCondition = ( condition, message, element, context ) => {
     const byPath = new Map();
     for ( const candidate of flatten( message.elements ) ) {
         if ( candidate.path ) {
@@ -148,7 +175,8 @@ module.exports.bindCondition = ( condition, message, element ) => {
     for ( const operand of operandsOf( condition ) ) {
         const key = module.exports.operandKey( operand );
         if ( !Object.hasOwn( paths, key ) ) {
-            paths[ key ] = resolve( operand, byPath, element );
+            // A module's bindings may all be passed: only this message's carry its entities.
+            paths[ key ] = resolve( operand, byPath, element, context ? { ...context, message: message.code } : null );
         }
     }
     return { condition: null, message: message.code, element: element.identity, paths: paths };

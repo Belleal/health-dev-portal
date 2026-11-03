@@ -16,7 +16,9 @@
  */
 
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
+const { bindBlueprints, checkBlueprintFields } = require( "@health-dev-portal/spec-model/blueprints" );
 const { deepFreeze } = require( "@health-dev-portal/spec-model/freeze" );
+const { foldLookAlikes } = require( "#scripts" );
 const { buildMessageTree } = require( "#message-tree" );
 const { readMessageIndex } = require( "#messages-sheet" );
 const { readChangeNotes } = require( "#change-notes" );
@@ -53,8 +55,10 @@ function undefinedConditions( messages, conditions ) {
  *
  * @method
  * @param {import( "#workbook-reader" ).RawWorkbook} workbook
- * @param {{spec: string, fileName?: string}} options `spec` is the module's key, e.g. `e-prescription`; `fileName`,
- *     when given, is checked against the version in the change notes.
+ * @param {{spec: string, fileName?: string, catalogue?: import( "@health-dev-portal/spec-model/definitions" ).BlueprintCatalogue}} options
+ *     `spec` is the module's key, e.g. `e-prescription`; `fileName`, when given, is checked against the version in the
+ *     change notes; `catalogue`, when given, binds the groups to blueprints and checks their fields (§4.4). Without one
+ *     nothing is bound.
  * @returns {{version: import( "@health-dev-portal/spec-model/definitions" ).ModuleVersion, anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}}
  * @throws {TypeError} When no spec key is given.
  * @public
@@ -110,6 +114,12 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     const version = workbookVersion( notes, notesSheet ? notesSheet.name : null, options.fileName );
     anomalies.push( ...version.anomalies );
 
+    // A workbook name with a Cyrillic look-alike (`Аccommodation`) names the object its Latin spelling does.
+    const blueprints = options.catalogue
+        ? bindBlueprints( messages, options.catalogue, { name: ( text ) => foldLookAlikes( text ).folded } )
+        : { bindings: [], anomalies: [] };
+    anomalies.push( ...blueprints.anomalies, ...checkBlueprintFields( messages, blueprints.bindings ) );
+
     const conditionsSheet = required( SHEETS.conditions );
     const conditions = conditionsSheet ? readConditions( conditionsSheet ) : { conditions: [], anomalies: [] };
     anomalies.push( ...conditions.anomalies );
@@ -117,7 +127,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     if ( conditionsSheet ) {
         anomalies.push( ...undefinedConditions( messages, conditions.conditions ) );
     }
-    const language = importConditions( conditions.conditions, messages );
+    const language = importConditions( conditions.conditions, messages,
+        options.catalogue ? { blueprints: options.catalogue.blueprints, bindings: blueprints.bindings } : undefined );
     anomalies.push( ...language.anomalies );
 
     // Not every module has a dictionary, so its absence is not an anomaly.
@@ -133,6 +144,7 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
             messages: messages,
             conditions: language.conditions,
             conditionBindings: language.bindings,
+            blueprintBindings: blueprints.bindings,
             dictionary: dictionary.entries,
             changeNotes: notes.versions
         },

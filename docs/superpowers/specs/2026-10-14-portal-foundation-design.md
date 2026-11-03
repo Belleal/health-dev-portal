@@ -397,6 +397,9 @@ against, so any kept version's XSDs can be generated again.
 - **The wire stays the same.** Element and attribute names, their order and the namespace `https://www.his.bg` are
   those of today's messages. A message validates as before, except where the workbook really differs from the old
   XSD.
+  - Order is the workbook's row order. For objects today's XSDs build by extension, such as the practitioner and the
+    diagnosis, that is not today's order: there a derived type's own fields follow all of its base's.
+  - Which order NHIS reads is for the spec team to say (HEL-26) before generated XSDs are published.
 - **Code lists are not enumerated.**
   - Lists change with time, and they are large: messages use 121 lists with 55,090 keys, 39,005 of them in CL011.
   - An enumeration would tie every message to one nomenclatures version.
@@ -411,8 +414,13 @@ against, so any kept version's XSDs can be generated again.
     or a CL035 key, so it is a string.
   - Variants with tags of their own (`valueQuantity`, `valueCode`, `valueString`) are separate optional elements,
     like the members of a choice. The conditions say which one applies.
-- **Fixed values** become `fixed` on their attribute (`messageType` is `P001` in P001). **Default values** are
-  documentation only: an XSD cannot supply an absent element, and several defaults are not literals.
+- **Fixed values** become `fixed` on their attribute (`messageType` is `P001` in P001).
+  - A fixed value that its own type refuses is not written, since the XSD would not compile. The import reports it as
+    a value that is no key of its list.
+  - One of the 242 coded fixed values in the production workbooks is such a value. I006's `senderId` names CL018,
+    whose keys are integers, and is fixed to `NHIS` (HEL-25).
+- **Default values** are documentation only: an XSD cannot supply an absent element, and several defaults are not
+  literals.
 - **Value types** come from the workbook's "Data types" column:
 
   | Data type | XSD |
@@ -425,6 +433,7 @@ against, so any kept version's XSDs can be generated again.
   | Decimal | `xs:decimal` |
   | Positive Int | `xs:positiveInteger` |
   | Unsigned Int | `xs:unsignedInt` |
+  | String whose constraint is `base64` | `xs:base64Binary`, as today (e-Hospitalization's `fileData`) |
 
   A type the table does not name is `xs:string`, and the import has already reported the row.
 - **Restrictions** come from the workbook's structured constraint (§4.3).
@@ -435,22 +444,36 @@ against, so any kept version's XSDs can be generated again.
     - `a` is `alphaString`'s `[a-zа-яA-ZА-Я\- ]+`.
 
     `ans` has no definition there and adds no pattern.
-  - On a number, the bounds are `minInclusive` and `maxInclusive`.
+  - A number gets no bounds.
+    - The workbooks' `max=` on a number reads as a digit count: sick-leave `days max=2`, `daysAfter max=3`.
+    - The import takes it as a value, and as `maxInclusive` it refused a 14-day sick leave.
+    - Today's XSDs bound none of these fields. Which reading is meant is for the spec team (HEL-26).
   - A constraint the importer could not read adds nothing, since the import has already reported it.
 
   Today's XSDs already enforce these classes on most fields. In e-Dental 1.0.5, 93 of the 101 fields with a class
   have the pattern, so the drift report lists the other eight.
 - **Attributes.** A field's `value` is required, as in every published field type. Every other attribute (`name`,
   `nhifCode`) is required when its row is `R`, and optional otherwise.
+- **Occurrence.** An element's `maxOccurs` is its cardinality's maximum. Its `minOccurs` is the cardinality's minimum
+  only when its row is `R`; an `O` or `C` row is optional, whatever its cardinality says.
+  - C051's `nrnCertificate`, `identifierType` and `identifier` are `O`/`C` with cardinality `1..1`. They are
+    alternatives, and reading them as required refused a message that carried only one of them.
+  - The import reports each such row, as it reports an `R` row with a minimum of 0. There are 25 today.
 - **Each message's header** has the fields its own rows list. There is no shared header.
 - **Only the attributes the workbook lists.** Today every field type carries an optional `dataType` attribute. No
   workbook lists it and none of the 93 published samples uses it, so it is dropped, and the changelog says so.
 - **Documentation.**
   - An element's documentation is the workbook's description, in each language it has, marked with `xml:lang`.
   - A coded value's documentation names its list: "Code list CL035."
+  - A control character XML cannot hold, such as Word's Shift+Enter pasted into Excel as U+000B, is dropped from
+    documentation and fixed values. Written as it is, it makes the XSD not well formed.
 
-Each file's `version` attribute is the version of the module it comes from. A withdrawn message (§4.2) gets no XSD.
-There is no XSD for the nomenclatures.
+Each file's `version` attribute is the version of the module it comes from.
+- A withdrawn message (§4.2) gets no XSD.
+- A message whose tree repeats an identity cannot have one: two definitions of one type would not compile, and its
+  import blocks anyway. In e-Examination 1.3.10, X003, X006, X009 and X013 do so (HEL-19). The other 172 production
+  messages that are not withdrawn all compile in `xmllint`.
+- There is no XSD for the nomenclatures.
 
 ---
 
@@ -532,28 +555,66 @@ How a schema is organised, its type names and what it shares, is not compared (�
   in a version after the XSD's, is attributed to that change. A difference no note explains is flagged for review.
 - **A real XSD validator**, libxml2's `xmllint` compiled to WebAssembly and used only in tests, checks two things:
   - every generated file is a valid schema;
-  - for each like-for-like message, a synthetic message built from the model is accepted by both the published and
-    the generated XSD. The synthetic message has every element once, each with a value of its type. Where the
-    published XSD makes a choice, it has only one of the alternatives.
+  - a synthetic message built from the model, for every production message and each like-for-like message. It has
+    every element once, each with a value of its type. Where the published XSD makes a choice, it has only one of the
+    alternatives.
+
+  Measured on 2026-11-03:
+  - All 172 generated XSDs compile, and accept their synthetic messages.
+  - Against today's XSDs, a like-for-like synthetic message fails only where the drift report lists a difference.
+    None of the 23 validates in full: every e-Dental request trips the `messageType` pattern, and every response the
+    shared header's required `senderISName`, which no workbook lists.
+  - Today's message XSDs do not compile as published. They reference `ds:Signature` without importing xmldsig
+    themselves (HEL-27). The test adds that import to the message file, the one change it makes to a published file.
 
   The published `…-Simplified.xml` samples cannot serve here. They are templates whose values are placeholders
   (`[string]`, `[code]`, `[dateTime]`), and no XSD accepts those (§5.8).
 
 The result is a **drift report**, not equality. The report gives each difference a cause, where it can establish one
 by itself:
-- **shared type:** a field today's shared type allows and the message does not list;
+- **shared type:** a field today's shared type allows, optionally, and the message does not list. A field it requires,
+  such as the responses' `senderISName`, is no looseness: a message without it is refused;
 - **choice:** a choice today's XSD makes and the workbook leaves to conditions;
-- **deliberate:** what §4.10 changes on purpose, such as an integer code typed `xs:int` or a fixed value;
-- **change note:** across versions, a tag the workbook's change notes name in a version after the XSD's;
+- **deliberate:** what §4.10 changes on purpose:
+  - a coded value typed by its list's key type, whatever restriction today's type had;
+  - a fixed value;
+- **change note:** across versions, a note in a version after the XSD's that quotes a path the element's path ends with
+  (`"..dentalProcedure.code"`), and names the element's message or no message at all.
+  - An order difference is never a note's.
+  - Matching a tag as a word anywhere in a note explained 109 differences. 11 of them came from notes about other
+    messages, 33 from notes about other paths, and among them was the order break of HEL-26;
 - **unexplained:** anything else.
 
 A person reads every unexplained difference. Each is one of two things:
 - an importer or generator defect, fixed until none is left;
 - real drift between workbook and XSD, which resolves in the workbook's favour.
 
-For the two like-for-like pairs, the report is kept in the repository and the acceptance test compares against it.
-A change in what the generator produces then shows in review as a change to that file. For each difference, the
-report says which side has what.
+For the two like-for-like pairs, the report is kept in the repository and the acceptance test compares against it,
+with a note on every unexplained entry. A change in what the generator produces then shows in review as a change to
+that file. For each difference, the report says which side has what.
+
+Measured on 2026-11-03:
+- **Reading the first reports found four defects, all fixed:**
+  - a published `minLength 0` read as a difference;
+  - a coded value's dropped restriction counted as unexplained;
+  - an attribute of a shared field type was not traced to that type;
+  - `base64` was not a format.
+- **Numeric bounds:** reading also showed the problem described in §4.10.
+- **The final review of the code** corrected the shared-type and change-note rules above. It also found the occurrence
+  rule and the control characters of §4.10.
+- **What is left is real drift:**
+
+  | Pair | Unexplained | Distinct findings |
+  |---|---|---|
+  | e-Dental 1.0.5 | 53 | 23 |
+  | e-Hospitalization 1.0.6 | 54 | 21 |
+
+  - Two of them change what a vendor may send, and are questions for the spec team (HEL-26): field order in extended
+    types, and a Latin-only `senderISName`.
+  - One shows today's XSDs to be wrong. Their `messageType` pattern, `([RPCIXH][0-9]{3})`, leaves out D and L, so
+    they refuse every e-Dental message.
+- **Across versions** the counts per cause are pinned as a baseline. There an unexplained entry is also a change no
+  note names.
 
 ### 5.6 Where it runs
 
@@ -1148,4 +1209,7 @@ Space" may not be migratable); XLSX export.
 | Data defects in the current sources (HEL-2 … HEL-12) | Spec team |
 | Dead sample-message links on the specifications page (HEL-22) | his.bg |
 | One field of one business object constrained differently between messages (HEL-24) | Spec team |
+| I006's `senderId` names CL018 and is fixed to `NHIS`, which is no key of it (HEL-25) | Spec team |
+| Before generated XSDs are published: field order in extended types, a Latin-only `senderISName`, `max=` on numbers, where `patientSignature` goes (HEL-26) | Spec team |
+| Today's message XSDs reference `ds:Signature` without importing xmldsig, and their `messageType` pattern leaves out D and L (HEL-27) | his.bg |
 | Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |

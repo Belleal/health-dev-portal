@@ -135,3 +135,21 @@ module.exports.formatSetReport = ( set ) => {
     closing.push( refused ? `Set refused: ${ refused } of ${ results.length } workbooks have blocking anomalies.` : "Set accepted." );
     return [ ...results.map( module.exports.formatReport ), closing.join( "\n" ) ].join( "\n\n" );
 };
+
+const CAUSES = Object.freeze( [ "shared-type", "choice", "deliberate", "change-note", "unexplained" ] );
+
+/**
+ * Formats a drift report for a person (design record §5.5): one line per difference — where, what, its cause, and what
+ * each side has — then the count of each cause, every cause listed so a zero reads as checked.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).DriftEntry[]} entries
+ * @returns {string}
+ * @public
+ */
+module.exports.formatDrift = ( entries ) => [
+    ...entries.map( ( entry ) => `${ entry.message } ${ entry.path }${ entry.attribute ? `@${ entry.attribute }` : "" } ${ entry.kind } [${ entry.cause }]: `
+        + `published ${ entry.published ?? "—" }, generated ${ entry.generated ?? "—" }` ),
+    "",
+    ...CAUSES.map( ( cause ) => `${ cause }: ${ entries.filter( ( entry ) => entry.cause === cause ).length }` )
+].join( "\n" );
