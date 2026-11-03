@@ -548,9 +548,17 @@ How a schema is organised, its type names and what it shares, is not compared (�
   in a version after the XSD's, is attributed to that change. A difference no note explains is flagged for review.
 - **A real XSD validator**, libxml2's `xmllint` compiled to WebAssembly and used only in tests, checks two things:
   - every generated file is a valid schema;
-  - for each like-for-like message, a synthetic message built from the model is accepted by both the published and
-    the generated XSD. The synthetic message has every element once, each with a value of its type. Where the
-    published XSD makes a choice, it has only one of the alternatives.
+  - a synthetic message built from the model, for every production message and each like-for-like message. It has
+    every element once, each with a value of its type. Where the published XSD makes a choice, it has only one of the
+    alternatives.
+
+  Measured on 2026-11-03:
+  - All 172 generated XSDs compile, and accept their synthetic messages.
+  - Against today's XSDs, a like-for-like synthetic message fails only where the drift report lists a difference.
+    None of the 23 validates in full: every e-Dental request trips the `messageType` pattern, and every response the
+    shared header's required `senderISName`, which no workbook lists.
+  - Today's message XSDs do not compile as published. They reference `ds:Signature` without importing xmldsig
+    themselves (HEL-27). The test adds that import to the message file, the one change it makes to a published file.
 
   The published `…-Simplified.xml` samples cannot serve here. They are templates whose values are placeholders
   (`[string]`, `[code]`, `[dateTime]`), and no XSD accepts those (§5.8).
@@ -1189,4 +1197,5 @@ Space" may not be migratable); XLSX export.
 | One field of one business object constrained differently between messages (HEL-24) | Spec team |
 | I006's `senderId` names CL018 and is fixed to `NHIS`, which is no key of it (HEL-25) | Spec team |
 | Before generated XSDs are published: field order in extended types, a Latin-only `senderISName`, `max=` on numbers, where `patientSignature` goes (HEL-26) | Spec team |
+| Today's message XSDs reference `ds:Signature` without importing xmldsig, and their `messageType` pattern leaves out D and L (HEL-27) | his.bg |
 | Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |

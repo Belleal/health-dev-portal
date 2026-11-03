@@ -24,6 +24,7 @@
         "./kinds": "./model/kinds.js",
         "./links": "./model/links.js",
         "./schema-compare": "./model/schema-compare.js",
+        "./synthetic-message": "./model/synthetic-message.js",
         "./validation": "./model/validation.js",
         "./xsd-shape": "./model/xsd-shape.js",
         "./xsd-writer": "./model/xsd-writer.js"

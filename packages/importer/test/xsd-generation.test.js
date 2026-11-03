@@ -24,11 +24,12 @@ const { describe, it, before } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const fs = require( "node:fs" );
 const path = require( "node:path" );
-const { validateXML } = require( "xmllint-wasm" );
+const { synthesizeMessage } = require( "@health-dev-portal/spec-model/synthetic-message" );
 const { messageShape } = require( "@health-dev-portal/spec-model/xsd-shape" );
 const { generateXsds } = require( "@health-dev-portal/spec-model/xsd-writer" );
 const { importSet } = require( "#set-importer" );
 const { expandMessage, readXsdSet } = require( "#xsd-reader" );
+const { errorsOf, inBatches, validateXML, xmldsig } = require( "./support/xmllint" );
 
 const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public" );
 const XMLDSIG = path.join( DIRECTORY, "api-v1", "xmldsig-core-schema.xsd" );
@@ -52,20 +53,10 @@ if ( !PRESENT && process.env.CI ) {
 
 const withoutOrigin = ( node ) => ( { ...node, origin: null, children: node.children.map( withoutOrigin ) } );
 
-// Each call runs xmllint in a worker of its own; a few at a time keeps 176 of them to seconds.
-async function inBatches( items, size, run ) {
-    const results = [];
-    for ( let start = 0; start < items.length; start += size ) {
-        results.push( ...await Promise.all( items.slice( start, start + size ).map( run ) ) );
-    }
-    return results;
-}
-
 describe( "The generated XSDs of the production modules", { skip: PRESENT ? false : "run `npm run fixtures:fetch` first" }, () => {
     let generated;
     let repeated;
     let fixedNotKeys;
-    let xmldsig;
 
     before( async () => {
         const set = await importSet( {
@@ -79,7 +70,6 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
         fixedNotKeys = set.modules.flatMap( ( result ) => result.anomalies.filter( ( anomaly ) => anomaly.type === "fixed-value-not-a-key" ) );
         generated = set.modules.flatMap( ( result ) => generateXsds( { ...result.version, messages: result.version.messages.filter( ( message ) => !repeated.includes( message.code ) ) },
             set.nomenclatures.version ).map( ( file ) => ( { ...file, message: result.version.messages.find( ( message ) => message.code === file.code ), lists: lists } ) ) );
-        xmldsig = fs.readFileSync( XMLDSIG, "utf8" );
     } );
 
     it( "reports the one fixed value that is not a key of its list, and does not fix it", () => {
@@ -104,7 +94,7 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
         const compile = ( text ) => validateXML( {
             xml: [ { fileName: "message.xml", contents: "<message xmlns=\"https://www.his.bg\"/>" } ],
             schema: [ { fileName: "NHIS-X000.xsd", contents: text } ],
-            preload: [ { fileName: "xmldsig-core-schema.xsd", contents: xmldsig } ]
+            preload: [ xmldsig() ]
         } );
         // The check is only worth something if a schema that does not compile fails it.
         await assert.rejects( compile( generated[ 0 ].text.replace( "type=\"nhis:Message\"", "type=\"nhis:Missing\"" ) ), /failed to compile/ );
@@ -115,6 +105,17 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
             } catch ( error ) {
                 return `${ file.code }: ${ error.message.split( "\n" )[ 0 ] }`;
             }
+        } );
+        assert.deepEqual( results.filter( Boolean ), [] );
+    } );
+
+    // Design record §5.5: a synthetic message — every element once, each value one its type accepts — is what the
+    // generated XSD and the model agree on. The empty signature is xmldsig's to refuse, and set aside.
+    it( "accepts a synthetic message of each, for every production message", async () => {
+        const results = await inBatches( generated, 8, async ( file ) => {
+            const errors = await errorsOf( synthesizeMessage( messageShape( file.message, file.lists ) ),
+                { schema: [ { fileName: file.fileName, contents: file.text } ], preload: [ xmldsig() ] } );
+            return errors.length ? `${ file.code }: ${ errors[ 0 ] }` : null;
         } );
         assert.deepEqual( results.filter( Boolean ), [] );
     } );
