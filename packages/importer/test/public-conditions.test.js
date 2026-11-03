@@ -33,6 +33,12 @@ const { parseCondition } = require( "@health-dev-portal/spec-model/condition-par
 const DIRECTORY = path.resolve( __dirname, "../../../.fixtures/public" );
 const XSD_DIRECTORY = path.join( DIRECTORY, "api-v1" );
 const XSD_PRESENT = fs.existsSync( path.join( XSD_DIRECTORY, "NHIS-Entities.xsd" ) );
+
+// In CI a missing fixture is a failure, never a skip: the entity-name figures below would skip unseen (CodeRabbit on #12).
+if ( !XSD_PRESENT && process.env.CI ) {
+    throw new Error( "The public XSD set is missing: CI must run `npm run fixtures:fetch` before the tests." );
+}
+
 const NOMENCLATURES = "nomenclatures-1.5.33.xlsx";
 const MODULES = Object.freeze( {
     "e-prescription": "eprescription-1.5.1.xlsx",

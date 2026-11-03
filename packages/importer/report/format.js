@@ -143,7 +143,7 @@ const CAUSES = Object.freeze( [ "shared-type", "choice", "deliberate", "change-n
  * each side has — then the count of each cause, every cause listed so a zero reads as checked.
  *
  * @method
- * @param {import( "@health-dev-portal/spec-model/schema-compare" ).DriftEntry[]} entries
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).DriftEntry[]} entries
  * @returns {string}
  * @public
  */

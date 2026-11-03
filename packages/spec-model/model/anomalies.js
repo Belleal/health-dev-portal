@@ -105,7 +105,7 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "removed-code-list": { level: WARNING, text: "{identity} names code list {id}, which the nomenclatures mark as removed." },
     "unknown-rule": { level: BLOCKING, text: "{identity} names rule {id}, which the rules do not define." },
     "withdrawn-rule": { level: WARNING, text: "{identity} names rule {id}, which is withdrawn." },
-    "fixed-value-not-a-key": { level: WARNING, text: "{identity} is fixed to '{value}', which is not a key of {id}; a generated XSD leaves it unfixed." },
+    "fixed-value-not-a-key": { level: WARNING, text: "{identity} is fixed to '{value}', which is not a key of {id}." },
     "unknown-error-code": { level: WARNING, text: "Rule {id} returns error code {code}, which CL999 does not define." },
     // Conditions (design record §6)
     "non-canonical-condition": { level: WARNING, text: "Condition {id} uses forms the language writes differently ({forms}); it reads as: {printed}" },

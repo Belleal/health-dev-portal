@@ -85,4 +85,11 @@ describe( "synthesizeMessage", () => {
         const xml = synthesizeMessage( root( [ field( "x", value( "string" ), { attributes: [ { name: "value", required: true, value: value( "string" ), fixed: "a&\"b<", documentation: null } ] } ) ] ) );
         assert.match( xml, /<x value="a&amp;&quot;b&lt;"\/>/ );
     } );
+
+    // CodeRabbit on #12: a literal tab or line end in an attribute reads back as a space, so the message disagreed with
+    // the fixed value its own XSD writes as &#9;.
+    it( "writes a tab and line ends in an attribute as references", () => {
+        const xml = synthesizeMessage( root( [ field( "x", value( "string" ), { attributes: [ { name: "value", required: true, value: value( "string" ), fixed: "a\tb\nc\rd", documentation: null } ] } ) ] ) );
+        assert.match( xml, /<x value="a&#9;b&#10;c&#13;d"\/>/ );
+    } );
 } );

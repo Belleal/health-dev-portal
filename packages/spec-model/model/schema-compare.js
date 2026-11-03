@@ -16,23 +16,6 @@
  */
 
 /**
- * @typedef {Object} SchemaDifference One way two XSDs of a message accept different things (design record §5.5).
- * @property {string} message The message's code.
- * @property {string} path The element's tag path.
- * @property {string|null} attribute The attribute's name, when the difference is in one.
- * @property {string} kind `only-published`, `only-generated`, `kind`, `cardinality`, `order`, `required`, `value-type` or
- *     `fixed`.
- * @property {string|null} published What the published XSD has, in words: `0..1`, the child tags, a value type; `null`
- *     when it has nothing.
- * @property {string|null} generated What the generated XSD has, alike.
- */
-
-/**
- * @typedef {SchemaDifference & {cause: string}} DriftEntry A difference and the cause the report can establish:
- *     `shared-type`, `choice`, `deliberate`, `change-note` or `unexplained` (design record §5.5).
- */
-
-/**
  * The published set's shared files: a particle one of their types declares is part of today's shared types.
  *
  * @type {ReadonlyArray<string>}
@@ -125,7 +108,7 @@ function compareNode( code, published, generated, out ) {
  * @param {string} code The message's code.
  * @param {import( "#definitions" ).SchemaNode} published
  * @param {import( "#definitions" ).SchemaNode} generated
- * @returns {SchemaDifference[]} In the published tree's order, an element only the generated side has after its
+ * @returns {import( "#definitions" ).SchemaDifference[]} In the published tree's order, an element only the generated side has after its
  *     siblings.
  * @public
  */
@@ -176,20 +159,22 @@ const newer = ( version, than ) => {
 
 /**
  * Gives each difference the cause the report can establish by itself (design record §5.5), the first that applies:
- * - `shared-type`: an element or attribute only the published XSD has, declared by one of the shared files' types —
- *   today's shared types allow fields a message does not list;
+ * - `shared-type`: an element or attribute only the published XSD has, declared by one of the shared files' types and
+ *   optional there — today's shared types allow fields a message does not list. One they require is no looseness;
  * - `choice`: a cardinality or use that differs on an element inside a published `xs:choice`, which the generated XSD
  *   leaves to the conditions;
- * - `deliberate`: what §4.10 changes on purpose — a coded value typed `xs:int` where the published type is a string,
- *   and a fixed value the published XSD did not have;
- * - `change-note`: across versions, an element whose tag a change note of a version after the published XSD's names;
+ * - `deliberate`: what §4.10 changes on purpose — a coded value typed by its list's key type, whatever today's type
+ *   had, and a fixed value the published XSD did not have;
+ * - `change-note`: across versions, a difference a note of a version after the published XSD's explains. The note quotes
+ *   a path the element's path ends with (`"..dentalProcedure.code"`), and names the element's message or no message.
+ *   An `order` difference is never a note's;
  * - `unexplained`: anything else, which a person reads.
  *
  * @method
- * @param {SchemaDifference[]} differences
+ * @param {import( "#definitions" ).SchemaDifference[]} differences
  * @param {{publishedShape: import( "#definitions" ).SchemaNode, generatedShape: import( "#definitions" ).SchemaNode,
  *     publishedVersion: string|null, changeNotes: import( "#definitions" ).ChangeVersion[]}} context
- * @returns {DriftEntry[]}
+ * @returns {import( "#definitions" ).DriftEntry[]}
  * @public
  */
 module.exports.explainDifferences = ( differences, context ) => {

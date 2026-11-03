@@ -85,6 +85,19 @@ describe( "The like-for-like synthetic messages, in xmllint", { skip: PRESENT ? 
         } );
     } );
 
+    // CodeRabbit on #12: the filter dropped every error that mentioned Signature, his.bg's patientSignature included.
+    it( "sets aside only errors about xmldsig's elements", async () => {
+        const schema = writeMessageXsd( { tag: "message", path: "", kind: "group", min: 1, max: 1, type: "Message", attributes: [], documentation: null, origin: null,
+            children: [ { tag: "patientSignature", path: "patientSignature", kind: "group", min: 1, max: 1, type: "PatientSignature", attributes: [], children: [], documentation: null, origin: null },
+                { tag: "Signature", path: "Signature", kind: "signature", min: 1, max: 1, type: null, attributes: [], children: [], documentation: null, origin: null } ] }, { version: null } );
+        const schemas = { schema: [ { fileName: "NHIS-T001.xsd", contents: schema } ], preload: [ xmldsig() ] };
+        const xmldsigNamespace = "xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"";
+        assert.deepEqual( await errorsOf( `<message xmlns="https://www.his.bg" ${ xmldsigNamespace }><patientSignature/><ds:Signature/></message>`, schemas ), [] );
+        const missing = await errorsOf( `<message xmlns="https://www.his.bg" ${ xmldsigNamespace }><ds:Signature/></message>`, schemas );
+        assert.equal( missing.length, 1 );
+        assert.match( missing[ 0 ], /patientSignature/ );
+    } );
+
     it( "covers the 23 importable like-for-like messages", () => {
         assert.deepEqual( cases.map( ( entry ) => entry.code ), Object.keys( PUBLISHED_ERRORS ) );
     } );

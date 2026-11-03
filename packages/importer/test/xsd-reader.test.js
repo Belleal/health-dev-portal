@@ -139,6 +139,15 @@ describe( "The XSD reader", () => {
         assert.deepEqual( find( expandMessage( set, "D003" ), "contents/treatment" ).children.map( ( child ) => child.tag ), [ "code" ] );
     } );
 
+    // CodeRabbit on #12: a type holding an element of its own type overflowed the stack, which reached the CLIs as a
+    // stack trace. No published type does; a hostile or broken file may.
+    it( "refuses a type that contains itself, naming it", () => {
+        const set = setOf( { P001: message( "P001", `
+          <xs:complexType name="contentsP001"><xs:sequence><xs:element name="node" type="nhis:loop"/></xs:sequence></xs:complexType>
+          <xs:complexType name="loop"><xs:sequence><xs:element name="next" type="nhis:loop" minOccurs="0"/></xs:sequence></xs:complexType>` ) } );
+        assert.throws( () => expandMessage( set, "P001" ), { name: "RangeError", message: /NHIS-P001\.xsd: type loop contains itself, at contents\/node\/next/ } );
+    } );
+
     it( "reads an element's and an attribute's documentation", () => {
         const root = expandMessage( setOf( { P001: message( "P001", `
           <xs:complexType name="contentsP001"><xs:sequence><xs:element name="lrn" type="nhis:lrnField">

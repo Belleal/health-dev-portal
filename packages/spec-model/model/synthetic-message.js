@@ -36,7 +36,10 @@ const SAMPLES = Object.freeze( {
 const LETTERS = Object.freeze( [ "A", "1", "a", "а" ] );
 const LONGEST = 64;
 
-const escape = ( text ) => text.replace( /&/g, "&amp;" ).replace( /</g, "&lt;" ).replace( />/g, "&gt;" ).replace( /"/g, "&quot;" );
+// An attribute value's tab and line ends go as references: a parser turns literal ones into spaces, and the message then
+// disagreed with the fixed value its own XSD writes as &#9; (CodeRabbit on #12).
+const escape = ( text ) => text.replace( /&/g, "&amp;" ).replace( /</g, "&lt;" ).replace( />/g, "&gt;" ).replace( /"/g, "&quot;" )
+    .replace( /\t/g, "&#9;" ).replace( /\n/g, "&#10;" ).replace( /\r/g, "&#13;" );
 
 function sampleOf( attribute ) {
     if ( attribute.fixed !== null && attribute.fixed !== undefined ) {

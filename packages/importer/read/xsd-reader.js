@@ -301,7 +301,9 @@ const pathOf = ( parentPath, tag ) => {
     return parentPath ? `${ parentPath }/${ tag }` : tag;
 };
 
-function expand( item, parentPath, lookup ) {
+// `within` holds the message file and the named types on the way down: a type that holds an element of its own type
+// would expand forever, and overflowed the stack (CodeRabbit on #12). No published type does; a broken file may.
+function expand( item, parentPath, lookup, within ) {
     const element = item.node;
     const choice = item.choice === null ? null : `${ parentPath }#${ item.choice }`;
     const min = occurs( element.attributes.minOccurs, 1 );
@@ -315,6 +317,9 @@ function expand( item, parentPath, lookup ) {
     const path = pathOf( parentPath, tag );
     const inline = childNamed( element, "complexType" );
     const type = inline ? null : localName( element.attributes.type );
+    if ( type && within.types.includes( type ) ) {
+        throw new RangeError( `${ within.file }: type ${ type } contains itself, at ${ path }.` );
+    }
     const definition = inline ? { node: inline, file: item.file } : lookup( type );
     // Where the element's type is defined, as well as where the element is declared: an attribute only today's XSD has
     // comes from the type, and a physician typed in H005's own file still takes its qualification from NHIS-Fields.
@@ -329,7 +334,7 @@ function expand( item, parentPath, lookup ) {
         max: max,
         type: type,
         attributes: field ? content.attributes.map( ( attribute ) => attributeOf( attribute, lookup ) ) : [],
-        children: field ? [] : content.items.map( ( child ) => expand( child, path, lookup ) ),
+        children: field ? [] : content.items.map( ( child ) => expand( child, path, lookup, { file: within.file, types: type ? [ ...within.types, type ] : within.types } ) ),
         documentation: elementDocumentation( element ),
         origin: origin
     };
@@ -345,7 +350,7 @@ function expand( item, parentPath, lookup ) {
  * @param {XsdSet} set
  * @param {string} code
  * @returns {import( "@health-dev-portal/spec-model/definitions" ).SchemaNode}
- * @throws {RangeError} When the set has no such message, or the message no `message` element.
+ * @throws {RangeError} When the set has no such message, the message no `message` element, or a type contains itself.
  * @public
  */
 module.exports.expandMessage = ( set, code ) => {
@@ -358,5 +363,5 @@ module.exports.expandMessage = ( set, code ) => {
     if ( !root ) {
         throw new RangeError( `${ message.file } declares no message element.` );
     }
-    return expand( { node: root, file: message.file, choice: null }, null, lookup );
+    return expand( { node: root, file: message.file, choice: null }, null, lookup, { file: message.file, types: [] } );
 };

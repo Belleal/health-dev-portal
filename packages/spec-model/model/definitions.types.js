@@ -314,6 +314,23 @@
  */
 
 /**
+ * @typedef {Object} SchemaDifference One way two XSDs of a message accept different things (design record §5.5).
+ * @property {string} message The message's code.
+ * @property {string} path The element's tag path.
+ * @property {string|null} attribute The attribute's name, when the difference is in one.
+ * @property {string} kind `only-published`, `only-generated`, `kind`, `cardinality`, `order`, `required`, `value-type` or
+ *     `fixed`.
+ * @property {string|null} published What the published XSD has, in words: `0..1`, the child tags, a value type; `null`
+ *     when it has nothing.
+ * @property {string|null} generated What the generated XSD has, alike.
+ */
+
+/**
+ * @typedef {SchemaDifference & {cause: string}} DriftEntry A difference and the cause the report can establish:
+ *     `shared-type`, `choice`, `deliberate`, `change-note` or `unexplained` (design record §5.5).
+ */
+
+/**
  * @typedef {Object} Blueprint A business object many messages carry, such as a patient (design record §4.4). Internal:
  *     never published, no version line.
  * @property {string} key The NHIS-Entities type its types' derivation chains start from, e.g. `medicalPractitionerSimple`.

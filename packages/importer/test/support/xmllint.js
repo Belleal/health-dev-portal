@@ -54,9 +54,16 @@ function publishedSchema( code ) {
     return { schema: [ own ], preload: SHARED.map( published ) };
 }
 
+// An error that is xmldsig's alone: its element is one of xmldsig's and it names no his.bg element. A synthetic
+// message's empty ds:Signature is refused by xmldsig itself. Matching the word Signature anywhere also dropped errors
+// about his.bg's patientSignature (CodeRabbit on #12), and a missing his.bg element is reported at the ds:Signature that
+// follows it ("Expected is ( {https://www.his.bg}patientSignature )"), so the element alone does not decide.
+const XMLDSIG_ELEMENT = /Element '\{http:\/\/www\.w3\.org\/2000\/09\/xmldsig#\}/;
+const HIS_ELEMENT = /\{https:\/\/www\.his\.bg\}/;
+const xmldsigAlone = ( message ) => XMLDSIG_ELEMENT.test( message ) && !HIS_ELEMENT.test( message );
+
 /**
- * Validates a message, returning xmllint's error messages but those about the signature: a synthetic message's empty
- * ds:Signature is refused by xmldsig itself.
+ * Validates a message, returning xmllint's error messages but those that are xmldsig's alone.
  *
  * @param {string} xml
  * @param {{schema: Array<{fileName: string, contents: string}>, preload: Array<{fileName: string, contents: string}>}} schemas
@@ -64,7 +71,7 @@ function publishedSchema( code ) {
  */
 async function errorsOf( xml, schemas ) {
     const result = await validateXML( { xml: [ { fileName: "message.xml", contents: xml } ], schema: schemas.schema, preload: schemas.preload } );
-    return result.errors.map( ( error ) => error.message ).filter( ( message ) => !/Signature/.test( message ) );
+    return result.errors.map( ( error ) => error.message ).filter( ( message ) => !xmldsigAlone( message ) );
 }
 
 /**

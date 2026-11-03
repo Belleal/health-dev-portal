@@ -34,7 +34,8 @@ const ENTITIES_FILE = "NHIS-Entities.xsd";
  * @param {string} directory
  * @returns {Promise<{set: import( "#xsd-reader" ).XsdSet, catalogue: import( "@health-dev-portal/spec-model/definitions" ).BlueprintCatalogue}>}
  * @throws {import( "#xsd-reader" ).UnreadableSchemaError} "Cannot read <file or directory>: …" for a directory that cannot be
- *     listed or holds no NHIS-Entities.xsd, and for a file that cannot be read or parsed.
+ *     listed or holds no NHIS-Entities.xsd, for a file that cannot be read or parsed, and for a message file that cannot
+ *     be expanded.
  * @public
  */
 module.exports.importXsdSet = async ( directory ) => {
@@ -55,7 +56,16 @@ module.exports.importXsdSet = async ( directory ) => {
     const files = await Promise.all( names.map( async ( name ) => ( { name: name,
         text: await reading( name, () => fs.promises.readFile( path.join( directory, name ), "utf8" ) ) } ) ) );
     const set = readXsdSet( files );
-    return { set: set, catalogue: learnCatalogue( set ) };
+    // Learning expands every message, and a message file that declares no message element, or holds a type that
+    // contains itself, cannot be expanded. It is the set's fault, so it reads as one line too (CodeRabbit on #12).
+    try {
+        return { set: set, catalogue: learnCatalogue( set ) };
+    } catch ( error ) {
+        if ( !( error instanceof RangeError ) ) {
+            throw error;
+        }
+        throw new UnreadableSchemaError( `Cannot read ${ directory }: ${ error.message }`, { cause: error } );
+    }
 };
 
 /**
@@ -69,7 +79,7 @@ module.exports.importXsdSet = async ( directory ) => {
  * @param {import( "@health-dev-portal/spec-model/definitions" ).NomenclaturesVersion} nomenclatures The ones the version
  *     resolved against: a coded value's type is its list's key type.
  * @param {import( "#xsd-reader" ).XsdSet} set
- * @returns {{entries: import( "@health-dev-portal/spec-model/schema-compare" ).DriftEntry[], skipped: Array<{code: string, reason: string}>}}
+ * @returns {{entries: import( "@health-dev-portal/spec-model/definitions" ).DriftEntry[], skipped: Array<{code: string, reason: string}>}}
  * @public
  */
 module.exports.driftReport = ( version, nomenclatures, set ) => {

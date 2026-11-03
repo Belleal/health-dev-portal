@@ -98,4 +98,12 @@ describe( "The blueprint catalogue", () => {
         fs.mkdirSync( path.join( directory, "NHIS-Z001.xsd" ) );
         await assert.rejects( importXsdSet( directory ), { name: "UnreadableSchemaError", message: /^Cannot read NHIS-Z001\.xsd: / } );
     } );
+
+    // CodeRabbit on #12: a message file the set cannot expand reached the CLIs as a RangeError's stack trace.
+    it( "names a message file it cannot expand", async () => {
+        const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-xsd-" ) );
+        fs.writeFileSync( path.join( directory, "NHIS-Entities.xsd" ), ENTITIES );
+        fs.writeFileSync( path.join( directory, "NHIS-P001.xsd" ), schema( "<xs:complexType name=\"orphan\"><xs:sequence/></xs:complexType>" ) );
+        await assert.rejects( importXsdSet( directory ), { name: "UnreadableSchemaError", message: /^Cannot read .*: NHIS-P001\.xsd declares no message element\./ } );
+    } );
 } );
