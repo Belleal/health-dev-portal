@@ -61,13 +61,15 @@ async function main( argv ) {
         console.error( `${ path.basename( workbook ) }: the import has ${ blocking } blocking anomal${ blocking === 1 ? "y" : "ies" }, so nothing is written. hdp-import-set prints them.` );
         return 1;
     }
+    // The published set is read before anything is written: a --compare that cannot be read leaves no half-done output.
+    const published = given( "compare" ) ? ( await importXsdSet( values.compare ) ).set : null;
     const files = generateXsds( module.version, set.nomenclatures.version );
     fs.mkdirSync( values.out, { recursive: true } );
     for ( const file of files ) {
         fs.writeFileSync( path.join( values.out, file.fileName ), file.text );
     }
-    if ( given( "compare" ) ) {
-        const report = driftReport( module.version, set.nomenclatures.version, ( await importXsdSet( values.compare ) ).set );
+    if ( published ) {
+        const report = driftReport( module.version, set.nomenclatures.version, published );
         console.log( formatDrift( report.entries ) );
         report.skipped.forEach( ( skipped ) => console.log( `${ skipped.code } not compared: ${ skipped.reason }` ) );
     }

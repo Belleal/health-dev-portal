@@ -59,8 +59,19 @@ describe( "hdp-xsd", () => {
             assert.equal( result.status, 0, result.stdout + result.stderr );
             assert.deepEqual( fs.readdirSync( out ).sort().slice( 0, 2 ), [ "NHIS-D001.xsd", "NHIS-D002.xsd" ] );
             assert.equal( fs.readdirSync( out ).length, 11 );
-            assert.match( result.stdout, /^D002 header\/senderISName only-published \[shared-type\]: published field, generated —$/m );
-            assert.match( result.stdout, /^shared-type: 7$/m );
+            assert.match( result.stdout, /^D006 contents\/results\/performer\/qualification@nhifCode only-published \[shared-type\]: published present, generated —$/m );
+            assert.match( result.stdout, /^D002 header\/senderISName only-published \[unexplained\]: published field, generated —$/m );
+            assert.match( result.stdout, /^shared-type: 1$/m );
+        } );
+
+        // Final review: a --compare directory that is not there printed a stack trace after the XSDs were written.
+        it( "exits 1 with one line, and writes nothing, when --compare names no XSD set", () => {
+            const out = outDirectory();
+            const result = run( [ path.join( DIRECTORY, "edental-1.0.5.xlsx" ), "--nomenclatures", NOMENCLATURES, "--out", out, "--compare", path.join( out, "missing" ) ] );
+            assert.equal( result.status, 1 );
+            assert.match( result.stderr, /^Cannot read .*missing: / );
+            assert.doesNotMatch( result.stderr, /\n\s+at / );
+            assert.deepEqual( fs.readdirSync( out ), [] );
         } );
 
         it( "exits 1 on a blocked import and writes nothing", () => {

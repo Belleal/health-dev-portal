@@ -57,6 +57,7 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
     let generated;
     let repeated;
     let fixedNotKeys;
+    let optionalWithMinimum;
 
     before( async () => {
         const set = await importSet( {
@@ -68,6 +69,8 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
         // e-Examination 1.3.10 four do, from one mis-indented group (HEL-19); every other message is generated.
         repeated = set.modules.flatMap( ( result ) => result.anomalies.filter( ( anomaly ) => anomaly.type === "duplicate-identity" ).map( ( anomaly ) => anomaly.sheet ) );
         fixedNotKeys = set.modules.flatMap( ( result ) => result.anomalies.filter( ( anomaly ) => anomaly.type === "fixed-value-not-a-key" ) );
+        optionalWithMinimum = Object.fromEntries( set.modules.map( ( result ) => [ result.version.spec, result.anomalies.filter( ( anomaly ) => anomaly.type === "optional-with-minimum" ).length ] )
+            .filter( ( [ , count ] ) => count > 0 ) );
         generated = set.modules.flatMap( ( result ) => generateXsds( { ...result.version, messages: result.version.messages.filter( ( message ) => !repeated.includes( message.code ) ) },
             set.nomenclatures.version ).map( ( file ) => ( { ...file, message: result.version.messages.find( ( message ) => message.code === file.code ), lists: lists } ) ) );
     } );
@@ -76,6 +79,16 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
         assert.deepEqual( fixedNotKeys.map( ( anomaly ) => [ anomaly.sheet, anomaly.details.identity, anomaly.details.value, anomaly.details.id ] ),
             [ [ "I006", "header/senderId@value", "NHIS", "CL018" ] ] );
         assert.ok( !generated.find( ( file ) => file.code === "I006" ).text.includes( "fixed=\"NHIS\"" ) );
+    } );
+
+    // Final review: an O or C row whose cardinality demands one became a required element, and C051 refused a message
+    // carrying only nrnCertificate, one of three alternatives.
+    it( "reports the 25 O or C rows whose cardinality demands one, and makes each optional", () => {
+        assert.deepEqual( optionalWithMinimum, { "e-prescription": 1, "common-services": 3, "e-referral": 3, "e-dental": 6, "e-examination": 9, "e-hospitalization": 3 } );
+        const c051 = generated.find( ( file ) => file.code === "C051" );
+        const shape = messageShape( c051.message, c051.lists );
+        const at = ( node, tag ) => node.tag === tag ? node : node.children.reduce( ( found, child ) => found || at( child, tag ), null );
+        assert.deepEqual( [ "nrnCertificate", "identifierType", "identifier" ].map( ( tag ) => at( shape, tag ).min ), [ 0, 0, 0 ] );
     } );
 
     it( "writes one for each of the 172 messages that are not withdrawn and do not repeat an identity", () => {

@@ -157,6 +157,25 @@ describe( "messageShape", () => {
         assert.deepEqual( [ find( shape, "header/senderId" ).attributes[ 0 ].fixed, find( shape, "header/sender" ).attributes[ 0 ].fixed ], [ null, "4" ] );
     } );
 
+    // Final review: C051's nrnCertificate, O 1..1, became a required element, and a message following R/C/O was refused.
+    it( "makes an element optional unless its row is R, whatever its cardinality's minimum", () => {
+        const message = { code: "C051", elements: [ row( "contents", "group", { children: [
+            row( "contents/a@value", "field", { dataType: "String", requirement: "O", cardinality: { min: 1, max: 1 } } ),
+            row( "contents/b@value", "field", { dataType: "String", requirement: "C", cardinality: { min: 1, max: null } } ),
+            row( "contents/c@value", "field", { dataType: "String", requirement: "R", cardinality: { min: 1, max: 1 } } ),
+            row( "contents/d", "group", { requirement: "O", cardinality: { min: 2, max: 5 } } ) ] } ) ] };
+        assert.deepEqual( find( messageShape( message, LISTS ), "contents" ).children.map( ( child ) => [ child.tag, child.min, child.max ] ),
+            [ [ "a", 0, 1 ], [ "b", 0, null ], [ "c", 1, 1 ], [ "d", 0, 5 ] ] );
+    } );
+
+    // Final review: Word's Shift+Enter arrives in Excel as U+000B, which XML 1.0 forbids; the XSD was not well formed.
+    it( "drops the control characters XML cannot hold from documentation and fixed values", () => {
+        const message = { code: "P001", elements: [ row( "contents", "group", { children: [
+            row( "contents/lrn@value", "field", { dataType: "String", fixedValue: "a\u0001b", description: { bg: "ред\u000Bдва\tтри", en: null } } ) ] } ) ] };
+        const lrn = find( messageShape( message, LISTS ), "contents/lrn" );
+        assert.deepEqual( [ lrn.documentation.bg, lrn.attributes[ 0 ].fixed ], [ "реддва\tтри", "ab" ] );
+    } );
+
     it( "documents an element by its description in each language it has", () => {
         const message = { code: "P001", elements: [ row( "contents", "group", { children: [
             row( "contents/lrn@value", "field", { dataType: "String", description: { bg: " Локален номер\r\nна рецептата ", en: null } } ) ] } ) ] };

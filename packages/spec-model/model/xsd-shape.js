@@ -146,9 +146,16 @@ module.exports.fitsValueType = ( value, valueType ) => {
     return valueType.enumeration.length === 0 || valueType.enumeration.includes( value );
 };
 
+// The characters XML 1.0 can hold: a workbook can carry others, such as Word's Shift+Enter pasted into Excel as U+000B,
+// and one of them makes the written XSD not well formed (plan 4's final review). Tab, line feed and return stay.
+const xmlCharacters = ( value ) => Array.from( value ).filter( ( character ) => {
+    const code = character.codePointAt( 0 );
+    return code >= 0x20 || code === 0x09 || code === 0x0A || code === 0x0D;
+} ).join( "" );
+
 // What the writer can write and the reader reads back: no surrounding space, and line ends as XML normalises them.
 const text = ( value ) => {
-    const normalised = ( value || "" ).replace( /\r\n?/g, "\n" ).trim();
+    const normalised = xmlCharacters( value || "" ).replace( /\r\n?/g, "\n" ).trim();
     return normalised || null;
 };
 
@@ -159,9 +166,15 @@ const documentationOf = ( element ) => {
     return bg || en ? { bg: bg, en: en } : null;
 };
 
-const occurrences = ( element ) => element.cardinality
-    ? { min: element.cardinality.min, max: element.cardinality.max }
-    : { min: element.requirement === REQUIREMENT.REQUIRED ? 1 : 0, max: 1 };
+// An O or C row is optional whatever its cardinality's minimum: C051's nrnCertificate (O 1..1) and its alternatives were
+// required elements, and a message following R/C/O was refused (plan 4's final review). Validation reports such a row.
+const occurrences = ( element ) => {
+    const optional = element.requirement === REQUIREMENT.OPTIONAL || element.requirement === REQUIREMENT.CONDITIONAL;
+    if ( element.cardinality ) {
+        return { min: optional ? 0 : element.cardinality.min, max: element.cardinality.max };
+    }
+    return { min: element.requirement === REQUIREMENT.REQUIRED ? 1 : 0, max: 1 };
+};
 
 const codedNote = ( element ) => ( element.codeList ? `Code list ${ element.codeList }.` : null );
 
@@ -169,9 +182,8 @@ function attributeOf( element, codeLists, name, required ) {
     const value = module.exports.valueTypeOf( element, codeLists );
     // A fixed value the type refuses would make the XSD fail to compile (I006's senderId, fixed to "NHIS" on the integer
     // list CL018). The type wins; linking reports the value as fixed-value-not-a-key.
-    const fixed = element.fixedValue !== null && element.fixedValue !== undefined && module.exports.fitsValueType( element.fixedValue, value )
-        ? element.fixedValue
-        : null;
+    const given = element.fixedValue === null || element.fixedValue === undefined ? null : xmlCharacters( element.fixedValue );
+    const fixed = given !== null && module.exports.fitsValueType( given, value ) ? given : null;
     return { name: name, required: required, value: value, fixed: fixed, documentation: codedNote( element ) };
 }
 

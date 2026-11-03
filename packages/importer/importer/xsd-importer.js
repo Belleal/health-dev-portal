@@ -21,7 +21,9 @@ const { LIFECYCLE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareShapes, explainDifferences } = require( "@health-dev-portal/spec-model/schema-compare" );
 const { messageShape } = require( "@health-dev-portal/spec-model/xsd-shape" );
 const { learnCatalogue } = require( "#blueprint-catalogue" );
-const { expandMessage, readXsdSet } = require( "#xsd-reader" );
+const { UnreadableSchemaError, expandMessage, readXsdSet } = require( "#xsd-reader" );
+
+const ENTITIES_FILE = "NHIS-Entities.xsd";
 
 /**
  * Imports a published XSD set from a directory, such as a copy of his.bg's `/api/v1/` (design record §5.2): every
@@ -31,12 +33,27 @@ const { expandMessage, readXsdSet } = require( "#xsd-reader" );
  * @method
  * @param {string} directory
  * @returns {Promise<{set: import( "#xsd-reader" ).XsdSet, catalogue: import( "@health-dev-portal/spec-model/definitions" ).BlueprintCatalogue}>}
- * @throws {import( "#xsd-reader" ).UnreadableSchemaError} "Cannot read <file>: …" for a file that cannot be read.
+ * @throws {import( "#xsd-reader" ).UnreadableSchemaError} "Cannot read <file or directory>: …" for a directory that cannot be
+ *     listed or holds no NHIS-Entities.xsd, and for a file that cannot be read or parsed.
  * @public
  */
 module.exports.importXsdSet = async ( directory ) => {
-    const names = ( await fs.promises.readdir( directory ) ).filter( ( name ) => name.endsWith( ".xsd" ) ).sort();
-    const files = await Promise.all( names.map( async ( name ) => ( { name: name, text: await fs.promises.readFile( path.join( directory, name ), "utf8" ) } ) ) );
+    // A person names this directory, so what goes wrong reading it is one line naming what, never a stack trace from
+    // the CLIs (plan 4's final review).
+    const reading = async ( name, read ) => {
+        try {
+            return await read();
+        } catch ( error ) {
+            throw new UnreadableSchemaError( `Cannot read ${ name }: ${ error.message }`, { cause: error } );
+        }
+    };
+    const names = ( await reading( directory, () => fs.promises.readdir( directory ) ) ).filter( ( name ) => name.endsWith( ".xsd" ) ).sort();
+    // Without it nothing binds, and an import given the wrong directory would look like one with no blueprints.
+    if ( !names.includes( ENTITIES_FILE ) ) {
+        throw new UnreadableSchemaError( `Cannot read ${ directory }: it holds no ${ ENTITIES_FILE }, so it is not a published XSD set.` );
+    }
+    const files = await Promise.all( names.map( async ( name ) => ( { name: name,
+        text: await reading( name, () => fs.promises.readFile( path.join( directory, name ), "utf8" ) ) } ) ) );
     const set = readXsdSet( files );
     return { set: set, catalogue: learnCatalogue( set ) };
 };

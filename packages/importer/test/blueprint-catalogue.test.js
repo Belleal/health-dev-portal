@@ -87,4 +87,15 @@ describe( "The blueprint catalogue", () => {
         fs.writeFileSync( path.join( directory, "NHIS-Entities.xsd" ), "<xs:schema" );
         await assert.rejects( importXsdSet( directory ), { name: "UnreadableSchemaError", message: /^Cannot read NHIS-Entities\.xsd: / } );
     } );
+
+    // Final review: a missing directory, or an .xsd that is not a file, reached the CLIs as a stack trace; a directory
+    // holding no published set bound nothing, without a word.
+    it( "names a directory that is not there, a file it cannot open, and a directory that is no XSD set", async () => {
+        const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-xsd-" ) );
+        await assert.rejects( importXsdSet( path.join( directory, "missing" ) ), { name: "UnreadableSchemaError", message: /^Cannot read .*missing: / } );
+        await assert.rejects( importXsdSet( directory ), { name: "UnreadableSchemaError", message: /holds no NHIS-Entities\.xsd, so it is not a published XSD set/ } );
+        fs.writeFileSync( path.join( directory, "NHIS-Entities.xsd" ), ENTITIES );
+        fs.mkdirSync( path.join( directory, "NHIS-Z001.xsd" ) );
+        await assert.rejects( importXsdSet( directory ), { name: "UnreadableSchemaError", message: /^Cannot read NHIS-Z001\.xsd: / } );
+    } );
 } );

@@ -101,7 +101,7 @@ describe( "describeValueType", () => {
 describe( "explainDifferences", () => {
 
     const published = root( [
-        node( "header", "group", { origin: origin( "NHIS-Commons.xsd" ), children: [ node( "header/senderISName", "field", { origin: origin( "NHIS-Commons.xsd" ) } ) ] } ),
+        node( "header", "group", { origin: origin( "NHIS-Commons.xsd" ), children: [ node( "header/senderISName", "field", { origin: origin( "NHIS-Commons.xsd" ), min: 0 } ) ] } ),
         node( "contents", "group", { origin: origin(), children: [
             node( "contents/laboratory", "group", { origin: origin( "NHIS-R001.xsd", "contents#1" ), min: 1 } ),
             node( "contents/code", "field", { origin: origin() } ),
@@ -118,10 +118,42 @@ describe( "explainDifferences", () => {
             node( "contents/note", "field" )
         ] } )
     ] );
+    // As the workbooks write them: the path quoted with a leading "..", the messages named after it.
     const NOTES = [
-        { version: "1.0.5", notes: [ { text: "Added status." } ] },
-        { version: "1.0.10", notes: [ { text: "The field note is now required." } ] }
+        { version: "1.0.5", notes: [ { text: "Добавено поле \"..status\" в съобщение R001" } ] },
+        { version: "1.0.10", notes: [ { text: "Поле \"..note\" е направено задължително в съобщения R001, R002" } ] }
     ];
+    const explain = ( differences, notes ) => explainDifferences( differences, { publishedShape: published, generatedShape: generated, publishedVersion: "1.0.6", changeNotes: notes } );
+    const difference = ( path, kind, extra = {} ) => ( { message: "R001", path: path, attribute: null, kind: kind, published: "0..1", generated: "1..1", ...extra } );
+    const later = ( text ) => [ { version: "1.0.10", notes: [ { text: text } ] } ];
+
+    // Final review: a tag matched as a word anywhere explained 109 differences, 11 by notes about other messages and 33
+    // by notes about other paths — the HEL-26 order break among them.
+    it( "explains by a note only when it names this element's path and this message, or no message", () => {
+        assert.deepEqual( [
+            explain( [ difference( "contents/note", "cardinality" ) ], later( "Поле \"..note\" е направено задължително в съобщение R002" ) ),
+            explain( [ difference( "contents/note", "cardinality" ) ], later( "Поле \"..subject.note\" е направено задължително" ) ),
+            explain( [ difference( "contents/note", "cardinality" ) ], later( "The field note is now required." ) ),
+            explain( [ difference( "contents/note", "cardinality" ) ], later( "Поле \"..contents.note\" е направено задължително" ) )
+        ].map( ( entries ) => entries[ 0 ].cause ), [ "unexplained", "unexplained", "unexplained", "change-note" ] );
+    } );
+
+    it( "never explains an order difference by a note", () => {
+        assert.equal( explain( [ difference( "contents/note", "order", { published: "a b", generated: "b a" } ) ], later( "Преместено поле \"..note\"" ) )[ 0 ].cause, "unexplained" );
+    } );
+
+    // Final review: X001's subject/address and the responses' senderISName are required today; a message without them
+    // is refused, which is no looseness.
+    it( "does not call a field or attribute today's shared type requires a looseness", () => {
+        const required = root( [ node( "header", "group", { origin: origin( "NHIS-Commons.xsd" ), children: [
+            node( "header/senderISName", "field", { origin: origin( "NHIS-Commons.xsd" ) } ),
+            node( "header/q", "field", { origin: { file: "NHIS-Commons.xsd", choice: null, typeFile: "NHIS-Fields.xsd" },
+                attributes: [ attribute( "value" ), attribute( "nhifCode", { required: true } ) ] } ) ] } ) ] );
+        const ours = root( [ node( "header", "group", { children: [ node( "header/q", "field" ) ] } ) ] );
+        const entries = explainDifferences( compareShapes( "R002", required, ours ), { publishedShape: required, generatedShape: ours, publishedVersion: "1.0.6", changeNotes: [] } );
+        assert.deepEqual( entries.map( ( entry ) => [ entry.path, entry.attribute, entry.cause ] ),
+            [ [ "header/senderISName", null, "unexplained" ], [ "header/q", "nhifCode", "unexplained" ] ] );
+    } );
 
     it( "explains a shared type's extra field, a choice, a deliberate int, a fixed value and a change note", () => {
         const differences = [ ...compareShapes( "R001", published, generated ),

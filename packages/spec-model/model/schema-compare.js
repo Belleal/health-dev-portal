@@ -145,6 +145,23 @@ const index = ( root ) => {
     return byPath;
 };
 
+// A change note as the workbooks write it: the paths it quotes ("..dentalProcedure.code", "nhifCode") and the messages it
+// names (D001, D003). A tag matched as a word anywhere explained 109 differences, 11 of them by notes about other
+// messages and 33 by notes about other paths (plan 4's final review).
+const noteOf = ( text ) => ( {
+    codes: new Set( text.match( /\b[A-Z]\d{3}\b/g ) || [] ),
+    paths: [ ...text.matchAll( /"(?:\.\.)?([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)*)"/g ) ].map( ( match ) => match[ 1 ].split( "." ) )
+} );
+
+// A note explains a difference when it names its message, or none, and quotes a path its element's path ends with.
+const explains = ( note, difference ) => {
+    if ( note.codes.size && !note.codes.has( difference.message ) ) {
+        return false;
+    }
+    const tags = difference.path.split( "/" );
+    return note.paths.some( ( segments ) => segments.length <= tags.length && segments.every( ( segment, index ) => tags[ tags.length - segments.length + index ] === segment ) );
+};
+
 // Versions compare numerically, part by part: 1.0.10 is after 1.0.6.
 const newer = ( version, than ) => {
     const a = String( version ).split( "." ).map( Number );
@@ -179,15 +196,19 @@ module.exports.explainDifferences = ( differences, context ) => {
     const published = index( context.publishedShape );
     const generated = index( context.generatedShape );
     const later = context.publishedVersion
-        ? context.changeNotes.filter( ( version ) => newer( version.version, context.publishedVersion ) ).flatMap( ( version ) => version.notes.map( ( note ) => note.text ) )
+        ? context.changeNotes.filter( ( version ) => newer( version.version, context.publishedVersion ) ).flatMap( ( version ) => version.notes.map( ( note ) => noteOf( note.text ) ) )
         : [];
     const cause = ( difference ) => {
         const theirs = published.get( difference.path );
         const origin = theirs ? theirs.origin : null;
         // An element is the shared type's that declares it; an attribute is the shared type's that defines its element's
-        // type, so H005's own physician still takes nhifCode from NHIS-Fields' qualification.
+        // type, so H005's own physician still takes nhifCode from NHIS-Fields' qualification. Only what today's type
+        // leaves optional is its looseness: a field it requires, as the responses' senderISName, is refused if missing.
         const from = difference.attribute ? origin && origin.typeFile : origin && origin.file;
-        if ( difference.kind === "only-published" && from && module.exports.SHARED_FILES.includes( from ) ) {
+        const optional = difference.attribute
+            ? Boolean( theirs ) && theirs.attributes.some( ( attribute ) => attribute.name === difference.attribute && !attribute.required )
+            : Boolean( theirs ) && theirs.min === 0;
+        if ( difference.kind === "only-published" && from && module.exports.SHARED_FILES.includes( from ) && optional ) {
             return "shared-type";
         }
         if ( ( difference.kind === "cardinality" || difference.kind === "required" ) && origin && origin.choice ) {
@@ -205,8 +226,8 @@ module.exports.explainDifferences = ( differences, context ) => {
         if ( difference.kind === "fixed" && difference.published === null && difference.generated !== null ) {
             return "deliberate";
         }
-        const tag = difference.path.split( "/" ).pop();
-        if ( tag && later.some( ( text ) => new RegExp( `\\b${ tag }\\b` ).test( text ) ) ) {
+        // An order difference is never a note's: it is a wire difference to read (HEL-26), and notes rarely speak of order.
+        if ( difference.kind !== "order" && later.some( ( note ) => explains( note, difference ) ) ) {
             return "change-note";
         }
         return "unexplained";

@@ -1,7 +1,7 @@
 {
   "notes": {
     "* header/messageId@value value-type unexplained": "Real drift. Today's type restricts messageId to the uuid pattern [a-zA-Z0-9\\-]+; the workbook gives min=36, max=36 alone, so the generated XSD is looser.",
-    "* header/messageType@value value-type unexplained": "Real drift. Today's shared pattern ([RPCIXH][0-9]{3}) leaves out D and L, so today's XSDs refuse every e-Dental messageType; the generated XSD fixes the value and applies the workbook's an class.",
+    "* header/messageType@value value-type unexplained": "Real drift. Today's shared pattern ([RPCIXH][0-9]{3}) admits H, so the e-Hospitalization values pass; the generated XSD fixes each value and applies the workbook's an class instead. The same pattern leaves out D and L (HEL-27).",
     "* header/senderISName@value value-type unexplained": "Real drift. The workbook gives chars=an, so the generated XSD keeps a system's name to Latin letters, digits, hyphen and space; today's shared header had no class. A Cyrillic name would be refused: a question for the spec team (HEL-26).",
     "* contents/hospitalization/dischargeDiagnosis order unexplained": "Real drift, and a wire difference (HEL-26). Today's diagnosisFull extends diagnosisBasic, so note comes after the basic fields and before use rank clinicalStatus verificationStatus onsetDateTime; the workbook lists note last.",
     "* contents/hospitalization/comorbidity order unexplained": "Real drift, and a wire difference (HEL-26). Today's diagnosisFull extends diagnosisBasic, so note comes after the basic fields and before use rank clinicalStatus verificationStatus onsetDateTime; the workbook lists note last.",
@@ -19,7 +19,8 @@
     "* contents/newborn/identifier@value value-type unexplained": "Real drift. Today up to 255 characters; the workbook min=10, max=10, chars=an.",
     "* contents/birth/newborn/identifier@value value-type unexplained": "Real drift. Today up to 255 characters; the workbook min=10, max=10, chars=an.",
     "* contents/error/description cardinality unexplained": "Real drift. The shared error type allows one description; the workbook any number.",
-    "* contents/error/description@value value-type unexplained": "Real drift. The shared error description holds 2000 characters; the workbook min=1, max=255."
+    "* contents/error/description@value value-type unexplained": "Real drift. The shared error description holds 2000 characters; the workbook min=1, max=255.",
+    "* header/senderISName only-published unexplained": "Real drift. Today's shared header requires senderISName in every message, responses included; the workbook lists it in requests only. NHIS sends the responses, so a vendor only reads them, but a response without it is refused by today's XSD."
   },
   "skipped": [
     {
@@ -78,7 +79,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H004",
@@ -420,7 +421,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H006",
@@ -618,7 +619,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H008",
@@ -699,7 +700,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H010",
@@ -780,7 +781,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H012",
@@ -960,7 +961,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H014",
@@ -1122,7 +1123,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H016",
@@ -1212,7 +1213,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "H099",

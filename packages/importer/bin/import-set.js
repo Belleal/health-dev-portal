@@ -27,21 +27,9 @@ const { formatSetReport } = require( "#report" );
 
 const USAGE = "Usage: hdp-import-set [--nomenclatures <file>] [--rules <file>] [--module <spec>=<file>]... [--xsd <directory>] [--json <set.json>]";
 
-// The published XSD set the blueprints are learned from (design record §5.2). A directory that is not there is the
-// person's mistake, so it reads as one line, like a file that cannot be read.
-async function catalogueFrom( directory ) {
-    try {
-        return ( await importXsdSet( directory ) ).catalogue;
-    } catch ( error ) {
-        if ( error instanceof UnreadableSchemaError ) {
-            throw error;
-        }
-        if ( error.code === "ENOENT" || error.code === "ENOTDIR" ) {
-            throw new UnreadableSchemaError( `Cannot read ${ directory }: ${ error.message }`, { cause: error } );
-        }
-        throw error;
-    }
-}
+// The published XSD set the blueprints are learned from (design record §5.2). importXsdSet names whatever it cannot
+// read, the directory included, so it reads as one line like a workbook that cannot be read.
+const catalogueFrom = async ( directory ) => ( await importXsdSet( directory ) ).catalogue;
 
 const MODULE = /^([^=\s]+)=(.+)$/;
 

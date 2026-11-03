@@ -55,18 +55,20 @@ if ( !PRESENT && process.env.CI ) {
     throw new Error( "A public fixture is missing: CI must run `npm run fixtures:fetch` before the tests." );
 }
 
-// Measured on 2026-11-03, after e-Dental 1.0.7's unexplained entries were read in full: its 49 are 1.0.5's 47, which
+// Measured on 2026-11-03, after e-Dental 1.0.7's unexplained entries were read in full: its 55 are 1.0.5's 53, which
 // are real drift (see drift-edental-1.0.5.json), and patientSignature in D001 and D003, added in 1.0.7 at the message
 // root although its change note says "to tag dentalTreatment" (HEL-26). Across versions an unexplained entry is also
-// a change no note names, so these counts are a baseline for review, not a verdict.
+// a change no note names, so these counts are a baseline for review, not a verdict. Since the final review, a note
+// explains only its own message and quoted path, never an order difference, and a field today's shared type requires
+// is no looseness.
 const ACROSS_VERSIONS = Object.freeze( {
-    "e-prescription": { "deliberate": 136, "unexplained": 81, "change-note": 34, "shared-type": 29, "choice": 13 },
-    "common-services": { "deliberate": 94, "unexplained": 81, "shared-type": 19, "change-note": 14, "choice": 3 },
-    "e-referral": { "deliberate": 256, "unexplained": 171, "choice": 34, "change-note": 4, "shared-type": 29 },
-    "e-dental": { "deliberate": 97, "unexplained": 49, "shared-type": 7 },
-    "e-examination": { "deliberate": 128, "unexplained": 54, "change-note": 22, "shared-type": 30 },
-    "e-hospitalization": { "deliberate": 163, "unexplained": 90, "choice": 3, "shared-type": 30, "change-note": 17 },
-    "e-immunization": { "deliberate": 68, "unexplained": 40, "change-note": 18, "shared-type": 12 }
+    "e-prescription": { "deliberate": 136, "unexplained": 91, "change-note": 33, "shared-type": 21, "choice": 13 },
+    "common-services": { "deliberate": 94, "unexplained": 94, "shared-type": 11, "change-note": 9, "choice": 3 },
+    "e-referral": { "deliberate": 256, "unexplained": 183, "choice": 34, "change-note": 2, "shared-type": 19 },
+    "e-dental": { "deliberate": 97, "unexplained": 55, "shared-type": 1 },
+    "e-examination": { "deliberate": 128, "unexplained": 83, "change-note": 7, "shared-type": 16 },
+    "e-hospitalization": { "deliberate": 163, "unexplained": 107, "choice": 3, "shared-type": 21, "change-note": 6 },
+    "e-immunization": { "deliberate": 68, "unexplained": 46, "change-note": 18, "shared-type": 6 }
 } );
 
 const count = ( entries, key ) => entries.reduce( ( counts, entry ) => ( { ...counts, [ entry[ key ] ]: ( counts[ entry[ key ] ] || 0 ) + 1 } ), {} );
@@ -107,15 +109,16 @@ describe( "The drift report", { skip: PRESENT ? false : "run `npm run fixtures:f
         it( "matches e-Dental 1.0.5's drift report", async () => {
             const report = await reportOf( "e-dental", PAIRS[ "e-dental" ] );
             assert.deepEqual( report.skipped, [] );
-            // As the recon measured: header/senderISName in six responses and D006's nhifCode come from shared types.
-            assert.deepEqual( report.entries.filter( ( entry ) => entry.cause === "shared-type" ).map( line ), [
-                "D002 header/senderISName only-published shared-type",
-                "D004 header/senderISName only-published shared-type",
-                "D006 header/senderISName only-published shared-type",
+            // As the recon measured, seven fields come from shared types. D006's nhifCode is optional there, a looseness;
+            // header/senderISName is required in the six responses, so a message without it is refused (final review).
+            assert.deepEqual( report.entries.filter( ( entry ) => entry.kind === "only-published" ).map( line ), [
+                "D002 header/senderISName only-published unexplained",
+                "D004 header/senderISName only-published unexplained",
+                "D006 header/senderISName only-published unexplained",
                 "D006 contents/results/performer/qualification@nhifCode only-published shared-type",
-                "D008 header/senderISName only-published shared-type",
-                "D010 header/senderISName only-published shared-type",
-                "D099 header/senderISName only-published shared-type"
+                "D008 header/senderISName only-published unexplained",
+                "D010 header/senderISName only-published unexplained",
+                "D099 header/senderISName only-published unexplained"
             ] );
             assert.deepEqual( report.entries.filter( ( entry ) => entry.kind === "cardinality" ).map( ( entry ) => `${ entry.message } ${ entry.path } ${ entry.published } ${ entry.generated }` ), [
                 "D006 contents/results 0..20 0..*",

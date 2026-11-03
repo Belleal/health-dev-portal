@@ -97,7 +97,9 @@ const API_V1 = Object.freeze( {
     manifest: path.resolve( __dirname, "api-v1.sha256" )
 } );
 
-const apiV1Fixtures = () => fs.readFileSync( API_V1.manifest, "utf8" ).split( "\n" ).filter( Boolean ).map( ( line ) => {
+// Split on either line end: a Windows clone with core.autocrlf=true checks the manifest out with CRLF, and a trailing
+// \r in a file name asked his.bg for 118 files that do not exist (plan 4's final review).
+const apiV1Fixtures = () => fs.readFileSync( API_V1.manifest, "utf8" ).split( /\r?\n/ ).filter( Boolean ).map( ( line ) => {
     const [ sha256, file ] = line.split( " " );
     return { file: `${ API_V1.directory }/${ file }`, url: `${ API_V1.url }${ file }`, sha256: sha256 };
 } );

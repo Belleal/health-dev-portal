@@ -21,7 +21,8 @@
     "* contents/results cardinality unexplained": "Real drift. Today at most 20 results; the workbook 0..*.",
     "* contents/results/dentalTreatment/dentalProcedure/status cardinality unexplained": "Real drift. The workbook requires the procedure's status; today it is optional.",
     "* contents/error/description cardinality unexplained": "Real drift. The shared error type allows one description; the workbook any number.",
-    "* contents/error/description@value value-type unexplained": "Real drift. The shared error description holds 2000 characters; the workbook min=1, max=255."
+    "* contents/error/description@value value-type unexplained": "Real drift. The shared error description holds 2000 characters; the workbook min=1, max=255.",
+    "* header/senderISName only-published unexplained": "Real drift. Today's shared header requires senderISName in every message, responses included; the workbook lists it in requests only. NHIS sends the responses, so a vendor only reads them, but a response without it is refused by today's XSD."
   },
   "skipped": [],
   "entries": [
@@ -284,7 +285,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D002",
@@ -518,7 +519,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D004",
@@ -698,7 +699,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D006",
@@ -1031,7 +1032,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D008",
@@ -1211,7 +1212,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D010",
@@ -1346,7 +1347,7 @@
       "kind": "only-published",
       "published": "field",
       "generated": null,
-      "cause": "shared-type"
+      "cause": "unexplained"
     },
     {
       "message": "D099",

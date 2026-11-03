@@ -454,12 +454,19 @@ against, so any kept version's XSDs can be generated again.
   have the pattern, so the drift report lists the other eight.
 - **Attributes.** A field's `value` is required, as in every published field type. Every other attribute (`name`,
   `nhifCode`) is required when its row is `R`, and optional otherwise.
+- **Occurrence.** An element's `maxOccurs` is its cardinality's maximum. Its `minOccurs` is the cardinality's minimum
+  only when its row is `R`; an `O` or `C` row is optional, whatever its cardinality says.
+  - C051's `nrnCertificate`, `identifierType` and `identifier` are `O`/`C` with cardinality `1..1`. They are
+    alternatives, and reading them as required refused a message that carried only one of them.
+  - The import reports each such row, as it reports an `R` row with a minimum of 0. There are 25 today.
 - **Each message's header** has the fields its own rows list. There is no shared header.
 - **Only the attributes the workbook lists.** Today every field type carries an optional `dataType` attribute. No
   workbook lists it and none of the 93 published samples uses it, so it is dropped, and the changelog says so.
 - **Documentation.**
   - An element's documentation is the workbook's description, in each language it has, marked with `xml:lang`.
   - A coded value's documentation names its list: "Code list CL035."
+  - A control character XML cannot hold, such as Word's Shift+Enter pasted into Excel as U+000B, is dropped from
+    documentation and fixed values. Written as it is, it makes the XSD not well formed.
 
 Each file's `version` attribute is the version of the module it comes from.
 - A withdrawn message (§4.2) gets no XSD.
@@ -565,12 +572,17 @@ How a schema is organised, its type names and what it shares, is not compared (�
 
 The result is a **drift report**, not equality. The report gives each difference a cause, where it can establish one
 by itself:
-- **shared type:** a field today's shared type allows and the message does not list;
+- **shared type:** a field today's shared type allows, optionally, and the message does not list. A field it requires,
+  such as the responses' `senderISName`, is no looseness: a message without it is refused;
 - **choice:** a choice today's XSD makes and the workbook leaves to conditions;
 - **deliberate:** what §4.10 changes on purpose:
   - a coded value typed by its list's key type, whatever restriction today's type had;
   - a fixed value;
-- **change note:** across versions, a tag the workbook's change notes name in a version after the XSD's;
+- **change note:** across versions, a note in a version after the XSD's that quotes a path the element's path ends with
+  (`"..dentalProcedure.code"`), and names the element's message or no message at all.
+  - An order difference is never a note's.
+  - Matching a tag as a word anywhere in a note explained 109 differences. 11 of them came from notes about other
+    messages, 33 from notes about other paths, and among them was the order break of HEL-26;
 - **unexplained:** anything else.
 
 A person reads every unexplained difference. Each is one of two things:
@@ -588,12 +600,14 @@ Measured on 2026-11-03:
   - an attribute of a shared field type was not traced to that type;
   - `base64` was not a format.
 - **Numeric bounds:** reading also showed the problem described in §4.10.
+- **The final review of the code** corrected the shared-type and change-note rules above. It also found the occurrence
+  rule and the control characters of §4.10.
 - **What is left is real drift:**
 
   | Pair | Unexplained | Distinct findings |
   |---|---|---|
-  | e-Dental 1.0.5 | 47 | 22 |
-  | e-Hospitalization 1.0.6 | 46 | 20 |
+  | e-Dental 1.0.5 | 53 | 23 |
+  | e-Hospitalization 1.0.6 | 54 | 21 |
 
   - Two of them change what a vendor may send, and are questions for the spec team (HEL-26): field order in extended
     types, and a Latin-only `senderISName`.

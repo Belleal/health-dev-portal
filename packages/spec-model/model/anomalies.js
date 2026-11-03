@@ -77,6 +77,7 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
     "attribute-with-children": { level: BLOCKING, text: "\"{name}\" sits under the attribute row \"{attribute}\", which cannot hold elements." },
     "conditional-without-condition": { level: WARNING, text: "Conditional element {identity} names no condition." },
     "required-with-zero-minimum": { level: WARNING, text: "Required element {identity} has cardinality {value}." },
+    "optional-with-minimum": { level: WARNING, text: "Element {identity} is {requirement} but has cardinality {value}; a generated XSD makes it optional." },
     "empty-group": { level: WARNING, text: "Group {identity} has no elements." },
     "single-variant": { level: WARNING, text: "Polymorphic element {identity} has {count} variant(s); it needs at least two." },
     // Side sheets
