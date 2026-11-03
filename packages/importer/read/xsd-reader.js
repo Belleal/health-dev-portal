@@ -16,6 +16,7 @@
  */
 
 const { SaxesParser } = require( "saxes" );
+const { SHARED_FILES } = require( "@health-dev-portal/spec-model/schema-compare" );
 
 /**
  * @typedef {Object} XsdElement One element of a parsed XSD.
@@ -47,12 +48,13 @@ const { SaxesParser } = require( "saxes" );
  */
 
 /**
- * The files whose types every message includes (design record §5.8).
+ * The files whose types every message includes (design record §5.8). Defined beside the drift report, which tells a
+ * shared type's looseness by them.
  *
  * @type {ReadonlyArray<string>}
  * @public
  */
-module.exports.SHARED_FILES = Object.freeze( [ "NHIS-Commons.xsd", "NHIS-Entities.xsd", "NHIS-Fields.xsd", "NHIS-Nomenclatures.xsd" ] );
+module.exports.SHARED_FILES = SHARED_FILES;
 
 const MESSAGE_FILE = /^NHIS-([A-Z]\d{3})\.xsd$/;
 
@@ -301,19 +303,22 @@ const pathOf = ( parentPath, tag ) => {
 
 function expand( item, parentPath, lookup ) {
     const element = item.node;
-    const origin = { file: item.file, choice: item.choice === null ? null : `${ parentPath }#${ item.choice }` };
+    const choice = item.choice === null ? null : `${ parentPath }#${ item.choice }`;
     const min = occurs( element.attributes.minOccurs, 1 );
     const max = occurs( element.attributes.maxOccurs, 1 );
     if ( element.attributes.ref ) {
         const tag = localName( element.attributes.ref );
         return { tag: tag, path: pathOf( parentPath, tag ), kind: tag === "Signature" ? "signature" : "group", min: min, max: max,
-            type: null, attributes: [], children: [], documentation: null, origin: origin };
+            type: null, attributes: [], children: [], documentation: null, origin: { file: item.file, choice: choice, typeFile: null } };
     }
     const tag = element.attributes.name;
     const path = pathOf( parentPath, tag );
     const inline = childNamed( element, "complexType" );
     const type = inline ? null : localName( element.attributes.type );
     const definition = inline ? { node: inline, file: item.file } : lookup( type );
+    // Where the element's type is defined, as well as where the element is declared: an attribute only today's XSD has
+    // comes from the type, and a physician typed in H005's own file still takes its qualification from NHIS-Fields.
+    const origin = { file: item.file, choice: choice, typeFile: definition ? definition.file : null };
     const content = definition && definition.node.name === "complexType" ? contentOf( definition.node, definition.file, lookup ) : { items: [], attributes: [] };
     const field = content.items.length === 0 && content.attributes.length > 0;
     return {

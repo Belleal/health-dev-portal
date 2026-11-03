@@ -397,6 +397,9 @@ against, so any kept version's XSDs can be generated again.
 - **The wire stays the same.** Element and attribute names, their order and the namespace `https://www.his.bg` are
   those of today's messages. A message validates as before, except where the workbook really differs from the old
   XSD.
+  - Order is the workbook's row order. For objects today's XSDs build by extension, such as the practitioner and the
+    diagnosis, that is not today's order: there a derived type's own fields follow all of its base's.
+  - Which order NHIS reads is for the spec team to say (HEL-26) before generated XSDs are published.
 - **Code lists are not enumerated.**
   - Lists change with time, and they are large: messages use 121 lists with 55,090 keys, 39,005 of them in CL011.
   - An enumeration would tie every message to one nomenclatures version.
@@ -430,6 +433,7 @@ against, so any kept version's XSDs can be generated again.
   | Decimal | `xs:decimal` |
   | Positive Int | `xs:positiveInteger` |
   | Unsigned Int | `xs:unsignedInt` |
+  | String whose constraint is `base64` | `xs:base64Binary`, as today (e-Hospitalization's `fileData`) |
 
   A type the table does not name is `xs:string`, and the import has already reported the row.
 - **Restrictions** come from the workbook's structured constraint (§4.3).
@@ -440,7 +444,10 @@ against, so any kept version's XSDs can be generated again.
     - `a` is `alphaString`'s `[a-zа-яA-ZА-Я\- ]+`.
 
     `ans` has no definition there and adds no pattern.
-  - On a number, the bounds are `minInclusive` and `maxInclusive`.
+  - A number gets no bounds.
+    - The workbooks' `max=` on a number reads as a digit count: sick-leave `days max=2`, `daysAfter max=3`.
+    - The import takes it as a value, and as `maxInclusive` it refused a 14-day sick leave.
+    - Today's XSDs bound none of these fields. Which reading is meant is for the spec team (HEL-26).
   - A constraint the importer could not read adds nothing, since the import has already reported it.
 
   Today's XSDs already enforce these classes on most fields. In e-Dental 1.0.5, 93 of the 101 fields with a class
@@ -552,7 +559,9 @@ The result is a **drift report**, not equality. The report gives each difference
 by itself:
 - **shared type:** a field today's shared type allows and the message does not list;
 - **choice:** a choice today's XSD makes and the workbook leaves to conditions;
-- **deliberate:** what §4.10 changes on purpose, such as an integer code typed `xs:int` or a fixed value;
+- **deliberate:** what §4.10 changes on purpose:
+  - a coded value typed by its list's key type, whatever restriction today's type had;
+  - a fixed value;
 - **change note:** across versions, a tag the workbook's change notes name in a version after the XSD's;
 - **unexplained:** anything else.
 
@@ -560,9 +569,30 @@ A person reads every unexplained difference. Each is one of two things:
 - an importer or generator defect, fixed until none is left;
 - real drift between workbook and XSD, which resolves in the workbook's favour.
 
-For the two like-for-like pairs, the report is kept in the repository and the acceptance test compares against it.
-A change in what the generator produces then shows in review as a change to that file. For each difference, the
-report says which side has what.
+For the two like-for-like pairs, the report is kept in the repository and the acceptance test compares against it,
+with a note on every unexplained entry. A change in what the generator produces then shows in review as a change to
+that file. For each difference, the report says which side has what.
+
+Measured on 2026-11-03:
+- **Reading the first reports found four defects, all fixed:**
+  - a published `minLength 0` read as a difference;
+  - a coded value's dropped restriction counted as unexplained;
+  - an attribute of a shared field type was not traced to that type;
+  - `base64` was not a format.
+- **Numeric bounds:** reading also showed the problem described in §4.10.
+- **What is left is real drift:**
+
+  | Pair | Unexplained | Distinct findings |
+  |---|---|---|
+  | e-Dental 1.0.5 | 47 | 22 |
+  | e-Hospitalization 1.0.6 | 46 | 20 |
+
+  - Two of them change what a vendor may send, and are questions for the spec team (HEL-26): field order in extended
+    types, and a Latin-only `senderISName`.
+  - One shows today's XSDs to be wrong. Their `messageType` pattern, `([RPCIXH][0-9]{3})`, leaves out D and L, so
+    they refuse every e-Dental message.
+- **Across versions** the counts per cause are pinned as a baseline. There an unexplained entry is also a change no
+  note names.
 
 ### 5.6 Where it runs
 
@@ -1157,4 +1187,6 @@ Space" may not be migratable); XLSX export.
 | Data defects in the current sources (HEL-2 … HEL-12) | Spec team |
 | Dead sample-message links on the specifications page (HEL-22) | his.bg |
 | One field of one business object constrained differently between messages (HEL-24) | Spec team |
+| I006's `senderId` names CL018 and is fixed to `NHIS`, which is no key of it (HEL-25) | Spec team |
+| Before generated XSDs are published: field order in extended types, a Latin-only `senderISName`, `max=` on numbers, where `patientSignature` goes (HEL-26) | Spec team |
 | Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |

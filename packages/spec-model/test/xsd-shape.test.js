@@ -79,8 +79,10 @@ describe( "valueTypeOf", () => {
             type( "string", { maxLength: 255 } ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "see the note" } } ), LISTS ), type( "string" ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "YYMMDD", format: "yymmdd" } } ), LISTS ), type( "string", { patterns: [ "[0-9]{6}" ] } ) );
-        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "min=1, max=99", minValue: 1, maxValue: 99 } } ), LISTS ),
-            type( "positiveInteger", { minInclusive: "1", maxInclusive: "99" } ) );
+        // On a number, the workbooks' max= is evidently a digit count — sick-leave days max=2, daysAfter max=3 — though the
+        // import reads it as a value. Written as maxInclusive it refused a 14-day sick leave; today's XSDs bound none.
+        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "max=2", maxValue: 2 } } ), LISTS ), type( "positiveInteger" ) );
+        assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "base64", format: "base64" } } ), LISTS ), type( "base64Binary" ) );
         // A code-list value is typed by its list alone: its key, not its length, is what the list defines.
         assert.deepEqual( valueTypeOf( element( { dataType: "Codeable Concept", codeList: "CL007", constraint: { raw: "max=2, chars=an", maxLength: 2, charset: "an" } } ), LISTS ),
             type( "string" ) );

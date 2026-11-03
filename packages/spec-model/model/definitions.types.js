@@ -39,10 +39,11 @@
  * @property {string} raw
  * @property {number} [minLength]
  * @property {number} [maxLength]
- * @property {number} [minValue] On numeric types the bounds are values, not lengths.
+ * @property {number} [minValue] On numeric types the bounds are read as values, not lengths. The workbooks' own use
+ *     suggests digit counts (sick-leave days `max=2`), so a generated XSD writes neither (design record §4.10).
  * @property {number} [maxValue]
  * @property {string} [charset] e.g. `an` (alphanumeric).
- * @property {string} [format] `date`, `date-time`, `yymmdd` or `boolean`.
+ * @property {string} [format] `date`, `date-time`, `yymmdd`, `boolean` or `base64`.
  */
 
 /**
@@ -293,6 +294,8 @@
  * @property {string} file The file whose type declared it.
  * @property {string|null} choice `"<parent path>#<n>"` for the n-th `xs:choice` of its parent, counting from 1, when it
  *     sits inside one.
+ * @property {string|null} typeFile The file that defines its type, where the type's attributes come from; `null` for
+ *     the signature.
  */
 
 /**

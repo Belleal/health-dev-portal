@@ -60,6 +60,8 @@ describe( "cells", () => {
         assert.equal( parseConstraint( "true/false", "Boolean" ).constraint.format, "boolean" );
         // YYMMDD is the expiry-date format of P005 and P011 (design record §5.7).
         assert.equal( parseConstraint( "YYMMDD", "String" ).constraint.format, "yymmdd" );
+        // e-Hospitalization's epicrisis fileData: the published XSD types it xs:base64Binary (plan 4's drift report).
+        assert.deepEqual( parseConstraint( "base64", "String" ), { constraint: { raw: "base64", format: "base64" }, unparsed: [] } );
     } );
 
     it( "reads bounds on a numeric type as values, not lengths", () => {

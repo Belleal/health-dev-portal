@@ -43,7 +43,6 @@ const BASES = Object.freeze( {
     "Unsigned Int": "unsignedInt"
 } );
 
-const NUMERIC = new Set( [ "int", "decimal", "positiveInteger", "unsignedInt" ] );
 const YYMMDD = "[0-9]{6}";
 
 const plain = ( base ) => ( { base: base, minLength: null, maxLength: null, patterns: [], minInclusive: null, maxInclusive: null, enumeration: [],
@@ -66,8 +65,9 @@ module.exports.typeNameOf = ( path ) => path === ""
 /**
  * The value type of an element's value (design record §4.10). A coded value is typed by its list's key type, `xs:int`
  * or `xs:string`, and never enumerated: an enumeration would tie a message to one nomenclatures version, and a vendor's
- * generated `enum` would break on the next code. Otherwise the "Data types" name gives the built-in, and the structured
- * constraint its facets: lengths and the character class on a string, bounds on a number, `[0-9]{6}` for `YYMMDD`.
+ * generated `enum` would break on the next code. Otherwise the "Data types" name gives the built-in — a `base64` string
+ * is `xs:base64Binary` — and the structured constraint a string's facets: lengths, the character class, and `[0-9]{6}`
+ * for `YYMMDD`. A number gets none (design record §4.10).
  *
  * @method
  * @param {import( "#definitions" ).ElementNode} element
@@ -80,23 +80,21 @@ module.exports.valueTypeOf = ( element, codeLists ) => {
     if ( list ) {
         return plain( list.keyType === KEY_TYPE.INTEGER ? "int" : "string" );
     }
-    const value = plain( BASES[ element.dataType ] || "string" );
     const constraint = element.constraint;
-    if ( !constraint ) {
+    // A string the workbook marks base64 (e-Hospitalization's epicrisis fileData) is xs:base64Binary, as today.
+    const value = plain( constraint && constraint.format === "base64" ? "base64Binary" : BASES[ element.dataType ] || "string" );
+    if ( !constraint || value.base !== "string" ) {
+        // A number gets no bounds: the workbooks' max= on one is evidently a digit count (sick-leave days max=2,
+        // daysAfter max=3), not a value, and as maxInclusive it refused a 14-day sick leave. Today's XSDs bound none.
         return value;
     }
-    if ( value.base === "string" ) {
-        value.minLength = constraint.minLength ?? null;
-        value.maxLength = constraint.maxLength ?? null;
-        if ( Object.hasOwn( module.exports.CHARSET_PATTERNS, constraint.charset || "" ) ) {
-            value.patterns.push( module.exports.CHARSET_PATTERNS[ constraint.charset ] );
-        }
-        if ( constraint.format === "yymmdd" ) {
-            value.patterns.push( YYMMDD );
-        }
-    } else if ( NUMERIC.has( value.base ) ) {
-        value.minInclusive = constraint.minValue === undefined ? null : String( constraint.minValue );
-        value.maxInclusive = constraint.maxValue === undefined ? null : String( constraint.maxValue );
+    value.minLength = constraint.minLength ?? null;
+    value.maxLength = constraint.maxLength ?? null;
+    if ( Object.hasOwn( module.exports.CHARSET_PATTERNS, constraint.charset || "" ) ) {
+        value.patterns.push( module.exports.CHARSET_PATTERNS[ constraint.charset ] );
+    }
+    if ( constraint.format === "yymmdd" ) {
+        value.patterns.push( YYMMDD );
     }
     return value;
 };

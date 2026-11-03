@@ -74,6 +74,9 @@ describe( "The XSD reader", () => {
         assert.deepEqual( root.children.map( ( child ) => child.tag ), [ "header", "contents", "Signature" ] );
         assert.deepEqual( root.children.map( ( child ) => child.origin.file ), [ "NHIS-Commons.xsd", "NHIS-P001.xsd", "NHIS-P001.xsd" ] );
         assert.deepEqual( find( root, "contents/lrn" ).type, "lrnBase" );
+        // Where the type of each is defined: a shared field type's extra attribute is the shared type's looseness.
+        assert.deepEqual( [ "header", "contents", "contents/lrn", "Signature" ].map( ( path ) => find( root, path ).origin.typeFile ),
+            [ "NHIS-Commons.xsd", "NHIS-P001.xsd", "NHIS-Commons.xsd", null ] );
     } );
 
     it( "reads an element's inline type where it stands", () => {
