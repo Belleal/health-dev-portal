@@ -22,6 +22,7 @@
         "./migration": "./load/migration.js",
         "./resolution": "./store/resolution.js",
         "./schema": "./store/schema.js",
+        "./targets": "./store/targets.js",
         "./versions": "./store/versions.js"
     },
     "imports": {
@@ -39,6 +40,7 @@
         "#resolution": "./store/resolution.js",
         "#schema": "./store/schema.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
+        "#targets": "./store/targets.js",
         "#versions": "./store/versions.js"
     },
     "dependencies": {
