@@ -18,6 +18,7 @@
 const crypto = require( "node:crypto" );
 const { checkContent } = require( "@health-dev-portal/importer/check" );
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { refreshChangelog } = require( "#changelog" );
 const { ConstraintError } = require( "#database" );
 const { decodeContent, decodeRows, encodeContent } = require( "#items" );
 const { diffRows, sameData } = require( "#item-diff" );
@@ -248,6 +249,8 @@ const edit = async ( db, store, versionId, edits ) => {
             }
             throw error;
         }
+        // Every content write is followed by its own refresh, so one that loses to a later edit is made good by that edit's.
+        await refreshChangelog( db, versionId );
         return {
             revisions: Object.fromEntries( change.updates.map( ( row ) => [ row.item_no, row.revision ] ) ),
             inserted: working.inserted,
