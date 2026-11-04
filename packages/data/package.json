@@ -16,11 +16,13 @@
         "#database": "./db/database.js",
         "#definitions": "./store/definitions.types.js",
         "#errors": "./db/errors.js",
+        "#postgres-driver": "./db/postgres-driver.js",
         "#sqlite-driver": "./db/sqlite-driver.js"
     },
     "dependencies": {
         "@health-dev-portal/importer": "*",
-        "@health-dev-portal/spec-model": "*"
+        "@health-dev-portal/spec-model": "*",
+        "pg": "8.23.1"
     },
     "scripts": {
         "test": "node --test \"test/**/*.test.js\""

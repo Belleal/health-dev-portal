@@ -32,6 +32,17 @@ npm run lint
 npm test
 ```
 
+The data layer's tests run on SQLite always, and on PostgreSQL too when `HDP_TEST_POSTGRES_URL` is set, as it is in
+CI. Locally, with Docker:
+
+```bash
+docker run -d --rm --name hdp-pg -e POSTGRES_HOST_AUTH_METHOD=trust -p 5432:5432 postgres:18
+HDP_TEST_POSTGRES_URL=postgres://postgres@localhost:5432/postgres npm test
+```
+
+Each suite works in a schema of its own and drops it afterwards. The container trusts every connection, so it is for
+tests only.
+
 ### Importing a module workbook
 
 ```bash

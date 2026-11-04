@@ -17,19 +17,43 @@
 
 /*
  * One test suite, two databases (design record §3.2, §11): every suite written with eachDatabase runs on a fresh
- * SQLite database in memory, and again on PostgreSQL once that driver exists.
+ * SQLite database in memory and, when HDP_TEST_POSTGRES_URL is set, on PostgreSQL in a schema of its own.
  */
 
+const crypto = require( "node:crypto" );
 const { after, before, describe } = require( "node:test" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 
+const POSTGRES = process.env.HDP_TEST_POSTGRES_URL;
+
+// In CI a missing PostgreSQL is a failure, never a skip: a suite that did not run looks exactly like one that passed.
+if ( !POSTGRES && process.env.CI ) {
+    throw new Error( "HDP_TEST_POSTGRES_URL is not set: CI must run the data layer's tests on PostgreSQL too." );
+}
+
 const TARGETS = [
-    { name: "sqlite", open: () => openDatabase( "sqlite::memory:" ) }
+    { name: "sqlite", open: async () => ( { db: await openDatabase( "sqlite::memory:" ), dispose: async () => {} } ) }
 ];
+if ( POSTGRES ) {
+    TARGETS.push( { name: "postgres", open: async () => {
+        // A schema per suite: test files run in parallel against one server, and each drops what it made.
+        const schema = `test_${ crypto.randomBytes( 6 ).toString( "hex" ) }`;
+        const db = await openDatabase( POSTGRES, { schema: schema } );
+        return { db: db, dispose: async () => db.run( `DROP SCHEMA ${ schema } CASCADE` ) };
+    } } );
+}
 
 /**
- * Runs `body` once per database, each in its own `describe`, with a database opened before the suite and closed
- * after it.
+ * The names of the databases eachDatabase runs on, in order.
+ *
+ * @type {string[]}
+ * @public
+ */
+module.exports.DATABASES = TARGETS.map( ( target ) => target.name );
+
+/**
+ * Runs `body` once per database, each in its own `describe`, with a database opened before the suite and closed —
+ * for PostgreSQL, its schema dropped — after it.
  *
  * @method
  * @param {string} title
@@ -40,16 +64,17 @@ const TARGETS = [
 module.exports.eachDatabase = ( title, body ) => {
     for ( const target of TARGETS ) {
         describe( `${ title } (${ target.name })`, () => {
-            let db = null;
+            let opened = null;
             before( async () => {
-                db = await target.open();
+                opened = await target.open();
             } );
             after( async () => {
-                if ( db ) {
-                    await db.close();
+                if ( opened ) {
+                    await opened.dispose();
+                    await opened.db.close();
                 }
             } );
-            body( () => db );
+            body( () => opened.db );
         } );
     }
 };

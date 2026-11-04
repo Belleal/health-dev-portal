@@ -16,6 +16,7 @@
  */
 
 const { ConstraintError } = require( "#errors" );
+const { openPostgres } = require( "#postgres-driver" );
 const { openSqlite } = require( "#sqlite-driver" );
 
 /**
@@ -30,25 +31,30 @@ module.exports.MAX_PARAMETERS = MAX_PARAMETERS;
 module.exports.ConstraintError = ConstraintError;
 
 const SQLITE = "sqlite:";
+const POSTGRES = /^postgres(?:ql)?:\/\//;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 
 /**
- * Opens a database by its URL: `sqlite::memory:` or `sqlite:<path>`.
+ * Opens a database by its URL: `sqlite::memory:`, `sqlite:<path>`, or `postgres://…` (`postgresql://…`).
  *
  * A URL may carry a password, so an error names only its scheme, never the URL.
  *
  * @method
  * @param {string} url
+ * @param {{schema?: string}} [options] For PostgreSQL, the schema every connection works in.
  * @returns {Promise<import( "#definitions" ).Database>}
  * @throws {TypeError} For a scheme no driver serves.
  * @public
  */
-module.exports.openDatabase = async ( url ) => {
+module.exports.openDatabase = async ( url, options = {} ) => {
     if ( typeof url === "string" && url.startsWith( SQLITE ) ) {
         return openSqlite( url.slice( SQLITE.length ) );
     }
+    if ( typeof url === "string" && POSTGRES.test( url ) ) {
+        return openPostgres( url, options );
+    }
     const scheme = typeof url === "string" ? SCHEME.exec( url ) : null;
-    throw new TypeError( `No database driver for ${ scheme ? `the scheme "${ scheme[ 1 ] }"` : "this URL" }: use sqlite:<path> or sqlite::memory:.` );
+    throw new TypeError( `No database driver for ${ scheme ? `the scheme "${ scheme[ 1 ] }"` : "this URL" }: use sqlite:<path>, sqlite::memory: or postgres://.` );
 };
 
 /**
