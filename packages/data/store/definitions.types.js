@@ -99,6 +99,17 @@
  */
 
 /**
+ * @typedef {Object} Conflict An approved change upstream to an item the development version had also changed (design
+ *     record §7.8, plan 6a decision 10). Each data is the item's own fields, or `null` where it was not there.
+ * @property {string} id
+ * @property {string} version The development version's ID.
+ * @property {string} key The item's key.
+ * @property {Object|null} base Before the approved change.
+ * @property {Object|null} upstream After it.
+ * @property {Object|null} current In development, when the change came.
+ */
+
+/**
  * @typedef {Object} EditResult What a batch of edits did.
  * @property {Object<number, number>} revisions Each kept item whose revision went up, by number: those edited, and those
  *     whose derived fields the check changed.

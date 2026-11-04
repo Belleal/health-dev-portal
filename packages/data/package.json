@@ -13,6 +13,7 @@
         "hdp-migrate": "./bin/migrate.js"
     },
     "exports": {
+        "./carry": "./store/carry.js",
         "./changelog": "./store/changelog.js",
         "./copy": "./store/copy.js",
         "./database": "./db/database.js",
@@ -28,6 +29,7 @@
         "./versions": "./store/versions.js"
     },
     "imports": {
+        "#carry": "./store/carry.js",
         "#changelog": "./store/changelog.js",
         "#copy": "./store/copy.js",
         "#database": "./db/database.js",
