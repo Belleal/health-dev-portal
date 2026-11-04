@@ -190,6 +190,24 @@ module.exports.staleStatement = ( versionId, contentHash ) => ( {
 } );
 
 /**
+ * The statement that makes a batch fail when an item is no longer at the revision an edit was made against (design
+ * record §7.4: nothing is overwritten unseen). It inserts into `write_guards`, whose `edit_guard` check refuses the row,
+ * so a stale item is told apart from a stale version (plan 6a, decision 11). It goes after `guardStatements`, under their
+ * lock.
+ *
+ * @method
+ * @param {string} versionId
+ * @param {number} item The item's number.
+ * @param {number} revision The revision the edit was made against.
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.editStatement = ( versionId, item, revision ) => ( {
+    sql: "INSERT INTO write_guards ( reason ) SELECT 'edit' FROM items WHERE version_id = ? AND item_no = ? AND revision <> ?",
+    params: [ versionId, item, revision ]
+} );
+
+/**
  * Applies the migrations a database has not yet recorded, each in one batch with its record, and returns their IDs.
  *
  * @method

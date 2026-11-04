@@ -73,7 +73,8 @@
 
 /**
  * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
- * @property {number} item_no From 1, in document order.
+ * @property {number} item_no From 1, in document order when stored; an item inserted later takes the highest plus one,
+ *     and keeps its number however it moves (plan 6a, decision 3).
  * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
  *     `column`, `entry` or `rule`.
  * @property {string|null} identity Its key within the version; indexed, not unique (HEL-19).
@@ -81,6 +82,28 @@
  * @property {number} position_no Among its siblings, from 0.
  * @property {string} data The model object's own fields as JSON, without its children.
  * @property {string} hash SHA-256 of `data`.
+ * @property {number} [revision] From 1, raised by one each time its data is edited or it is moved (design record §7.4);
+ *     present when loaded with `loadItems`.
+ */
+
+/**
+ * @typedef {Object} Edit One change an editor makes to one item (plan 6a, decision 2).
+ * @property {string} op `update`, `insert`, `remove` or `move`.
+ * @property {number} [item] The item changed; not for an insert.
+ * @property {number} [revision] The revision the editor saw; not for an insert.
+ * @property {string} [kind] What an insert adds: `message`, `element`, `condition`, `dictionary`, `column`, `entry` or
+ *     `rule`.
+ * @property {number|null} [parent] Where an insert or a move goes; `null` at the top.
+ * @property {number} [position] Its place among its siblings, from 0.
+ * @property {Object} [data] An update's or an insert's own fields; any children it carries are left out.
+ */
+
+/**
+ * @typedef {Object} EditResult What a batch of edits did.
+ * @property {Object<number, number>} revisions Each kept item whose revision went up, by number: those edited, and those
+ *     whose derived fields the check changed.
+ * @property {number[]} inserted The numbers the inserts took, in edit order.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies The version's anomalies now.
  */
 
 /**
