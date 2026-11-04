@@ -17,6 +17,7 @@
         "#definitions": "./store/definitions.types.js",
         "#errors": "./db/errors.js",
         "#postgres-driver": "./db/postgres-driver.js",
+        "#schema": "./store/schema.js",
         "#sqlite-driver": "./db/sqlite-driver.js"
     },
     "dependencies": {
