@@ -13,6 +13,7 @@
         "./database": "./db/database.js",
         "./definitions": "./store/definitions.types.js",
         "./files": "./store/files.js",
+        "./resolution": "./store/resolution.js",
         "./schema": "./store/schema.js",
         "./versions": "./store/versions.js"
     },
@@ -24,6 +25,7 @@
         "#files": "./store/files.js",
         "#items": "./store/items.js",
         "#postgres-driver": "./db/postgres-driver.js",
+        "#resolution": "./store/resolution.js",
         "#schema": "./store/schema.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
         "#versions": "./store/versions.js"
