@@ -160,7 +160,9 @@ which is key/JSON documents only. The spec model needs real queries — field tr
   statements and all-or-nothing batches, and nothing reads and then writes inside one transaction. A precondition,
   such as "this version is not frozen", rides in the batch as a guard statement that fails it. The guard is preceded
   by a lock on the row it reads: under PostgreSQL's READ COMMITTED a freeze committed between the guard and the
-  batch's end otherwise let the write land on a frozen version (plan 5's final review).
+  batch's end otherwise let the write land on a frozen version (plan 5's final review). A write computed from content
+  read before the batch — what a module version resolves against — also checks under that lock that the content is
+  unchanged, and is computed again if it is not.
 - **The subset, as measured for plan 5:**
   - `?` placeholders;
   - `TEXT` and `INTEGER` columns, with JSON kept as text and parsed in JavaScript;
