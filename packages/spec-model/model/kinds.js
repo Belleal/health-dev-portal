@@ -97,6 +97,9 @@ module.exports.ANOMALY_LEVEL = Object.freeze( {
  * The kinds of spec, each with its own version line (design record §4.1). The shared type library behind today's XSDs
  * is none: its business objects are internal blueprints without a version line (§4.4).
  *
+ * Each code list is a spec of its own (§4.6). `NOMENCLATURES` is the combined workbook the lists are still written in,
+ * and the spec that keeps the combined version line's history; it has no version of its own any more.
+ *
  * @readonly
  * @enum {string}
  * @public
@@ -104,7 +107,40 @@ module.exports.ANOMALY_LEVEL = Object.freeze( {
 module.exports.SPEC_KIND = Object.freeze( {
     MODULE: "module",
     RULES: "rules",
+    CODE_LIST: "code-list",
     NOMENCLATURES: "nomenclatures"
+} );
+
+/**
+ * Where a version stands in its life (design record §4.1, §7.1), in the order a version moves through them. No stage
+ * is skipped; a spec has at most one version in each but `RETIRED`.
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.STAGE = Object.freeze( {
+    DEVELOPMENT: "development",
+    IMPLEMENTATION: "implementation",
+    TESTING: "testing",
+    PRODUCTION: "production",
+    PREVIOUS_PRODUCTION: "previous-production",
+    RETIRED: "retired"
+} );
+
+/**
+ * Where a changelog entry came from (design record §4.7): detected by comparing versions, written by an editor, detected
+ * and then edited, or imported from a workbook's change notes.
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.CHANGE_ORIGIN = Object.freeze( {
+    DETECTED: "detected",
+    EDITOR: "editor",
+    EDITED: "edited",
+    IMPORTED: "imported"
 } );
 
 /**

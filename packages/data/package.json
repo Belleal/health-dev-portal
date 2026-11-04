@@ -1,0 +1,51 @@
+{
+    "name": "@health-dev-portal/data",
+    "version": "0.1.0",
+    "description": "The portal's data layer: one SQL subset on SQLite and PostgreSQL, the stored specification model, files by content hash, and the migration of the published workbooks.",
+    "license": "EUPL-1.2",
+    "private": true,
+    "type": "commonjs",
+    "engines": {
+        "node": ">=24"
+    },
+    "bin": {
+        "hdp-copy": "./bin/copy.js",
+        "hdp-migrate": "./bin/migrate.js"
+    },
+    "exports": {
+        "./changelog": "./store/changelog.js",
+        "./copy": "./store/copy.js",
+        "./database": "./db/database.js",
+        "./definitions": "./store/definitions.types.js",
+        "./files": "./store/files.js",
+        "./manifest": "./load/manifest.js",
+        "./migration": "./load/migration.js",
+        "./resolution": "./store/resolution.js",
+        "./schema": "./store/schema.js",
+        "./versions": "./store/versions.js"
+    },
+    "imports": {
+        "#changelog": "./store/changelog.js",
+        "#copy": "./store/copy.js",
+        "#database": "./db/database.js",
+        "#definitions": "./store/definitions.types.js",
+        "#errors": "./db/errors.js",
+        "#files": "./store/files.js",
+        "#items": "./store/items.js",
+        "#manifest": "./load/manifest.js",
+        "#migration": "./load/migration.js",
+        "#postgres-driver": "./db/postgres-driver.js",
+        "#resolution": "./store/resolution.js",
+        "#schema": "./store/schema.js",
+        "#sqlite-driver": "./db/sqlite-driver.js",
+        "#versions": "./store/versions.js"
+    },
+    "dependencies": {
+        "@health-dev-portal/importer": "*",
+        "@health-dev-portal/spec-model": "*",
+        "pg": "8.23.1"
+    },
+    "scripts": {
+        "test": "node --test \"test/**/*.test.js\""
+    }
+}

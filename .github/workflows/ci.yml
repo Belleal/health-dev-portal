@@ -13,6 +13,22 @@ permissions:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    # The data layer's suite runs on SQLite and on PostgreSQL (design record §3.2, §11). The container lives only for the
+    # job and trusts every connection, so there is no password to keep anywhere.
+    services:
+      postgres:
+        image: postgres:18@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      HDP_TEST_POSTGRES_URL: postgres://postgres@localhost:5432/postgres
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

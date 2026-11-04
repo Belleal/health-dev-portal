@@ -11,6 +11,7 @@
     "exports": {
         "./anomalies": "./model/anomalies.js",
         "./blueprints": "./model/blueprints.js",
+        "./code-lists": "./model/code-lists.js",
         "./condition-binding": "./model/condition-binding.js",
         "./condition-checks": "./model/condition-checks.js",
         "./condition-parser": "./model/condition-parser.js",
@@ -23,7 +24,9 @@
         "./key-type": "./model/key-type.js",
         "./kinds": "./model/kinds.js",
         "./links": "./model/links.js",
+        "./references": "./model/references.js",
         "./schema-compare": "./model/schema-compare.js",
+        "./stages": "./model/stages.js",
         "./synthetic-message": "./model/synthetic-message.js",
         "./validation": "./model/validation.js",
         "./xsd-shape": "./model/xsd-shape.js",
@@ -32,6 +35,7 @@
     "imports": {
         "#anomalies": "./model/anomalies.js",
         "#blueprints": "./model/blueprints.js",
+        "#code-lists": "./model/code-lists.js",
         "#condition-binding": "./model/condition-binding.js",
         "#condition-checks": "./model/condition-checks.js",
         "#condition-printer": "./model/condition-printer.js",
@@ -42,6 +46,8 @@
         "#key-type": "./model/key-type.js",
         "#kinds": "./model/kinds.js",
         "#links": "./model/links.js",
+        "#references": "./model/references.js",
+        "#stages": "./model/stages.js",
         "#xsd-shape": "./model/xsd-shape.js"
     },
     "scripts": {
