@@ -31,7 +31,7 @@ const { eachDatabase } = require( "./support/databases" );
 const { stageImports } = require( "./support/models" );
 
 const KEYS = { specs: [ "id" ], releases: [ "id" ], versions: [ "id" ], version_stages: [ "version_id", "stage" ], items: [ "version_id", "item_no" ],
-    anomalies: [ "version_id", "anomaly_no" ], changelog_entries: [ "id" ], resolutions: [ "version_id", "spec_id" ], files: [ "hash" ], settings: [ "key" ] };
+    anomalies: [ "version_id", "anomaly_no" ], changelog_entries: [ "id" ], resolutions: [ "version_id", "spec_id" ], conflicts: [ "id" ], files: [ "hash" ], settings: [ "key" ] };
 
 // Every row of a table, sorted in JavaScript by its primary key: a copy is equal when its rows are, whatever order a
 // database returns them in.

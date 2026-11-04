@@ -33,11 +33,12 @@ eachDatabase( "Schema", ( db ) => {
 
     it( "applies each migration once", async () => {
         assert.deepEqual( await migrateSchema( db() ), [] );
-        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ), [ "0001-initial" ] );
+        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ).sort(), [ "0001-initial", "0002-editing" ] );
     } );
 
     it( "names the tables a copy carries, each of them empty", async () => {
-        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "files", "settings" ] );
+        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "conflicts", "files",
+            "settings" ] );
         for ( const table of TABLES ) {
             assert.deepEqual( await db().get( `SELECT COUNT(*) AS n FROM ${ table }` ), { n: 0 }, table );
         }

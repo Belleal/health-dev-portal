@@ -23,7 +23,7 @@ const PAGE = 1000;
 // Each table's primary key, by which the source is read page by page. The order only has to hold within the source.
 const KEYS = Object.freeze( {
     specs: "id", releases: "id", versions: "id", version_stages: "version_id, stage", items: "version_id, item_no", anomalies: "version_id, anomaly_no",
-    changelog_entries: "id", resolutions: "version_id, spec_id", files: "hash", settings: "key"
+    changelog_entries: "id", resolutions: "version_id, spec_id", conflicts: "id", files: "hash", settings: "key"
 } );
 
 const sha256 = ( bytes ) => crypto.createHash( "sha256" ).update( bytes ).digest( "hex" );

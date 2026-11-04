@@ -105,7 +105,33 @@ const INITIAL = [
     "CREATE TABLE settings ( key TEXT PRIMARY KEY, value TEXT NOT NULL )"
 ];
 
-const MIGRATIONS = Object.freeze( [ Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ) ] );
+// Plan 6a: the changelog written while editing (design record §7.5), conflicts from approved changes (§7.8), and a guard
+// for a single item's revision (§7.4).
+const EDITING = [
+    "ALTER TABLE changelog_entries ADD COLUMN difference_key TEXT",
+    "ALTER TABLE changelog_entries ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK ( flagged IN ( 0, 1 ) )",
+    "CREATE INDEX changelog_difference ON changelog_entries ( version_id, difference_key )",
+    `CREATE TABLE conflicts (
+        id TEXT PRIMARY KEY,
+        version_id TEXT NOT NULL REFERENCES versions ( id ),
+        item_key TEXT NOT NULL,
+        base_data TEXT,
+        upstream_data TEXT,
+        current_data TEXT,
+        created_at TEXT NOT NULL
+    )`,
+    // SQLite cannot add a constraint to a table; this one is always empty, so it is made again with the third check.
+    "DROP TABLE write_guards",
+    `CREATE TABLE write_guards ( reason TEXT,
+        CONSTRAINT write_guard CHECK ( reason IS NULL OR reason <> 'frozen' ),
+        CONSTRAINT stale_guard CHECK ( reason IS NULL OR reason <> 'stale' ),
+        CONSTRAINT edit_guard CHECK ( reason IS NULL OR reason <> 'edit' ) )`
+];
+
+const MIGRATIONS = Object.freeze( [
+    Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ),
+    Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } )
+] );
 
 /**
  * The tables a copy of the database carries, in an order in which each row's references already exist (design record
@@ -114,8 +140,8 @@ const MIGRATIONS = Object.freeze( [ Object.freeze( { id: "0001-initial", stateme
  * @type {string[]}
  * @public
  */
-module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "files",
-    "settings" ] );
+module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "conflicts",
+    "files", "settings" ] );
 
 /**
  * The statement that makes a batch fail when its version is frozen (design record §7.7). It inserts into
