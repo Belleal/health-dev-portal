@@ -9,10 +9,12 @@
         "node": ">=24"
     },
     "bin": {
+        "hdp-copy": "./bin/copy.js",
         "hdp-migrate": "./bin/migrate.js"
     },
     "exports": {
         "./changelog": "./store/changelog.js",
+        "./copy": "./store/copy.js",
         "./database": "./db/database.js",
         "./definitions": "./store/definitions.types.js",
         "./files": "./store/files.js",
@@ -24,6 +26,7 @@
     },
     "imports": {
         "#changelog": "./store/changelog.js",
+        "#copy": "./store/copy.js",
         "#database": "./db/database.js",
         "#definitions": "./store/definitions.types.js",
         "#errors": "./db/errors.js",

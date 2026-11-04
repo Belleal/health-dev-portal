@@ -90,3 +90,17 @@ HDP_DATABASE_URL=sqlite:portal.db npx hdp-migrate --manifest migration.json
 - **Files** go to `--files`, by default `.files/` next to the manifest.
 - **Development workbooks** are the spec team's work in progress. They are never in this repository, so they are loaded
   from their folder.
+
+### Copying a database
+
+```bash
+npx hdp-copy --from sqlite:portal.db --to "$TARGET_DATABASE_URL" --files-from .files --files-to /mnt/files
+```
+
+This copies a whole database from one driver to the other, for example from the development deployment to the data
+centre's PostgreSQL at launch.
+- **What it keeps.** Every identity and all history come across, and with `--files-from` and `--files-to` so do the
+  files the database names.
+- **The target** is migrated first. It must be empty, with the same schema as the source; otherwise the copy is refused
+  with exit code 1 before anything is written.
+- **Neither URL is ever printed.**
