@@ -234,6 +234,22 @@
  */
 
 /**
+ * @typedef {Object} CodeListVersion One version of one code list, a spec of its own (design record §4.6).
+ * @property {string} kind `code-list`.
+ * @property {string} spec The list's ID, e.g. `CL009`.
+ * @property {string|null} version
+ * @property {CodeList} list
+ * @property {ChangeVersion[]} changeNotes Oldest first: only the versions with a note naming this list, and only those
+ *     notes.
+ */
+
+/**
+ * @typedef {Object} NomenclaturesSplit The combined nomenclatures as one version per list (design record §4.6).
+ * @property {CodeListVersion[]} lists In the workbook's list order.
+ * @property {ChangeVersion[]} combined Oldest first: the notes naming no list, kept as the combined spec's history.
+ */
+
+/**
  * @typedef {Object} Rule A business rule (design record §4.6.1).
  * @property {string} id e.g. `RL001`.
  * @property {LocalText} definition Bulgarian only in the workbook; lines are kept.

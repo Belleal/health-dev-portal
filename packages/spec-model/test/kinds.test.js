@@ -26,8 +26,11 @@ const kinds = require( "@health-dev-portal/spec-model/kinds" );
 describe( "kinds", () => {
 
     it( "names spec kinds, code-list statuses and one lifecycle for messages and rules", () => {
-        // The common schema is no spec: its business objects are internal blueprints (design record §4.1, §4.4).
-        assert.deepEqual( Object.values( kinds.SPEC_KIND ), [ "module", "rules", "nomenclatures" ] );
+        // The common schema is no spec: its business objects are internal blueprints (design record §4.1, §4.4). Each
+        // code list is a spec; "nomenclatures" is left as the workbook and the combined spec's history (§4.6).
+        assert.deepEqual( Object.values( kinds.SPEC_KIND ), [ "module", "rules", "code-list", "nomenclatures" ] );
+        assert.deepEqual( Object.values( kinds.STAGE ), [ "development", "implementation", "testing", "production", "previous-production", "retired" ] );
+        assert.deepEqual( Object.values( kinds.CHANGE_ORIGIN ), [ "detected", "editor", "edited", "imported" ] );
         assert.deepEqual( Object.values( kinds.KEY_TYPE ), [ "integer", "string" ] );
         assert.deepEqual( Object.values( kinds.CODE_LIST_STATUS ), [ "in-use", "removed", "under-revision", "reserved", "in-development", "incomplete" ] );
         assert.deepEqual( Object.values( kinds.LIFECYCLE ), [ "active", "in-development", "withdrawn" ] );

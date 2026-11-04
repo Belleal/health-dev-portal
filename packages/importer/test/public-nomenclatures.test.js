@@ -27,6 +27,7 @@ const fs = require( "node:fs" );
 const path = require( "node:path" );
 const { streamSheets } = require( "#stream-reader" );
 const { importNomenclaturesWorkbook } = require( "#nomenclatures-importer" );
+const { splitNomenclatures } = require( "@health-dev-portal/spec-model/code-lists" );
 
 const FIXTURE = path.resolve( __dirname, "../../../.fixtures/public/nomenclatures-1.5.33.xlsx" );
 const PRESENT = fs.existsSync( FIXTURE );
@@ -56,6 +57,20 @@ describe( "Nomenclatures 1.5.33, the published workbook", { skip: PRESENT ? fals
         };
         assert.deepEqual( dates( "1.5.29" ), [ "2026-08-24", "2026-08-31" ] );
         assert.deepEqual( dates( "1.5.33" ), [ "2026-10-07", null ] );
+    } );
+
+    // Measured on 2026-11-04 with an independent probe: 819 notes in 87 versions; 21 name no list, in 8 versions; one
+    // note's "CL50" (1.5.6) is no list ID; 100 notes name several lists, at most 4.
+    it( "splits into 182 list versions and the measured history (design record §4.6)", () => {
+        const split = splitNomenclatures( result.version );
+        const notes = ( versions ) => versions.reduce( ( sum, version ) => sum + version.notes.length, 0 );
+        assert.equal( split.lists.length, 182 );
+        assert.equal( split.lists.reduce( ( sum, version ) => sum + notes( version.changeNotes ), 0 ), 902 );
+        assert.equal( split.lists.reduce( ( sum, version ) => sum + version.changeNotes.length, 0 ), 476 );
+        assert.equal( split.lists.filter( ( version ) => version.changeNotes.length > 0 ).length, 177 );
+        assert.deepEqual( [ notes( split.combined ), split.combined.length ], [ 21, 8 ] );
+        const of = ( id ) => split.lists.find( ( version ) => version.spec === id ).changeNotes;
+        assert.deepEqual( [ of( "CL009" ).length, notes( of( "CL011" ) ), of( "CL011" ).length ], [ 6, 64, 12 ] );
     } );
 
     it( "reads 182 lists and 59,343 entries", () => {
