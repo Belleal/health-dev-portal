@@ -45,6 +45,13 @@ describe( "hdp-migrate", () => {
         assert.match( noDatabase.stderr, /HDP_DATABASE_URL/ );
     } );
 
+    // A URL on the command line shows in process listings and shell history (security review of plan 5).
+    it( "warns about a password on the command line, without repeating it", () => {
+        const result = run( [ "--manifest", "missing.json", "--database", "postgres://portal:Sup3rSecret@127.0.0.1:1/portal" ] );
+        assert.match( result.stderr, /--database carries a password.*HDP_DATABASE_URL/ );
+        assert.ok( !result.stderr.includes( "Sup3rSecret" ) && !result.stdout.includes( "Sup3rSecret" ) );
+    } );
+
     it( "names a manifest it cannot use, and exits 2", () => {
         const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-cli-" ) );
         fs.writeFileSync( path.join( directory, "migration.json" ), JSON.stringify( { nomenclatures: [ { file: "missing.xlsx", stage: "production" } ] } ) );

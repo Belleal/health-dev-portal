@@ -32,7 +32,23 @@ const { migrateImported } = require( "#migration" );
 const { stageImports } = require( "./support/models" );
 
 const CLI = path.resolve( __dirname, "../bin/copy.js" );
-const run = ( args ) => spawnSync( process.execPath, [ CLI, ...args ], { encoding: "utf8" } );
+const URL_VARIABLES = [ "HDP_COPY_FROM_URL", "HDP_COPY_TO_URL" ];
+// The child sees no copy URL from this process's environment unless a test gives it one.
+const run = ( args, extra = {} ) => spawnSync( process.execPath, [ CLI, ...args ], { encoding: "utf8",
+    env: { ...Object.fromEntries( Object.entries( process.env ).filter( ( [ name ] ) => !URL_VARIABLES.includes( name ) ) ), ...extra } } );
+
+// A source SQLite file holding a migrated synthetic database and one file in its store.
+const seeded = async () => {
+    const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-copy-" ) );
+    const from = `sqlite:${ path.join( directory, "from.db" ) }`;
+    const source = await openDatabase( from );
+    await migrateSchema( source );
+    await migrateImported( source, directoryStore( path.join( directory, "files-from" ) ), stageImports() );
+    await storeFile( source, directoryStore( path.join( directory, "files-from" ) ), Buffer.from( "x" ), "text/plain" );
+    await source.close();
+    return { directory: directory, from: from, to: `sqlite:${ path.join( directory, "to.db" ) }`,
+        files: [ "--files-from", path.join( directory, "files-from" ), "--files-to", path.join( directory, "files-to" ) ] };
+};
 
 describe( "hdp-copy", () => {
 
@@ -45,23 +61,40 @@ describe( "hdp-copy", () => {
     } );
 
     it( "copies a SQLite file into another with its files, then refuses to copy into it again, never printing a URL", async () => {
-        const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-copy-" ) );
-        const from = `sqlite:${ path.join( directory, "from.db" ) }`;
-        const to = `sqlite:${ path.join( directory, "to.db" ) }`;
-        const source = await openDatabase( from );
-        await migrateSchema( source );
-        await migrateImported( source, directoryStore( path.join( directory, "files-from" ) ), stageImports() );
-        await storeFile( source, directoryStore( path.join( directory, "files-from" ) ), Buffer.from( "x" ), "text/plain" );
-        await source.close();
-        const files = [ "--files-from", path.join( directory, "files-from" ), "--files-to", path.join( directory, "files-to" ) ];
+        const { from, to, files } = await seeded();
         const first = run( [ "--from", from, "--to", to, ...files ] );
         assert.equal( first.status, 0, first.stdout + first.stderr );
         assert.match( first.stdout, /^Copied \d+ rows in 10 tables; 1 files\.$/m );
-        const second = run( [ "--from", from, "--to", to ] );
+        const second = run( [ "--from", from, "--to", to, ...files ] );
         assert.equal( second.status, 1 );
         assert.match( second.stderr, /already holds/ );
         for ( const output of [ first.stdout, first.stderr, second.stdout, second.stderr ] ) {
             assert.ok( !output.includes( from ) && !output.includes( to ), "a database URL was printed" );
         }
+    } );
+
+    // Copied without its files, the target named files it did not have, the blueprint catalogue among them (CodeRabbit on
+    // #13).
+    it( "refuses a source that names files when no file stores are given, before copying anything", async () => {
+        const { directory, from, to } = await seeded();
+        const result = run( [ "--from", from, "--to", to ] );
+        assert.equal( result.status, 2 );
+        assert.match( result.stderr, /names 1 files.*--files-from and --files-to/ );
+        assert.equal( fs.existsSync( path.join( directory, "to.db" ) ), false );
+    } );
+
+    // A URL on the command line shows in process listings and shell history; one with a password belongs in the
+    // environment (security review of plan 5).
+    it( "takes both URLs from the environment", async () => {
+        const { from, to, files } = await seeded();
+        const result = run( files, { HDP_COPY_FROM_URL: from, HDP_COPY_TO_URL: to } );
+        assert.equal( result.status, 0, result.stdout + result.stderr );
+        assert.doesNotMatch( result.stderr, /password/ );
+    } );
+
+    it( "warns about a password on the command line, without repeating it", () => {
+        const result = run( [ "--from", "sqlite::memory:", "--to", "postgres://portal:Sup3rSecret@127.0.0.1:1/portal" ] );
+        assert.match( result.stderr, /--to carries a password.*HDP_COPY_TO_URL/ );
+        assert.ok( !result.stderr.includes( "Sup3rSecret" ) && !result.stdout.includes( "Sup3rSecret" ) );
     } );
 } );

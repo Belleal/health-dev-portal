@@ -20,18 +20,18 @@
 const path = require( "node:path" );
 const { parseArgs } = require( "node:util" );
 const { UnreadableWorkbookError } = require( "@health-dev-portal/importer/set" );
-const { openDatabase } = require( "#database" );
+const { carriesPassword, openDatabase } = require( "#database" );
 const { migrateSchema } = require( "#schema" );
 const { directoryStore } = require( "#files" );
 const { readManifest } = require( "#manifest" );
-const { MigrationConflictError, formatMigrationReport, migrate } = require( "#migration" );
+const { MigrationConflictError, MigrationOrderError, formatMigrationReport, migrate } = require( "#migration" );
 
 const USAGE = "Usage: hdp-migrate --manifest <file> [--database <url>] [--files <directory>]\n"
     + "The database comes from --database or HDP_DATABASE_URL; the files default to .files/ next to the manifest.";
 
 // What a person can act on from one line: a workbook or XSD that cannot be read, or a published version already stored
 // with other content. Anything else is a fault in the code, and its stack is what a fix needs.
-const named = ( error ) => error instanceof MigrationConflictError || error instanceof UnreadableWorkbookError || ( error && error.name === "UnreadableSchemaError" );
+const named = ( error ) => error instanceof MigrationConflictError || error instanceof MigrationOrderError || error instanceof UnreadableWorkbookError || ( error && error.name === "UnreadableSchemaError" );
 
 async function main( argv ) {
     let values;
@@ -43,6 +43,10 @@ async function main( argv ) {
         return 2;
     }
     // The URL may carry a password: it is read here and handed to the driver, and never printed (design record §10.1).
+    // Given as an argument, it shows in process listings and shell history (security review of plan 5).
+    if ( values.database && carriesPassword( values.database ) ) {
+        console.error( "--database carries a password, which shows in process listings and shell history: pass the URL in HDP_DATABASE_URL instead." );
+    }
     const url = values.database || process.env.HDP_DATABASE_URL;
     if ( !values.manifest || !url ) {
         console.error( USAGE );

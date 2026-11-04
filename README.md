@@ -82,11 +82,16 @@ HDP_DATABASE_URL=sqlite:portal.db npx hdp-migrate --manifest migration.json
 
 - **Stages.** A stage is `production`, `testing` or `development`. The nomenclatures become one spec per code list.
 - **Published versions** are loaded as published, defects included, and frozen.
-- **A run finds what it already stored.** A second run stores nothing. A published number that comes back with other
-  content is refused.
-- **Exit codes:** 0 on success; 1 for a conflict or a file that cannot be read; 2 for wrong arguments or a manifest it
-  cannot use.
-- **The database URL** comes from `--database` or `HDP_DATABASE_URL`, and is never printed.
+- **A testing workbook goes to testing only when it is ahead of production.**
+  - One with production's number and content is the production version itself, and is skipped.
+  - One behind production is refused.
+- **A run finds what it already stored.** A second run stores nothing, and finishes whatever a run cut short left
+  undone. A published number that comes back with other content is refused.
+- **Exit codes:** 0 on success; 1 for a conflict, a workbook out of order or a file that cannot be read; 2 for wrong
+  arguments or a manifest it cannot use.
+- **The database URL** comes from `HDP_DATABASE_URL`, or `--database`, and is never printed. A URL with a password
+  belongs in the environment. On the command line it shows in process listings and shell history, and the command
+  warns.
 - **Files** go to `--files`, by default `.files/` next to the manifest.
 - **Development workbooks** are the spec team's work in progress. They are never in this repository, so they are loaded
   from their folder.
@@ -94,13 +99,15 @@ HDP_DATABASE_URL=sqlite:portal.db npx hdp-migrate --manifest migration.json
 ### Copying a database
 
 ```bash
-npx hdp-copy --from sqlite:portal.db --to "$TARGET_DATABASE_URL" --files-from .files --files-to /mnt/files
+HDP_COPY_FROM_URL=sqlite:portal.db HDP_COPY_TO_URL="$TARGET_DATABASE_URL" npx hdp-copy --files-from .files --files-to /mnt/files
 ```
 
 This copies a whole database from one driver to the other, for example from the development deployment to the data
 centre's PostgreSQL at launch.
-- **What it keeps.** Every identity and all history come across, and with `--files-from` and `--files-to` so do the
-  files the database names.
+- **What it keeps.** Every identity, all history, and the files the database names. When the source names files,
+  `--files-from` and `--files-to` are required; without them the copy is refused before the target is opened.
 - **The target** is migrated first. It must be empty, with the same schema as the source; otherwise the copy is refused
-  with exit code 1 before anything is written.
-- **Neither URL is ever printed.**
+  with exit code 1 before any row is copied.
+- **A copy that fails part-way** leaves the target partly filled. Drop the target and copy again.
+- **The URLs** come from `HDP_COPY_FROM_URL` and `HDP_COPY_TO_URL`, or `--from` and `--to`, and neither is ever
+  printed. A URL with a password belongs in the environment, and the command warns when one is given as an argument.

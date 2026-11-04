@@ -151,6 +151,10 @@ module.exports.openPostgres = async ( url, options ) => {
         throw new TypeError( `A schema name must be lower-case letters, digits and underscores: "${ schema }" is not.` );
     }
     const pool = new pg.Pool( { connectionString: url, types: TYPES, ...( schema ? { options: `-c search_path=${ schema }` } : {} ) } );
+    // An idle connection the server drops — a restart, a failover — is an "error" event on the pool, and unheard it
+    // killed the process (final review of plan 5). The pool discards that client and the next query connects anew; a
+    // query in flight fails on its own. The warning carries the server's message, never the URL.
+    pool.on( "error", ( error ) => process.emitWarning( `A PostgreSQL connection was lost while idle: ${ error.message }` ) );
     if ( schema ) {
         try {
             await pool.query( `CREATE SCHEMA IF NOT EXISTS ${ schema }` );

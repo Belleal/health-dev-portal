@@ -22,8 +22,8 @@ const { splitNomenclatures } = require( "@health-dev-portal/spec-model/code-list
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
 const { encodeContent } = require( "#items" );
-const { ensureSpec, findVersion, freezeVersion, storeContent, storeVersion } = require( "#versions" );
-const { storeHistory } = require( "#changelog" );
+const { ensureSpec, findVersion, freezeVersion, storeVersion } = require( "#versions" );
+const { compareNumbers, storeHistory } = require( "#changelog" );
 const { recordResolution } = require( "#resolution" );
 const { storeCatalogue } = require( "#files" );
 
@@ -35,8 +35,8 @@ const ORDER = Object.freeze( [ STAGE.PRODUCTION, STAGE.TESTING, STAGE.DEVELOPMEN
 const PUBLISHED = new Set( [ STAGE.PRODUCTION, STAGE.TESTING ] );
 
 /**
- * A published version that is already stored with other content, or a stage that already holds another version
- * (design record §7.11). A published version is never replaced.
+ * A version already stored with other content than the workbook's (design record §7.11): a published one, which is
+ * never replaced, or a development one, which only the workbook route may replace.
  *
  * @public
  */
@@ -44,17 +44,39 @@ class MigrationConflictError extends Error {
 
     /**
      * @param {string} spec
-     * @param {string} number The version's number, or the stage when it has none.
-     * @param {string} [detail]
+     * @param {string|null} number `null` for a development version.
+     * @param {string} [message] In place of the published version's message.
      */
-    constructor( spec, number, detail ) {
-        super( `${ spec } ${ number } is already stored with other content; a published version is never replaced (design record §7.11).${ detail ? ` ${ detail }` : "" }` );
+    constructor( spec, number, message ) {
+        super( message || `${ spec } ${ number } is already stored with other content; a published version is never replaced (design record §7.11).` );
         this.name = "MigrationConflictError";
         this.spec = spec;
         this.number = number;
     }
 }
 module.exports.MigrationConflictError = MigrationConflictError;
+
+/**
+ * A published workbook in the wrong place on its spec's line (design record §7.1, §7.11): a testing version not ahead of
+ * production, or a stage that already holds another version.
+ *
+ * @public
+ */
+class MigrationOrderError extends Error {
+
+    /**
+     * @param {string} spec
+     * @param {string} number
+     * @param {string} message
+     */
+    constructor( spec, number, message ) {
+        super( message );
+        this.name = "MigrationOrderError";
+        this.spec = spec;
+        this.number = number;
+    }
+}
+module.exports.MigrationOrderError = MigrationOrderError;
 
 const changeOf = ( version, number ) => ( version.changeNotes || [] ).find( ( change ) => change.version === number ) || null;
 
@@ -84,7 +106,7 @@ class Run {
         this.retired = 0;
         this.entries = 0;
         this.anomalies = { blocking: 0, warning: 0 };
-        // Per spec, the history of its most advanced published workbook (design record §7.11): later stages replace it.
+        // Per spec, the history of its published workbook with the highest number (design record §7.11).
         this.history = new Map();
         // Each published nomenclatures workbook's number and the anomalies that sit on no list's sheet.
         this.workbooks = [];
@@ -94,6 +116,15 @@ class Run {
         if ( !this.specs.has( id ) ) {
             await ensureSpec( this.db, id, kind );
             this.specs.add( id );
+        }
+    }
+
+    // Taken by number, not by stage: by stage, a testing workbook behind production replaced production's history, which
+    // lost production's own notes and its older versions (final review of plan 5).
+    historyFrom( spec, kind, number, changes ) {
+        const current = this.history.get( spec );
+        if ( !current || compareNumbers( number, current.number ) > 0 ) {
+            this.history.set( spec, { kind: kind, number: number, changes: changes } );
         }
     }
 
@@ -135,16 +166,30 @@ class Run {
         }
         const existing = await findVersion( this.db, spec, { number: number } );
         if ( existing ) {
-            if ( existing.contentHash !== hash || existing.stage !== stage ) {
-                throw new MigrationConflictError( spec, number, existing.stage !== stage ? `It is stored in ${ existing.stage }, not in ${ stage }.` : undefined );
+            if ( existing.contentHash !== hash ) {
+                throw new MigrationConflictError( spec, number );
+            }
+            // his.bg lists the same number for test and production when nothing is ahead (HEL-7): the testing workbook is
+            // the production version itself, and nothing goes to testing (§7.11, "where it is ahead").
+            const notAhead = stage === STAGE.TESTING && existing.stage === STAGE.PRODUCTION;
+            if ( existing.stage !== stage && !notAhead ) {
+                throw new MigrationOrderError( spec, number, `${ spec } ${ number } is stored in ${ existing.stage }; the migration never moves a version to ${ stage } (design record §7.11).` );
             }
             this.skipped.push( { spec: spec, number: number, stage: stage } );
             await this.publish( existing.id, kind );
             return existing.id;
         }
+        if ( stage === STAGE.TESTING ) {
+            // Frozen in testing behind production, it could never be replaced, and its history would have overwritten
+            // production's (final review of plan 5).
+            const production = await findVersion( this.db, spec, { stage: STAGE.PRODUCTION } );
+            if ( production && compareNumbers( number, production.number ) <= 0 ) {
+                throw new MigrationOrderError( spec, number, `${ spec } ${ number } is not ahead of production ${ production.number }, so it cannot go to testing (design record §7.11).` );
+            }
+        }
         const holder = await findVersion( this.db, spec, { stage: stage } );
         if ( holder ) {
-            throw new MigrationConflictError( spec, number, `${ stage } already holds ${ holder.number }.` );
+            throw new MigrationOrderError( spec, number, `${ spec } ${ stage } already holds ${ holder.number }; ${ number } cannot be stored there, since a published version is never replaced (design record §7.11).` );
         }
         let release;
         if ( stage === STAGE.TESTING ) {
@@ -173,19 +218,23 @@ class Run {
     }
 
     async development( spec, kind, version, anomalies, hash ) {
+        let id;
         const existing = await findVersion( this.db, spec, { stage: STAGE.DEVELOPMENT } );
         if ( existing ) {
             if ( existing.contentHash !== hash ) {
-                throw new MigrationConflictError( spec, STAGE.DEVELOPMENT, "Its development version has changed since; load a newer workbook through the workbook route." );
+                throw new MigrationConflictError( spec, null, `${ spec }'s development version differs from this workbook; only the workbook route replaces it (design record §7.11).` );
             }
             this.skipped.push( { spec: spec, number: null, stage: STAGE.DEVELOPMENT } );
-            return existing.id;
+            id = existing.id;
+        } else {
+            const base = await this.mostAdvanced( spec );
+            id = await storeVersion( this.db, { spec: spec, kind: kind, number: null, stage: STAGE.DEVELOPMENT, content: version, anomalies: anomalies,
+                base: base ? base.id : undefined } );
+            this.stored.push( { spec: spec, number: null, stage: STAGE.DEVELOPMENT } );
+            this.count( anomalies );
         }
-        const base = await this.mostAdvanced( spec );
-        const id = await storeVersion( this.db, { spec: spec, kind: kind, number: null, stage: STAGE.DEVELOPMENT, content: version, anomalies: anomalies,
-            base: base ? base.id : undefined } );
-        this.stored.push( { spec: spec, number: null, stage: STAGE.DEVELOPMENT } );
-        this.count( anomalies );
+        // Done for a skipped version too: both are idempotent, so a run cut short after storing it finishes here
+        // (CodeRabbit on #13).
         if ( kind === SPEC_KIND.MODULE ) {
             await recordResolution( this.db, id );
         }
@@ -193,7 +242,7 @@ class Run {
         // kept. A list's newest note may belong to an older, published version, and is then not its own.
         const newest = newestOf( version );
         if ( newest && newest.version === version.version ) {
-            await this.keep( await storeHistory( this.db, spec, kind, [ newest ], { number: newest.version, version: id } ) );
+            this.keep( await storeHistory( this.db, spec, kind, [ newest ], { number: newest.version, version: id } ) );
         }
         return id;
     }
@@ -233,30 +282,33 @@ const migrateNomenclatures = async ( run, stage, result ) => {
     }
     if ( PUBLISHED.has( stage ) ) {
         for ( const version of split.lists ) {
-            run.history.set( version.spec, { kind: SPEC_KIND.CODE_LIST, changes: version.changeNotes } );
+            run.historyFrom( version.spec, SPEC_KIND.CODE_LIST, result.version.version, version.changeNotes );
         }
-        run.history.set( COMBINED, { kind: SPEC_KIND.NOMENCLATURES, changes: split.combined } );
+        run.historyFrom( COMBINED, SPEC_KIND.NOMENCLATURES, result.version.version, split.combined );
         run.workbooks.push( { number: result.version.version, anomalies: workbookAnomalies } );
     }
 };
 
 // What the combined spec keeps beyond its history: the workbook-level anomalies, on a retired version of the workbook's
-// own number (design record §7.11), once.
+// own number (design record §7.11). It runs before the history, so the version is created with them and frozen at once
+// (§4.1); the history then finds it and only adds its notes.
 const keepWorkbookAnomalies = async ( run, workbook ) => {
     if ( workbook.anomalies.length === 0 ) {
         return;
     }
     const existing = await findVersion( run.db, COMBINED, { number: workbook.number } );
     if ( !existing ) {
-        await storeVersion( run.db, { spec: COMBINED, kind: SPEC_KIND.NOMENCLATURES, number: workbook.number, stage: STAGE.RETIRED, anomalies: workbook.anomalies } );
+        await storeVersion( run.db, { spec: COMBINED, kind: SPEC_KIND.NOMENCLATURES, number: workbook.number, stage: STAGE.RETIRED, anomalies: workbook.anomalies,
+            frozen: true } );
         run.retired += 1;
         run.count( workbook.anomalies );
         return;
     }
     const kept = await run.db.get( "SELECT COUNT(*) AS n FROM anomalies WHERE version_id = ?", [ existing.id ] );
-    if ( kept.n === 0 ) {
-        await storeContent( run.db, existing.id, null, workbook.anomalies );
-        run.count( workbook.anomalies );
+    if ( kept.n !== workbook.anomalies.length ) {
+        // The version was stored by an earlier run of a workbook with other anomalies under the same number: the
+        // published workbook changed, and a published version is never replaced.
+        throw new MigrationConflictError( COMBINED, workbook.number, `It holds ${ kept.n } workbook-level anomalies; this workbook has ${ workbook.anomalies.length }.` );
     }
 };
 
@@ -300,15 +352,15 @@ module.exports.migrateImported = async ( db, store, stages ) => {
             await run.spec( spec, kind );
             await run.version( spec, kind, stage, result.version, result.anomalies );
             if ( PUBLISHED.has( stage ) ) {
-                run.history.set( spec, { kind: kind, changes: result.version.changeNotes || [] } );
+                run.historyFrom( spec, kind, result.version.version, result.version.changeNotes || [] );
             }
         }
     }
-    for ( const [ spec, history ] of run.history ) {
-        run.keep( await storeHistory( db, spec, history.kind, history.changes ) );
-    }
     for ( const workbook of run.workbooks ) {
         await keepWorkbookAnomalies( run, workbook );
+    }
+    for ( const [ spec, history ] of run.history ) {
+        run.keep( await storeHistory( db, spec, history.kind, history.changes ) );
     }
     return { stored: run.stored, skipped: run.skipped, specs: run.specs.size, retired: run.retired, entries: run.entries, anomalies: run.anomalies };
 };

@@ -125,6 +125,25 @@ module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "versi
  */
 module.exports.GUARD_SQL = "INSERT INTO write_guards ( reason ) SELECT 'frozen' FROM versions WHERE id = ? AND frozen = 1";
 
+// Locks the version's row until the batch ends. On PostgreSQL, under READ COMMITTED, the guard alone reads `frozen`
+// without a lock, so a freeze committed after the guard passed let the rest of the batch land on a frozen version (final
+// review of plan 5). SQLite and D1 serialise writers, and there it changes nothing.
+const LOCK_SQL = "UPDATE versions SET frozen = frozen WHERE id = ?";
+
+/**
+ * The statements a content write starts its batch with: a lock on the version's row, then the guard (`GUARD_SQL`). A
+ * freeze waits for the batch; a batch started after a freeze is refused with a `ConstraintError` naming `write_guard`.
+ *
+ * @method
+ * @param {string} versionId
+ * @returns {import( "#definitions" ).Statement[]}
+ * @public
+ */
+module.exports.guardStatements = ( versionId ) => [
+    { sql: LOCK_SQL, params: [ versionId ] },
+    { sql: module.exports.GUARD_SQL, params: [ versionId ] }
+];
+
 /**
  * Applies the migrations a database has not yet recorded, each in one batch with its record, and returns their IDs.
  *

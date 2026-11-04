@@ -23,7 +23,7 @@
 const { before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, findVersion, storeVersion } = require( "#versions" );
+const { ensureSpec, findVersion, storeContent, storeVersion } = require( "#versions" );
 const { compareNumbers, loadChangelog, storeHistory } = require( "#changelog" );
 const { eachDatabase } = require( "./support/databases" );
 const { rulesVersion } = require( "./support/models" );
@@ -68,6 +68,13 @@ eachDatabase( "Changelog", ( db ) => {
 
     it( "changes nothing the second time", async () => {
         assert.deepEqual( await storeHistory( db(), "rules", "rules", history ), { retired: 0, entries: 0 } );
+    } );
+
+    // A retired version keeps only its changelog (design record §4.1); stored unfrozen, it took content (final review).
+    it( "freezes a retired version it creates, so it never takes content", async () => {
+        const retired = await findVersion( db(), "rules", { number: "1.0.9" } );
+        assert.equal( retired.frozen, true );
+        await assert.rejects( storeContent( db(), retired.id, rulesVersion( [ "RL001" ], "1.0.9" ), [] ), { name: "FrozenVersionError" } );
     } );
 
     it( "records a retired version's dates", async () => {

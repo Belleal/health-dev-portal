@@ -28,7 +28,7 @@ const { loadChangelog } = require( "#changelog" );
 const { memoryStore } = require( "#files" );
 const { formatMigrationReport, migrateImported } = require( "#migration" );
 const { eachDatabase } = require( "./support/databases" );
-const { stageImports } = require( "./support/models" );
+const { moduleVersion, stageImports } = require( "./support/models" );
 
 const ORDER = [ "production", "testing", "development" ];
 
@@ -116,6 +116,61 @@ eachDatabase( "Migration", ( db ) => {
         await assert.rejects( migrateImported( db(), store, changed ), { name: "MigrationConflictError", spec: "rules", number: "1.1.1" } );
         const rules = await loadVersion( db(), ( await findVersion( db(), "rules", { number: "1.1.1" } ) ).id );
         assert.notEqual( rules.content.rules[ 0 ].definition.bg, "друго" );
+    } );
+
+    // A development version whose resolution or notes were cut short is repaired by the next run (CodeRabbit on #13).
+    it( "finishes a development version a run left half-done", async () => {
+        const development = await findVersion( db(), "e-prescription", { stage: "development" } );
+        await db().batch( [
+            { sql: "DELETE FROM resolutions WHERE version_id = ?", params: [ development.id ] },
+            { sql: "DELETE FROM changelog_entries WHERE version_id = ?", params: [ development.id ] }
+        ] );
+        await migrateImported( db(), store, stageImports() );
+        // CL009, read in testing, and the rules; no stage has CL035.
+        assert.equal( ( await db().get( "SELECT COUNT(*) AS n FROM resolutions WHERE version_id = ?", [ development.id ] ) ).n, 2 );
+        assert.deepEqual( ( await loadChangelog( db(), "e-prescription" ) )[ 0 ].entries.map( ( entry ) => entry.text_bg ), [ "Премахнато P002" ] );
+    } );
+} );
+
+// A testing workbook that is not ahead of production (final review of plan 5). his.bg lists the same number for both
+// environments when nothing is ahead (HEL-7), so a manifest may well name it twice.
+eachDatabase( "Migration, a testing workbook not ahead", ( db ) => {
+
+    const store = memoryStore();
+    before( async () => migrateSchema( db() ) );
+
+    const withTesting = ( version ) => {
+        const imports = stageImports();
+        imports.testing = { nomenclatures: null, rules: null, modules: [ { version: { ...moduleVersion( version ), changeNotes: [] }, anomalies: [] } ] };
+        delete imports.development;
+        return imports;
+    };
+
+    it( "skips a testing workbook equal to production, as not ahead", async () => {
+        const report = await migrateImported( db(), store, withTesting( "1.5.1" ) );
+        assert.deepEqual( report.skipped.filter( ( entry ) => entry.spec === "e-prescription" ), [ { spec: "e-prescription", number: "1.5.1", stage: "testing" } ] );
+        assert.equal( await findVersion( db(), "e-prescription", { stage: "testing" } ), null );
+        assert.equal( ( await findVersion( db(), "e-prescription", { stage: "production" } ) ).number, "1.5.1" );
+    } );
+
+    it( "refuses a testing workbook behind production, storing nothing of it", async () => {
+        await assert.rejects( migrateImported( db(), store, withTesting( "1.4.9" ) ),
+            { name: "MigrationOrderError", spec: "e-prescription", number: "1.4.9", message: /1\.4\.9 is not ahead of production 1\.5\.1/ } );
+        assert.equal( await findVersion( db(), "e-prescription", { number: "1.4.9" } ), null );
+    } );
+
+    it( "says a stage already holds another version, not that one is stored", async () => {
+        await migrateImported( db(), store, withTesting( "1.6.0" ) );
+        await assert.rejects( migrateImported( db(), store, withTesting( "1.6.1" ) ),
+            { name: "MigrationOrderError", message: /testing already holds 1\.6\.0; 1\.6\.1 cannot be stored there/ } );
+    } );
+
+    it( "says a development workbook differs, without calling it published", async () => {
+        const imports = stageImports();
+        imports.development.modules[ 0 ].version.messages = [];
+        await migrateImported( db(), store, stageImports() );
+        await assert.rejects( migrateImported( db(), store, imports ), ( error ) => error.name === "MigrationConflictError" && error.number === null
+            && /development version differs/.test( error.message ) && !/published/.test( error.message ) );
     } );
 } );
 

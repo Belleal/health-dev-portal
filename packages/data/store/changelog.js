@@ -95,7 +95,8 @@ module.exports.storeHistory = async ( db, spec, kind, history, attach ) => {
             if ( found ) {
                 target = found.id;
             } else {
-                target = await storeVersion( db, { spec: spec, kind: kind, number: change.version, stage: STAGE.RETIRED, stages: datesOf( change ) } );
+                // Frozen as it is created: a retired version keeps only its changelog (design record §4.1).
+                target = await storeVersion( db, { spec: spec, kind: kind, number: change.version, stage: STAGE.RETIRED, stages: datesOf( change ), frozen: true } );
                 retired += 1;
             }
         }

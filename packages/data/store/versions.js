@@ -17,7 +17,7 @@
 
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
-const { GUARD_SQL } = require( "#schema" );
+const { guardStatements } = require( "#schema" );
 const { decodeContent, encodeContent } = require( "#items" );
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 
@@ -94,14 +94,15 @@ module.exports.ensureSpec = async ( db, id, kind ) => {
 
 /**
  * Stores a new version in one batch: its row, the stages it has been through, its items and its anomalies. A version
- * stored without content — a retired one kept for its changelog — has neither items nor hash.
+ * stored without content — a retired one kept for its changelog — has neither items nor hash. One stored frozen is
+ * frozen in that same batch, so there is no moment at which it could be written.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
  * @param {{spec: string, kind: string, number: string|null, stage: string, content?: import( "#definitions" ).VersionContent,
  *     anomalies?: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[], release?: string, base?: string,
- *     stages?: Array<{stage: string, enteredOn: string|null}>}} input The current stage is recorded even when `stages` leaves
- *     it out.
+ *     stages?: Array<{stage: string, enteredOn: string|null}>, frozen?: boolean}} input The current stage is recorded even
+ *     when `stages` leaves it out.
  * @returns {Promise<string>} The new version's ID.
  * @public
  */
@@ -113,8 +114,9 @@ module.exports.storeVersion = async ( db, input ) => {
     }
     const { hash, statements } = contentStatements( id, input.kind, input.content || null, input.anomalies || [] );
     await db.batch( [
-        { sql: "INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, created_at ) VALUES ( ?, ?, ?, ?, 0, ?, ?, ?, ? )",
-            params: [ id, input.spec, orNull( input.number ), input.stage, orNull( input.base ), orNull( input.release ), hash, new Date().toISOString() ] },
+        { sql: "INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )",
+            params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), hash,
+                new Date().toISOString() ] },
         ...insertStatements( "version_stages", STAGE_COLUMNS, stages.map( ( entry ) => [ id, entry.stage, orNull( entry.enteredOn ) ] ) ),
         ...statements
     ] );
@@ -142,7 +144,7 @@ module.exports.storeContent = async ( db, versionId, content, anomalies ) => {
     const { hash, statements } = contentStatements( versionId, row.kind, content, anomalies );
     try {
         await db.batch( [
-            { sql: GUARD_SQL, params: [ versionId ] },
+            ...guardStatements( versionId ),
             { sql: "DELETE FROM anomalies WHERE version_id = ?", params: [ versionId ] },
             { sql: "DELETE FROM items WHERE version_id = ?", params: [ versionId ] },
             ...statements,

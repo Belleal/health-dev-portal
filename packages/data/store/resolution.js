@@ -16,7 +16,7 @@
  */
 
 const { ConstraintError, insertStatements } = require( "#database" );
-const { GUARD_SQL } = require( "#schema" );
+const { guardStatements } = require( "#schema" );
 const { FrozenVersionError, findVersion, loadVersion } = require( "#versions" );
 const { referencedSpecs } = require( "@health-dev-portal/spec-model/references" );
 const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
@@ -96,7 +96,7 @@ module.exports.recordResolution = async ( db, versionId ) => {
     const resolutions = await module.exports.resolveVersion( db, versionId );
     try {
         await db.batch( [
-            { sql: GUARD_SQL, params: [ versionId ] },
+            ...guardStatements( versionId ),
             { sql: "DELETE FROM resolutions WHERE version_id = ?", params: [ versionId ] },
             ...insertStatements( "resolutions", COLUMNS, resolutions.map( ( r ) => [ versionId, r.spec, r.version, r.number, r.keyType ] ) )
         ] );

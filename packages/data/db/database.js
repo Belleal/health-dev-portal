@@ -58,6 +58,23 @@ module.exports.openDatabase = async ( url, options = {} ) => {
 };
 
 /**
+ * Whether a database URL carries a password. A command reads it to warn that a URL given as an argument shows in
+ * process listings and shell history, and belongs in the environment instead (security review of plan 5).
+ *
+ * @method
+ * @param {string} url
+ * @returns {boolean}
+ * @public
+ */
+module.exports.carriesPassword = ( url ) => {
+    try {
+        return new URL( url ).password !== "";
+    } catch {
+        return false;
+    }
+};
+
+/**
  * Multi-row inserts of the given rows, each statement binding at most `MAX_PARAMETERS` values.
  *
  * @method
