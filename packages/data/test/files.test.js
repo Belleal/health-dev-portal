@@ -61,6 +61,17 @@ describe( "directoryStore", () => {
         assert.equal( ( await directoryStore( root ).get( hash ) ).toString(), "x" );
         assert.deepEqual( fs.readdirSync( path.join( root, hash.slice( 0, 2 ) ) ), [ hash ] );
     } );
+
+    // put hashed the caller's bytes and then, after awaiting the file system, wrote whatever they had become: a file
+    // named by a hash its content did not have (CodeRabbit on #14).
+    it( "stores the bytes it was given, whatever the caller does with them after", async () => {
+        const store = directoryStore( temporary() );
+        const bytes = Uint8Array.from( Buffer.from( "original" ) );
+        const putting = store.put( bytes );
+        bytes.fill( 0 );
+        const hash = await putting;
+        assert.equal( ( await store.get( hash ) ).toString(), "original" );
+    } );
 } );
 
 eachDatabase( "Files and settings", ( db ) => {

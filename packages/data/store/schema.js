@@ -21,7 +21,10 @@ const { CHANGE_ORIGIN, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-mo
 const oneOf = ( column, values ) => `CHECK ( ${ column } IN ( ${ Object.values( values ).map( ( value ) => `'${ value }'` ).join( ", " ) } ) )`;
 
 const INITIAL = [
-    "CREATE TABLE write_guards ( reason TEXT, CONSTRAINT write_guard CHECK ( reason IS NULL ) )",
+    // Always empty. Each named check refuses one reason, so the error says which guard failed.
+    `CREATE TABLE write_guards ( reason TEXT,
+        CONSTRAINT write_guard CHECK ( reason IS NULL OR reason <> 'frozen' ),
+        CONSTRAINT stale_guard CHECK ( reason IS NULL OR reason <> 'stale' ) )`,
     `CREATE TABLE specs ( id TEXT PRIMARY KEY, kind TEXT NOT NULL ${ oneOf( "kind", SPEC_KIND ) } )`,
     "CREATE TABLE releases ( id TEXT PRIMARY KEY, summary_bg TEXT, summary_en TEXT, notice_days INTEGER, planned_on TEXT, created_at TEXT NOT NULL )",
     `CREATE TABLE versions (
@@ -143,6 +146,22 @@ module.exports.guardStatements = ( versionId ) => [
     { sql: LOCK_SQL, params: [ versionId ] },
     { sql: module.exports.GUARD_SQL, params: [ versionId ] }
 ];
+
+/**
+ * The statement that makes a batch fail when its version's content is no longer the content the batch was computed
+ * from: it inserts into `write_guards`, whose `stale_guard` check refuses the row, when the content hash differs. It goes
+ * after `guardStatements`, under their lock, so the content cannot change between the check and the write.
+ *
+ * @method
+ * @param {string} versionId
+ * @param {string} contentHash The hash the batch's input was read under.
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.staleStatement = ( versionId, contentHash ) => ( {
+    sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND ( content_hash IS NULL OR content_hash <> ? )",
+    params: [ versionId, contentHash ]
+} );
 
 /**
  * Applies the migrations a database has not yet recorded, each in one batch with its record, and returns their IDs.

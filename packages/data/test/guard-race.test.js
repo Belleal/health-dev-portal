@@ -74,6 +74,13 @@ describe( "PostgreSQL with two connections", { skip: POSTGRES ? false : "HDP_TES
         }
     } );
 
+    // The connection dies inside the batch: the driver's ROLLBACK then failed too, and its "Client was closed" replaced
+    // the batch's own error, and the dead client went back to the pool (CodeRabbit on #14).
+    it( "keeps a batch's own error when its connection dies in it, and discards the connection", async () => {
+        await assert.rejects( db.batch( [ { sql: "SELECT pg_terminate_backend( pg_backend_pid() )", params: [] } ] ), /terminating connection/ );
+        assert.deepEqual( await db.get( "SELECT 1 AS n" ), { n: 1 } );
+    } );
+
     // A connection the server drops while it sits idle in the pool emits "error" on the pool; unheard, it killed the
     // process (final review of plan 5).
     it( "survives an idle connection the server drops", async () => {

@@ -16,7 +16,7 @@
  */
 
 const { ConstraintError, insertStatements } = require( "#database" );
-const { guardStatements } = require( "#schema" );
+const { guardStatements, staleStatement } = require( "#schema" );
 const { FrozenVersionError, findVersion, loadVersion } = require( "#versions" );
 const { referencedSpecs } = require( "@health-dev-portal/spec-model/references" );
 const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
@@ -54,11 +54,18 @@ const keyTypeOf = async ( db, versionId ) => {
  * @throws {RangeError} When there is no such version.
  * @public
  */
-module.exports.resolveVersion = async ( db, versionId ) => {
+module.exports.resolveVersion = async ( db, versionId ) => resolvedOf( db, await loaded( db, versionId ) );
+
+const loaded = async ( db, versionId ) => {
     const version = await loadVersion( db, versionId );
     if ( !version ) {
         throw new RangeError( `There is no version ${ versionId }.` );
     }
+    return version;
+};
+
+const resolvedOf = async ( db, version ) => {
+    const versionId = version.id;
     if ( version.frozen ) {
         const rows = await db.all( "SELECT spec_id, resolved_id, number, key_type FROM resolutions WHERE version_id = ?", [ versionId ] );
         return bySpec( rows.map( ( row ) => ( { spec: row.spec_id, version: row.resolved_id, number: row.number, keyType: row.key_type } ) ) );
@@ -81,30 +88,43 @@ module.exports.resolveVersion = async ( db, versionId ) => {
     return bySpec( resolutions );
 };
 
+// A content that keeps changing while it is resolved is being edited without pause; past this, the caller decides.
+const ATTEMPTS = 3;
+
 /**
- * Records what a version reads, replacing what it recorded before, in one batch that starts with the frozen-version
- * guard: a frozen version's record never changes (design record §7.7).
+ * Records what a version reads, replacing what it recorded before, in one batch behind the frozen-version guard: a
+ * frozen version's record never changes (design record §7.7). The batch also checks, under the guard's lock, that the
+ * content is still the one it was resolved from; if an edit came in between, it resolves again. Without that, a record
+ * of what the old content read was written, and a freeze kept it for good (CodeRabbit on #14).
  *
  * @method
  * @param {import( "#definitions" ).Database} db
  * @param {string} versionId
  * @returns {Promise<Resolution[]>} What was recorded.
  * @throws {FrozenVersionError} When the version is frozen; nothing is written.
+ * @throws {Error} When the content changed under every one of three attempts.
  * @public
  */
 module.exports.recordResolution = async ( db, versionId ) => {
-    const resolutions = await module.exports.resolveVersion( db, versionId );
-    try {
-        await db.batch( [
-            ...guardStatements( versionId ),
-            { sql: "DELETE FROM resolutions WHERE version_id = ?", params: [ versionId ] },
-            ...insertStatements( "resolutions", COLUMNS, resolutions.map( ( r ) => [ versionId, r.spec, r.version, r.number, r.keyType ] ) )
-        ] );
-    } catch ( error ) {
-        if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
-            throw new FrozenVersionError( versionId );
+    for ( let attempt = 1; attempt <= ATTEMPTS; attempt += 1 ) {
+        const version = await loaded( db, versionId );
+        const resolutions = await resolvedOf( db, version );
+        try {
+            await db.batch( [
+                ...guardStatements( versionId ),
+                ...( version.contentHash === null ? [] : [ staleStatement( versionId, version.contentHash ) ] ),
+                { sql: "DELETE FROM resolutions WHERE version_id = ?", params: [ versionId ] },
+                ...insertStatements( "resolutions", COLUMNS, resolutions.map( ( r ) => [ versionId, r.spec, r.version, r.number, r.keyType ] ) )
+            ] );
+            return resolutions;
+        } catch ( error ) {
+            if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
+                throw new FrozenVersionError( versionId );
+            }
+            if ( !( error instanceof ConstraintError && error.constraint === "stale_guard" ) ) {
+                throw error;
+            }
         }
-        throw error;
     }
-    return resolutions;
+    throw new Error( `Version ${ versionId } changed while it was resolved, ${ ATTEMPTS } times over.` );
 };

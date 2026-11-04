@@ -114,6 +114,12 @@ class PostgresDatabase {
 
     async batch( statements ) {
         const client = await this.#pool.connect();
+        // A connection that dies in the batch emits "Connection terminated unexpectedly" on the client right after the
+        // statement fails — before any ROLLBACK (measured with pg 8.23.1). Unheard, that is an uncaught exception. The
+        // statement's own rejection already carries the failure, and a later query on the dead client fails too.
+        const unheard = () => {};
+        client.on( "error", unheard );
+        let broken;
         try {
             await client.query( "BEGIN" );
             const results = [];
@@ -123,10 +129,21 @@ class PostgresDatabase {
             await client.query( "COMMIT" );
             return results;
         } catch ( error ) {
-            await client.query( "ROLLBACK" );
+            // A connection that died in the batch cannot roll back either: its ROLLBACK error replaced the batch's own,
+            // and the dead client went back to the pool (CodeRabbit on #14). Released with the error, the pool drops it.
+            try {
+                await client.query( "ROLLBACK" );
+            } catch ( rollback ) {
+                broken = rollback;
+            }
             throw error;
         } finally {
-            client.release();
+            // A client going back to the pool sheds the listener, so reuse does not pile them up; a broken one keeps it
+            // while the pool discards it.
+            if ( !broken ) {
+                client.removeListener( "error", unheard );
+            }
+            client.release( broken );
         }
     }
 

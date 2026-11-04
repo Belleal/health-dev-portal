@@ -23,7 +23,7 @@
 const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, freezeVersion, storeVersion } = require( "#versions" );
+const { ensureSpec, freezeVersion, storeContent, storeVersion } = require( "#versions" );
 const { recordResolution, resolveVersion } = require( "#resolution" );
 const { eachDatabase } = require( "./support/databases" );
 const { codeListVersion, moduleVersion, rulesVersion } = require( "./support/models" );
@@ -76,6 +76,32 @@ eachDatabase( "Resolution", ( db ) => {
         assert.deepEqual( ( await resolveVersion( db(), productionModule ) ).map( ( r ) => [ r.spec, r.number ] ),
             [ [ "CL009", "1.5.33" ], [ "CL011", "1.5.33" ], [ "rules", "1.1.1" ] ] );
         await assert.rejects( recordResolution( db(), productionModule ), { name: "FrozenVersionError" } );
+    } );
+
+    // The record was resolved from content read before the batch: content changed in between was recorded with what the
+    // old content read, and a freeze would have kept that for good (CodeRabbit on #14).
+    it( "records what the content reads when it is written, not what it read before", async () => {
+        const changed = naming( null );
+        changed.messages[ 0 ].elements[ 0 ].children[ 1 ].children[ 1 ].codeList = null;
+        let edited = false;
+        // The database as recordResolution sees it: an editor saves new content just before its batch runs.
+        const racing = {
+            dialect: db().dialect,
+            all: ( sql, params ) => db().all( sql, params ),
+            get: ( sql, params ) => db().get( sql, params ),
+            run: ( sql, params ) => db().run( sql, params ),
+            close: () => db().close(),
+            batch: async ( statements ) => {
+                if ( !edited ) {
+                    edited = true;
+                    await storeContent( db(), developmentModule, changed, [] );
+                }
+                return db().batch( statements );
+            }
+        };
+        assert.deepEqual( ( await recordResolution( racing, developmentModule ) ).map( ( r ) => r.spec ), [ "CL009", "rules" ] );
+        const rows = await db().all( "SELECT spec_id FROM resolutions WHERE version_id = ?", [ developmentModule ] );
+        assert.deepEqual( rows.map( ( row ) => row.spec_id ).sort(), [ "CL009", "rules" ] );
     } );
 
     it( "leaves out a spec no stage has", async () => {

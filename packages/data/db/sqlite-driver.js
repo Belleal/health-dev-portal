@@ -102,7 +102,15 @@ class SqliteDatabase {
             this.#db.exec( "COMMIT" );
             return results;
         } catch ( error ) {
-            this.#db.exec( "ROLLBACK" );
+            // SQLite rolls back by itself after some errors (SQLITE_FULL, SQLITE_IOERR, SQLITE_NOMEM); rolling back again
+            // threw "no transaction is active", which replaced the error a caller needs (CodeRabbit on #14).
+            try {
+                if ( this.#db.isTransaction ) {
+                    this.#db.exec( "ROLLBACK" );
+                }
+            } catch {
+                // The batch's own error is the one to report.
+            }
             throw translated( error );
         }
     }

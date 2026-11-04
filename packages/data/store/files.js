@@ -43,9 +43,10 @@ module.exports.memoryStore = () => {
     const files = new Map();
     return {
         put: async ( bytes ) => {
-            const hash = sha256( bytes );
+            const snapshot = Buffer.from( bytes );
+            const hash = sha256( snapshot );
             if ( !files.has( hash ) ) {
-                files.set( hash, Buffer.from( bytes ) );
+                files.set( hash, snapshot );
             }
             return hash;
         },
@@ -78,13 +79,16 @@ module.exports.directoryStore = ( root ) => {
     };
     return {
         put: async ( bytes ) => {
-            const hash = sha256( bytes );
+            // A copy, hashed and written: the caller's bytes could change while this awaits the file system, and the file
+            // would then hold content its name is not the hash of (CodeRabbit on #14).
+            const snapshot = Buffer.from( bytes );
+            const hash = sha256( snapshot );
             if ( await has( hash ) ) {
                 return hash;
             }
             await fs.mkdir( path.dirname( place( hash ) ), { recursive: true } );
             const temporary = `${ place( hash ) }.${ crypto.randomBytes( 6 ).toString( "hex" ) }.tmp`;
-            await fs.writeFile( temporary, bytes );
+            await fs.writeFile( temporary, snapshot );
             try {
                 await fs.rename( temporary, place( hash ) );
             } catch ( error ) {

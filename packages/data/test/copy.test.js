@@ -81,6 +81,32 @@ describe( "copyDatabase", () => {
         await target.run( "INSERT INTO schema_migrations ( id, applied_at ) VALUES ( '9999-later', '2026-11-04' )" );
         await assert.rejects( copyDatabase( source, target ), ( error ) => error instanceof CopyTargetError && /9999-later/.test( error.message ) );
     } );
+
+    // OFFSET paging has no snapshot: a row the source deleted or added while it was copied shifted the pages, and the copy
+    // finished without it, saying nothing (CodeRabbit on #14).
+    it( "refuses a source that changed while it was copied", async () => {
+        const source = await seeded();
+        let changed = false;
+        // The source as the copy sees it, which deletes an item it has already read.
+        const changing = {
+            dialect: source.dialect,
+            get: ( sql, params ) => source.get( sql, params ),
+            run: ( sql, params ) => source.run( sql, params ),
+            batch: ( statements ) => source.batch( statements ),
+            close: () => source.close(),
+            all: async ( sql, params ) => {
+                const rows = await source.all( sql, params );
+                if ( !changed && /FROM items /.test( sql ) ) {
+                    changed = true;
+                    await source.run( "DELETE FROM items WHERE item_no = 1" );
+                }
+                return rows;
+            }
+        };
+        const target = await openDatabase( "sqlite::memory:" );
+        await assert.rejects( copyDatabase( changing, target ), { name: "CopyTargetError", message: /changed while it was copied/ } );
+        await source.close();
+    } );
 } );
 
 describe( "copyFiles", () => {
@@ -103,5 +129,18 @@ describe( "copyFiles", () => {
         await migrateSchema( db );
         await storeFile( db, memoryStore(), Buffer.from( "lost" ), "text/plain" );
         await assert.rejects( copyFiles( db, memoryStore(), memoryStore() ), /missing from the source/ );
+    } );
+
+    // A file whose bytes are not its name's: from the source it would have been stored under another hash, and in the
+    // target it was taken as copied (CodeRabbit on #14).
+    it( "refuses a file whose bytes do not match its hash, in either store", async () => {
+        const db = await openDatabase( "sqlite::memory:" );
+        await migrateSchema( db );
+        const hash = await storeFile( db, memoryStore(), Buffer.from( "a" ), "text/plain" );
+        const corrupt = { has: async () => true, get: async () => Buffer.from( "tampered" ), put: async () => hash };
+        await assert.rejects( copyFiles( db, corrupt, memoryStore() ), new RegExp( `${ hash } .*does not match` ) );
+        const healthy = memoryStore();
+        await healthy.put( Buffer.from( "a" ) );
+        await assert.rejects( copyFiles( db, healthy, corrupt ), new RegExp( `${ hash } .*does not match` ) );
     } );
 } );

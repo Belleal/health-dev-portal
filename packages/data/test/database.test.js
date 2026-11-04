@@ -70,6 +70,17 @@ eachDatabase( "Database", ( db ) => {
             { sql: "UPDATE t SET b = ? WHERE a = ?", params: [ "z", 2 ] }
         ] ), [ { changes: 1 }, { changes: 0 } ] );
     } );
+
+    // When a transaction has already ended — SQLite rolls back by itself after SQLITE_FULL or SQLITE_IOERR — the
+    // driver's own ROLLBACK failed, and its "no transaction is active" replaced the error a caller needs (CodeRabbit on
+    // #14). A ROLLBACK inside the batch ends it the same way.
+    it( "keeps a batch's own error when its transaction has already ended", async () => {
+        await assert.rejects( db().batch( [
+            { sql: "ROLLBACK", params: [] },
+            { sql: "NOT VALID SQL", params: [] }
+        ] ), ( error ) => /syntax error/.test( error.message ) && !/no transaction/.test( error.message ) );
+        assert.deepEqual( await db().get( "SELECT COUNT(*) AS n FROM t" ), { n: 0 } );
+    } );
 } );
 
 describe( "insertStatements", () => {
