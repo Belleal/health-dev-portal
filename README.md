@@ -104,6 +104,12 @@ HDP_COPY_FROM_URL=sqlite:portal.db HDP_COPY_TO_URL="$TARGET_DATABASE_URL" npx hd
 
 This copies a whole database from one driver to the other, for example from the development deployment to the data
 centre's PostgreSQL at launch.
+- **Nothing may write to the source while it is copied.** Stop the portal, or take it into a maintenance window, before
+  the copy starts, and keep it so until the copy ends.
+  - The source is read page by page, and no database here offers one snapshot across a whole copy (D1 has no read
+    transaction).
+  - The copy reads the source a second time when it is done, and refuses if anything changed. That is a check that
+    catches a mistake, not a snapshot, so it does not take the place of stopping writes.
 - **What it keeps.** Every identity, all history, and the files the database names. When the source names files,
   `--files-from` and `--files-to` are required; without them the copy is refused before the target is opened.
 - **The target** is migrated first. It must be empty, with the same schema as the source; otherwise the copy is refused

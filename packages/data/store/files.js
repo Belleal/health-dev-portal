@@ -88,12 +88,14 @@ module.exports.directoryStore = ( root ) => {
             }
             await fs.mkdir( path.dirname( place( hash ) ), { recursive: true } );
             const temporary = `${ place( hash ) }.${ crypto.randomBytes( 6 ).toString( "hex" ) }.tmp`;
-            await fs.writeFile( temporary, snapshot );
+            // The write and the rename share one cleanup: a write that failed part-way, on a full disk say, left its
+            // temporary file behind, one more on every attempt (CodeRabbit on #14).
             try {
+                await fs.writeFile( temporary, snapshot );
                 await fs.rename( temporary, place( hash ) );
             } catch ( error ) {
-                // Another writer got there first: on Windows a rename onto an existing file fails. Same hash, same bytes.
                 await fs.rm( temporary, { force: true } );
+                // Another writer got there first: on Windows a rename onto an existing file fails. Same hash, same bytes.
                 if ( !( await has( hash ) ) ) {
                     throw error;
                 }

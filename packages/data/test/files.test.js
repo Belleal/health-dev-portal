@@ -72,6 +72,24 @@ describe( "directoryStore", () => {
         const hash = await putting;
         assert.equal( ( await store.get( hash ) ).toString(), "original" );
     } );
+
+    // A write that failed part-way — a full disk — left its temporary file behind, one more on every attempt (CodeRabbit
+    // on #14).
+    it( "leaves no temporary file behind when a write fails", async () => {
+        const root = temporary();
+        const writeFile = fs.promises.writeFile;
+        fs.promises.writeFile = async ( file, bytes ) => {
+            await writeFile( file, bytes.subarray( 0, 1 ) );
+            throw Object.assign( new Error( "ENOSPC: no space left on device" ), { code: "ENOSPC" } );
+        };
+        try {
+            await assert.rejects( directoryStore( root ).put( Buffer.from( "partial" ) ), { code: "ENOSPC" } );
+        } finally {
+            fs.promises.writeFile = writeFile;
+        }
+        const left = fs.readdirSync( root, { recursive: true } ).filter( ( name ) => name.endsWith( ".tmp" ) );
+        assert.deepEqual( left, [] );
+    } );
 } );
 
 eachDatabase( "Files and settings", ( db ) => {

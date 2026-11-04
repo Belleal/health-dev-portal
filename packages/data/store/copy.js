@@ -68,8 +68,11 @@ const reading = async ( source, table, page ) => {
  * differs from the source's or any table already holds a row. Tables are copied in an order in which every reference
  * already exists; a version's base is written in a second pass, since a version may come before its base.
  *
- * The source is read page by page, and paging has no snapshot. So it is read a second time when the copy is done: if it
- * changed in between, the copy is refused, and the target, partly the old source, must be emptied and copied again.
+ * **Nothing may write to the source while it is copied**: the caller stops the portal, or holds a maintenance window,
+ * for the whole copy. The source is read page by page, and no driver offers one snapshot across a copy (D1 has no read
+ * transaction). So it is read a second time when the copy is done, and if it changed in between the copy is refused, and
+ * the target, partly the old source, must be emptied and copied again. That second read catches a mistake; it is not a
+ * snapshot, and does not replace stopping writes (CodeRabbit on #14).
  *
  * @method
  * @param {import( "#definitions" ).Database} source
