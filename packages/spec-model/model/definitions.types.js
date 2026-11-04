@@ -250,6 +250,18 @@
  */
 
 /**
+ * @typedef {Object} Difference One way a version differs from its base (design record §7.5).
+ * @property {string} key The item's key and the aspect, `<item key>|<aspect>`, e.g. `element:P001:contents/lrn#1|cardinality`.
+ * @property {string} target The item's kind: `message`, `element`, `condition`, `dictionary`, `list`, `column`, `entry` or
+ *     `rule`.
+ * @property {string|null} identity
+ * @property {string} aspect `added`, `removed`, `moved`, or the name of the field that changed.
+ * @property {*} before `null` for an added item; the parent's key for a move.
+ * @property {*} after `null` for a removed item; the parent's key for a move.
+ * @property {string} category The proposed one: `breaking` or `non-breaking`.
+ */
+
+/**
  * @typedef {Object} Rule A business rule (design record §4.6.1).
  * @property {string} id e.g. `RL001`.
  * @property {LocalText} definition Bulgarian only in the workbook; lines are kept.
