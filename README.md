@@ -58,6 +58,35 @@ file could not be read; 2: wrong arguments.
 npx hdp-import-set --nomenclatures "path/to/НЗИС Номенклатури - Спецификация v1.5.33.xlsx" --rules "path/to/НЗИС - API Бизнес Правила - Спецификация v1.1.1.xlsx" --module e-prescription="path/to/НЗИС Е-Рецепта - API Спецификация v1.5.1.xlsx"
 ```
 
-The workbooks of one slot, imported together. Each module's code-list and rule references are checked against the
+The workbooks of one stage, imported together. Each module's code-list and rule references are checked against the
 set's nomenclatures and rules; any of the three options may be left out, and what is then not linked is said. One
 report per workbook, then the verdict for the set; the exit codes are as above.
+
+### Migrating the published specifications
+
+Today's published workbooks are loaded into the portal's database once (design record §7.11). A manifest says which
+workbook goes to which spec and stage; paths are relative to it:
+
+```json
+{
+    "xsd": "api-v1",
+    "nomenclatures": [ { "file": "НЗИС Номенклатури - Спецификация v1.5.33.xlsx", "stage": "production" } ],
+    "rules": [ { "file": "НЗИС - API Бизнес Правила - Спецификация v1.1.1.xlsx", "stage": "production" } ],
+    "modules": [ { "spec": "e-prescription", "file": "НЗИС Е-Рецепта - API Спецификация v1.5.1.xlsx", "stage": "production" } ]
+}
+```
+
+```bash
+HDP_DATABASE_URL=sqlite:portal.db npx hdp-migrate --manifest migration.json
+```
+
+- **Stages.** A stage is `production`, `testing` or `development`. The nomenclatures become one spec per code list.
+- **Published versions** are loaded as published, defects included, and frozen.
+- **A run finds what it already stored.** A second run stores nothing. A published number that comes back with other
+  content is refused.
+- **Exit codes:** 0 on success; 1 for a conflict or a file that cannot be read; 2 for wrong arguments or a manifest it
+  cannot use.
+- **The database URL** comes from `--database` or `HDP_DATABASE_URL`, and is never printed.
+- **Files** go to `--files`, by default `.files/` next to the manifest.
+- **Development workbooks** are the spec team's work in progress. They are never in this repository, so they are loaded
+  from their folder.

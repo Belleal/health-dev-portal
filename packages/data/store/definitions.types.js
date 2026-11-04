@@ -40,6 +40,38 @@
  */
 
 /**
+ * @typedef {Object} ManifestEntry One workbook of a migration (design record §7.11).
+ * @property {string} file Resolved against the manifest's directory.
+ * @property {string} stage `production`, `testing` or `development`.
+ */
+
+/**
+ * @typedef {Object} Manifest Which workbook goes to which spec and stage.
+ * @property {string|null} xsd The published XSD set's directory, for the blueprints.
+ * @property {ManifestEntry[]} nomenclatures One at production at least.
+ * @property {ManifestEntry[]} rules
+ * @property {Array<ManifestEntry & {spec: string}>} modules
+ */
+
+/**
+ * @typedef {Object} StageImport What `importSet` gave for one stage, holding only the workbooks at that stage; each is
+ *     `{ version, anomalies }`.
+ * @property {Object|null} nomenclatures
+ * @property {Object|null} rules
+ * @property {Object[]} modules
+ */
+
+/**
+ * @typedef {Object} MigrationReport What a migration did.
+ * @property {Array<{spec: string, number: string|null, stage: string}>} stored
+ * @property {Array<{spec: string, number: string|null, stage: string}>} skipped Already stored with the same content.
+ * @property {number} specs The specs the run covered.
+ * @property {number} retired Retired versions of history created.
+ * @property {number} entries Changelog entries kept.
+ * @property {{blocking: number, warning: number}} anomalies Those stored now.
+ */
+
+/**
  * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
  * @property {number} item_no From 1, in document order.
  * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
