@@ -12,6 +12,7 @@
         "./changelog": "./store/changelog.js",
         "./database": "./db/database.js",
         "./definitions": "./store/definitions.types.js",
+        "./files": "./store/files.js",
         "./schema": "./store/schema.js",
         "./versions": "./store/versions.js"
     },
@@ -20,6 +21,7 @@
         "#database": "./db/database.js",
         "#definitions": "./store/definitions.types.js",
         "#errors": "./db/errors.js",
+        "#files": "./store/files.js",
         "#items": "./store/items.js",
         "#postgres-driver": "./db/postgres-driver.js",
         "#schema": "./store/schema.js",

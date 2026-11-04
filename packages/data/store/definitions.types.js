@@ -33,6 +33,13 @@
  */
 
 /**
+ * @typedef {Object} FileStore Files named by the lower-case hex SHA-256 of their bytes (design record §3.3).
+ * @property {function( Uint8Array ): Promise<string>} put Stores the bytes once, and returns their hash.
+ * @property {function( string ): Promise<Buffer|null>} get `null` for a hash it does not have.
+ * @property {function( string ): Promise<boolean>} has
+ */
+
+/**
  * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
  * @property {number} item_no From 1, in document order.
  * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
