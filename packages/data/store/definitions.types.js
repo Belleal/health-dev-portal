@@ -32,4 +32,35 @@
  * @property {function(): Promise<void>} close
  */
 
+/**
+ * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
+ * @property {number} item_no From 1, in document order.
+ * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
+ *     `column`, `entry` or `rule`.
+ * @property {string|null} identity Its key within the version; indexed, not unique (HEL-19).
+ * @property {number|null} parent_no
+ * @property {number} position_no Among its siblings, from 0.
+ * @property {string} data The model object's own fields as JSON, without its children.
+ * @property {string} hash SHA-256 of `data`.
+ */
+
+/**
+ * @typedef {Object} VersionContent A version's content: a `ModuleVersion`, `CodeListVersion` or `RulesVersion` without
+ *     `changeNotes`, which the changelog keeps (design record §4.7). Its `version` is the stored number.
+ */
+
+/**
+ * @typedef {Object} StoredVersion A version as the database holds it.
+ * @property {string} id
+ * @property {string} spec
+ * @property {string} kind One of `SPEC_KIND`.
+ * @property {string|null} number `null` in development (design record §7.2).
+ * @property {string} stage One of `STAGE`.
+ * @property {boolean} frozen
+ * @property {string|null} release
+ * @property {string|null} base The version a development version started from (§7.5).
+ * @property {string|null} contentHash `null` for a version kept only for its changelog.
+ * @property {VersionContent|null} [content] Present when loaded with `loadVersion`.
+ */
+
 module.exports = {};
