@@ -57,6 +57,18 @@ const keyedItems = ( kind, content ) => {
 };
 
 /**
+ * Whether two items' stored data hold the same fields and values, whatever order they were written in. Both are compared
+ * as written: a field set to undefined is not written, and compared before writing it differed from a row without it.
+ *
+ * @method
+ * @param {string} left JSON, as `items.data` holds it.
+ * @param {string} right
+ * @returns {boolean}
+ * @public
+ */
+module.exports.sameData = ( left, right ) => canonical( JSON.parse( left ) ) === canonical( JSON.parse( right ) );
+
+/**
  * Stored rows under their item keys, keyed by the same function as a content (`itemKeys`): the rows are decoded, and each
  * object traced back to the row it came from.
  *
@@ -99,7 +111,7 @@ module.exports.diffRows = ( kind, stored, content ) => {
         if ( !row ) {
             result.inserts.push( { item_no: numbers.get( key ), kind: item.kind, identity: item.identity, parent_no: parent, position_no: item.position, data: data,
                 hash: sha256( data ), revision: 1 } );
-        } else if ( canonical( JSON.parse( row.data ) ) !== canonical( item.data ) ) {
+        } else if ( !module.exports.sameData( row.data, data ) ) {
             result.updates.push( { ...row, identity: item.identity, parent_no: parent, position_no: item.position, data: data, hash: sha256( data ), revision: row.revision + 1 } );
         } else if ( row.parent_no !== parent || row.position_no !== item.position ) {
             result.moves.push( { ...row, parent_no: parent, position_no: item.position } );

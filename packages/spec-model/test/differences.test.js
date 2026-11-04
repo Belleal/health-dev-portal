@@ -55,6 +55,18 @@ describe( "itemKeys", () => {
             [ "element:P001:contents#1", "element:P001:contents/note@value#1", "element:P001:contents/note@value#2", "element:element:P001:contents#1@2" ] );
     } );
 
+    // A repeated code is reported (duplicate-message and the like) and loaded as published; a Map keyed without occurrence
+    // kept only the last, and replacing the content then deleted the first and moved its elements under the second.
+    it( "keeps every one of a repeated message code, condition, dictionary entry and rule", () => {
+        const content = moduleWith( [] );
+        content.messages.push( { ...content.messages[ 0 ], elements: [] } );
+        content.conditions = [ { id: "CDP01", text: "a" }, { id: "CDP01", text: "b" } ];
+        content.dictionary = [ { abbreviation: "ЛРН" }, { abbreviation: "ЛРН" } ];
+        assert.deepEqual( [ ...itemKeys( "module", content ).keys() ].filter( ( key ) => !key.startsWith( "element:" ) ),
+            [ "message:P001", "message:P001#2", "condition:CDP01", "condition:CDP01#2", "dictionary:ЛРН", "dictionary:ЛРН#2" ] );
+        assert.deepEqual( [ ...itemKeys( "rules", rulesWith( [ "RL001", "RL001" ] ) ).keys() ], [ "rule:RL001", "rule:RL001#2" ] );
+    } );
+
     it( "gives each item its own fields, its parent's key and its place", () => {
         const item = itemKeys( "module", moduleWith( [ field( "contents/a@value" ) ] ) ).get( "element:P001:contents/a@value#1" );
         assert.deepEqual( [ item.kind, item.identity, item.parent, item.position, "children" in item.data ], [ "element", "contents/a@value", "element:P001:contents#1", 0, false ] );

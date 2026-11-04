@@ -58,6 +58,13 @@ module.exports.itemKeys = ( kind, content ) => {
         occurrences.set( scope, next );
         return next;
     };
+    // A code, ID, abbreviation or title is a key on its own. A repeat of one is reported (duplicate-message and the like)
+    // and loaded as published, so it takes its occurrence: under the first's key the Map kept only the last, and replacing
+    // the content deleted the first and moved its elements under the other.
+    const counted = ( key ) => {
+        const occurrence = numbered( key );
+        return occurrence === 1 ? key : `${ key }#${ occurrence }`;
+    };
     const add = ( key, itemKind, identity, data, parent, position, node ) => {
         items.set( key, { kind: itemKind, identity: identity === undefined ? null : identity, data: data, parent: parent, position: position, node: node } );
         return key;
@@ -71,21 +78,17 @@ module.exports.itemKeys = ( kind, content ) => {
             node.children.forEach( ( child, index ) => element( child, code, key, index ) );
         };
         content.messages.forEach( ( message, index ) => {
-            const key = add( `message:${ message.code }`, "message", message.code, own( message, "elements" ), null, index, message );
+            const key = add( counted( `message:${ message.code }` ), "message", message.code, own( message, "elements" ), null, index, message );
             message.elements.forEach( ( node, position ) => element( node, message.code, key, position ) );
         } );
-        content.conditions.forEach( ( condition, index ) => add( `condition:${ condition.id }`, "condition", condition.id, condition, null, index, condition ) );
-        content.dictionary.forEach( ( entry, index ) => add( `dictionary:${ entry.abbreviation }`, "dictionary", entry.abbreviation, entry, null, index, entry ) );
+        content.conditions.forEach( ( condition, index ) => add( counted( `condition:${ condition.id }` ), "condition", condition.id, condition, null, index, condition ) );
+        content.dictionary.forEach( ( entry, index ) => add( counted( `dictionary:${ entry.abbreviation }` ), "dictionary", entry.abbreviation, entry, null, index, entry ) );
     } else if ( kind === SPEC_KIND.CODE_LIST ) {
         const list = add( `list:${ content.list.id }`, "list", content.list.id, own( content.list, "columns", "entries" ), null, 0, content.list );
-        content.list.columns.forEach( ( column, index ) => {
-            // A title is a column's key; a repeated one, which no published list has, keeps both rather than losing one.
-            const occurrence = numbered( `column:${ column.title }` );
-            add( occurrence === 1 ? `column:${ column.title }` : `column:${ column.title }#${ occurrence }`, "column", column.title, column, list, index, column );
-        } );
+        content.list.columns.forEach( ( column, index ) => add( counted( `column:${ column.title }` ), "column", column.title, column, list, index, column ) );
         content.list.entries.forEach( ( entry, index ) => add( `entry:${ entry.key }#${ numbered( `entry:${ entry.key }` ) }`, "entry", entry.key, entry, list, index, entry ) );
     } else {
-        content.rules.forEach( ( rule, index ) => add( `rule:${ rule.id }`, "rule", rule.id, rule, null, index, rule ) );
+        content.rules.forEach( ( rule, index ) => add( counted( `rule:${ rule.id }` ), "rule", rule.id, rule, null, index, rule ) );
     }
     return items;
 };

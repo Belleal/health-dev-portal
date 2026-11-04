@@ -44,6 +44,24 @@ describe( "diffRows", () => {
         assert.deepEqual( diffRows( "module", rowsOf( moduleVersion( null ) ), moduleVersion( null ) ), { updates: [], inserts: [], deletes: [], moves: [] } );
     } );
 
+    it( "keeps both of two messages with one code, each with its own elements", () => {
+        const twice = moduleVersion( null );
+        twice.messages.push( { ...twice.messages[ 1 ], title: { bg: "Второ", en: null }, elements: [] } );
+        const stored = rowsOf( twice );
+        assert.deepEqual( diffRows( "module", stored, twice ), { updates: [], inserts: [], deletes: [], moves: [] } );
+        const changed = moduleVersion( null );
+        changed.messages.push( { ...changed.messages[ 1 ], title: { bg: "Променено", en: null }, elements: [] } );
+        const { updates, deletes } = diffRows( "module", stored, changed );
+        assert.deepEqual( [ updates.map( ( row ) => [ row.identity, row.position_no ] ), deletes ], [ [ [ "P002", 2 ] ], [] ] );
+    } );
+
+    // A field set to undefined is not written, so it cannot differ from a stored row that lacks it.
+    it( "takes a field left undefined for one that is absent", () => {
+        const content = moduleVersion( null );
+        content.dictionary[ 0 ].remark = undefined;
+        assert.deepEqual( diffRows( "module", rowsOf( moduleVersion( null ) ), content ), { updates: [], inserts: [], deletes: [], moves: [] } );
+    } );
+
     it( "matches repeated identities by occurrence", () => {
         // moduleVersion() has two contents/note@value; the second changes, the first does not.
         const changed = moduleVersion( null );
