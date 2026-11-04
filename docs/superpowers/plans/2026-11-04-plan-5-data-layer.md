@@ -97,9 +97,12 @@ they constrain later plans. Reject any of them at review, before Task 1.
    position_no, data ]` in item order. Storing the same import twice gives the same hash.
 7. **A frozen version refuses writes, atomically.**
    - The table `write_guards ( reason TEXT, CONSTRAINT write_guard CHECK ( reason IS NULL ) )` is always empty.
-   - A content write starts its batch with
-     `INSERT INTO write_guards ( reason ) SELECT 'frozen' FROM versions WHERE id = ? AND frozen = 1`. If the version is
-     frozen, the check fails and the whole batch rolls back.
+   - A content write starts its batch with a lock on the version's row, `UPDATE versions SET frozen = frozen WHERE id =
+     ?`, and then `INSERT INTO write_guards ( reason ) SELECT 'frozen' FROM versions WHERE id = ? AND frozen = 1`. If
+     the version is frozen, the check fails and the whole batch rolls back.
+   - The lock comes first because, under PostgreSQL's READ COMMITTED, the guard alone reads `frozen` without a lock: a
+     freeze committed between the guard and the batch's end let the write land on a frozen version. The final review
+     reproduced this with two connections. SQLite and D1 serialise writers, and there the lock changes nothing.
    - Both drivers report a broken named `CHECK` as `ConstraintError` with `constraint === "write_guard"`. The store
      turns that into `FrozenVersionError`.
    - A `UNIQUE` violation is a `ConstraintError` too, but its `constraint` is not portable: SQLite names the columns,

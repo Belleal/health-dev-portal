@@ -1100,9 +1100,10 @@ and `retired` keeps only a changelog.
 Per spec:
 - **One version per stage.** At most one version in each of development, implementation, testing, production and
   previous production.
-- **One line in integration.** A version enters implementation only when the spec has no version in implementation or
-  testing (Boris, 2026-11-03). Implementation and testing therefore hold one line at a time: the version being built
-  and, at most, the version in testing that it fixes.
+- **One line in integration.** A development version enters implementation only when the spec has no version in
+  implementation or testing (Boris, 2026-11-03). The one exception is a fix of the version in testing (next point),
+  which is created in implementation while that version stays in testing. Implementation and testing therefore hold
+  one line at a time: the version being built and, at most, the version in testing that it fixes.
 - **A defect found in testing** goes back to implementation as a new version (Boris, 2026-11-03). The approver creates
   it from the testing version, with a new number: 1.6.0 becomes 1.6.1. The testing version stays in testing, since the
   test environment still runs its code, until the fix is promoted. It is then retired, never having reached production.
