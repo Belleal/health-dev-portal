@@ -1,0 +1,28 @@
+{
+    "name": "@health-dev-portal/data",
+    "version": "0.1.0",
+    "description": "The portal's data layer: one SQL subset on SQLite and PostgreSQL, the stored specification model, files by content hash, and the migration of the published workbooks.",
+    "license": "EUPL-1.2",
+    "private": true,
+    "type": "commonjs",
+    "engines": {
+        "node": ">=24"
+    },
+    "exports": {
+        "./database": "./db/database.js",
+        "./definitions": "./store/definitions.types.js"
+    },
+    "imports": {
+        "#database": "./db/database.js",
+        "#definitions": "./store/definitions.types.js",
+        "#errors": "./db/errors.js",
+        "#sqlite-driver": "./db/sqlite-driver.js"
+    },
+    "dependencies": {
+        "@health-dev-portal/importer": "*",
+        "@health-dev-portal/spec-model": "*"
+    },
+    "scripts": {
+        "test": "node --test \"test/**/*.test.js\""
+    }
+}
