@@ -158,12 +158,16 @@ which is key/JSON documents only. The spec model needs real queries — field tr
   Docker.
 - **Batches, not transactions** (plan 5). D1 over HTTP has no interactive transaction. So every driver offers single
   statements and all-or-nothing batches, and nothing reads and then writes inside one transaction. A precondition,
-  such as "this version is not frozen", rides in the batch as a guard statement that fails it.
+  such as "this version is not frozen", rides in the batch as a guard statement that fails it. The guard is preceded
+  by a lock on the row it reads: under PostgreSQL's READ COMMITTED a freeze committed between the guard and the
+  batch's end otherwise let the write land on a frozen version (plan 5's final review).
 - **The subset, as measured for plan 5:**
   - `?` placeholders;
   - `TEXT` and `INTEGER` columns, with JSON kept as text and parsed in JavaScript;
   - upsert as `ON CONFLICT … DO`, which both databases read alike;
-  - never `ORDER BY` text, since PostgreSQL's collation orders it differently from SQLite;
+  - never `ORDER BY` text, since PostgreSQL's collation orders it differently from SQLite. The one exception is
+    paging through one database's own rows by primary key, as a copy does; that order is never shown or compared
+    across databases;
   - no `LIKE`;
   - at most 100 parameters per statement, D1's limit and the strictest of the three.
 - **Content as items** (plan 5). A version's content is stored one item per message, element, condition, entry or
