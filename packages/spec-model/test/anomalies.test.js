@@ -38,6 +38,12 @@ describe( "anomalies", () => {
         assert.ok( Object.isFrozen( anomaly ) && Object.isFrozen( anomaly.details ) );
     } );
 
+    // An item an editor made was never read from a sheet: its source is null, and checking it threw (plan 6a).
+    it( "takes an item that has no source", () => {
+        const anomaly = createAnomaly( "duplicate-key", null, { key: "2", firstRow: null, row: null } );
+        assert.deepEqual( [ anomaly.sheet, anomaly.row, anomaly.column ], [ null, null, null ] );
+    } );
+
     it( "leaves an unfilled placeholder visible rather than printing undefined", () => {
         assert.match( createAnomaly( "invalid-requirement" ).message, /\{value\}/ );
     } );

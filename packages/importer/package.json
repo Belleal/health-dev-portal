@@ -14,6 +14,7 @@
         "hdp-xsd": "./bin/xsd.js"
     },
     "exports": {
+        "./check": "./importer/check-content.js",
         "./module": "./importer/module-importer.js",
         "./nomenclatures": "./importer/nomenclatures-importer.js",
         "./reader": "./read/workbook-reader.js",
@@ -27,9 +28,10 @@
         "#blueprint-catalogue": "./interpret/blueprint-catalogue.js",
         "#cells": "./interpret/cells.js",
         "#change-notes": "./interpret/change-notes.js",
+        "#check-content": "./importer/check-content.js",
         "#code-list-sheet": "./interpret/code-list-sheet.js",
-        "#condition-import": "./importer/condition-import.js",
         "#colours": "./read/colours.js",
+        "#condition-import": "./importer/condition-import.js",
         "#legend": "./structure/legend.js",
         "#message-tree": "./structure/message-tree.js",
         "#messages-sheet": "./interpret/messages-sheet.js",
