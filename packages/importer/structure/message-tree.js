@@ -82,18 +82,38 @@ function kindOf( fill, source, anomalies ) {
     return ELEMENT_KIND.FIELD;
 }
 
-// A tag or attribute must be Latin and a valid identity part; reports which rule it breaks.
-function checkPart( value, source, anomalies ) {
+/**
+ * Checks a tag or attribute: it must be Latin and a valid identity part. Reports which rule it breaks. A workbook's rows
+ * and an edited version's elements are checked by this one function (design record §5.4).
+ *
+ * @method
+ * @param {string} value
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).SourceRef|null} source
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies Where an anomaly goes.
+ * @param {Object} [details] More to say in the anomaly, such as the identity of an element no sheet holds.
+ * @returns {boolean} Whether the value is a valid part.
+ * @public
+ */
+function checkPart( value, source, anomalies, details = {} ) {
     if ( NOT_LATIN.test( value ) ) {
-        anomalies.push( createAnomaly( "non-latin-tag", source, { tag: value } ) );
+        anomalies.push( createAnomaly( "non-latin-tag", source, { tag: value, ...details } ) );
         return false;
     }
     if ( !isValidPart( value ) ) {
-        anomalies.push( createAnomaly( "invalid-tag", source, { tag: value } ) );
+        anomalies.push( createAnomaly( "invalid-tag", source, { tag: value, ...details } ) );
         return false;
     }
     return true;
 }
+module.exports.checkPart = checkPart;
+
+/**
+ * The attribute an element's value travels in when its row names none.
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.DEFAULT_ATTRIBUTE = DEFAULT_ATTRIBUTE;
 
 function readRow( row, columns, source, anomalies ) {
     const at = ( key ) => ( { ...source, column: columns[ key ] } );

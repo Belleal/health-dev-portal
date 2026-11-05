@@ -44,6 +44,27 @@ const DIRECTIONS = Object.freeze( { Request: MESSAGE_DIRECTION.REQUEST, Response
 // The x99 response is the module's error message: it answers every request and pairs with none.
 const isErrorMessage = ( message ) => message.direction === MESSAGE_DIRECTION.RESPONSE && message.code.endsWith( "99" );
 
+/**
+ * Whether a code has a message code's shape, such as P001: the Messages sheet and an edited message are checked by this
+ * one test.
+ *
+ * @method
+ * @param {string} code
+ * @returns {boolean}
+ * @public
+ */
+module.exports.isMessageCode = ( code ) => typeof code === "string" && MESSAGE_CODE.test( code );
+
+/**
+ * Whether a message is its module's error response, which answers every request and so pairs with none.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).Message} message
+ * @returns {boolean}
+ * @public
+ */
+module.exports.isErrorMessage = ( message ) => typeof message.code === "string" && isErrorMessage( message );
+
 function pair( messages, anomalies ) {
     messages.forEach( ( message, index ) => {
         const next = messages[ index + 1 ];

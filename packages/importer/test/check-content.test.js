@@ -47,7 +47,35 @@ describe( "checkContent", () => {
     it( "checks a module the way the importer does", () => {
         const content = moduleOf( [ field( "lrn", { conditions: [ "CDP09" ] } ), field( "x" ), field( "x" ) ] );
         const { anomalies } = checkContent( "module", content, NONE );
-        assert.deepEqual( anomalies.map( ( anomaly ) => anomaly.type ).sort(), [ "duplicate-identity", "unknown-condition" ] );
+        // P001 is a request with no response after it, which the importer reports too.
+        assert.deepEqual( anomalies.map( ( anomaly ) => anomaly.type ).sort(), [ "duplicate-identity", "unknown-condition", "unpaired-message" ] );
+    } );
+
+    // The importer checks these as it reads a row. An edit was never checked for them, and a version's inherited ones went
+    // at its first recheck (final review, I2).
+    it( "checks what the importer checks as it reads a row: tags, names, message codes and pairs", () => {
+        const content = moduleOf( [ field( "лрн" ), field( "" ), field( "a b" ), field( "named", { name: { bg: null, en: null } } ) ] );
+        content.messages.push( { ...content.messages[ 0 ], code: "bad code", direction: "response", elements: [] } );
+        const found = checkContent( "module", content, NONE ).anomalies;
+        assert.deepEqual( [ "non-latin-tag", "missing-tag", "invalid-tag", "missing-name", "malformed-message-code", "unpaired-message" ]
+            .filter( ( type ) => !found.some( ( anomaly ) => anomaly.type === type ) ), [] );
+        assert.equal( found.find( ( anomaly ) => anomaly.type === "non-latin-tag" ).details.identity, "contents/лрн" );
+    } );
+
+    // Measured on the published workbooks: every one but longterm-care has one, and an edit never reported it.
+    it( "finds a condition with no text, as the Conditions sheet reader does", () => {
+        const content = moduleOf( [ field( "lrn" ) ], [ { id: "CDP01", text: "", source: null, parsed: null, printed: null } ] );
+        assert.deepEqual( checkContent( "module", content, NONE ).anomalies.filter( ( anomaly ) => anomaly.type === "empty-condition" ).map( ( anomaly ) => anomaly.details.id ),
+            [ "CDP01" ] );
+    } );
+
+    it( "checks a rule's ID and an entry's validity as the importer does", () => {
+        const rules = { kind: "rules", spec: "rules", version: null, rules: [ { id: "not a rule", definition: text( "Правило" ), sourceText: null, errorCode: null,
+            since: null, lifecycle: "active", changedInVersion: null, source: null } ] };
+        assert.deepEqual( checkContent( "rules", rules, NONE ).anomalies.map( ( anomaly ) => anomaly.type ), [ "malformed-rule-id" ] );
+        const content = { kind: "code-list", spec: "CL009", version: null, list: list( "CL009", [ "1" ] ) };
+        content.list.entries[ 0 ] = { ...content.list.entries[ 0 ], since: "1.5.0", validUntil: "1.4.0" };
+        assert.deepEqual( checkContent( "code-list", content, NONE ).anomalies.map( ( anomaly ) => anomaly.type ), [ "valid-until-before-since" ] );
     } );
 
     it( "recomputes a condition's parsed form and bindings from its text", () => {
@@ -72,7 +100,7 @@ describe( "checkContent", () => {
     it( "checks a value against the list it names, through the targets", () => {
         const content = moduleOf( [ field( "code", { codeList: "CL009", fixedValue: "99" } ) ] );
         const { anomalies } = checkContent( "module", content, { codeLists: [ list( "CL009", [ "1", "2" ] ) ], rules: null, catalogue: null } );
-        assert.deepEqual( anomalies.map( ( anomaly ) => anomaly.type ), [ "fixed-value-not-a-key" ] );
+        assert.deepEqual( anomalies.map( ( anomaly ) => anomaly.type ), [ "unpaired-message", "fixed-value-not-a-key" ] );
     } );
 
     it( "finds a repeated rule and an active rule without a definition", () => {

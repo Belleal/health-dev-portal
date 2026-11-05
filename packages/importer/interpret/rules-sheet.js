@@ -28,6 +28,16 @@ const COLUMNS = Object.freeze( { id: "Rule ID", definition: "Definition", source
 const RULE_ID = /^RL\d+$/;
 
 /**
+ * Whether an ID has a rule ID's shape, such as RL001: the rules sheet and an edited rule are checked by this one test.
+ *
+ * @method
+ * @param {string} id
+ * @returns {boolean}
+ * @public
+ */
+module.exports.isRuleId = ( id ) => typeof id === "string" && RULE_ID.test( id );
+
+/**
  * Reads the business-rules sheet (design record §4.6.1). As on a module's message tabs, each rule's status is a
  * colour: its ID cell's fill — green active, yellow active and changed in this version, red withdrawn, with the
  * definition cleared.

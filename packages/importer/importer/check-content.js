@@ -18,13 +18,44 @@
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
 const { bindBlueprints, checkBlueprintFields } = require( "@health-dev-portal/spec-model/blueprints" );
 const { keyTypeOf } = require( "@health-dev-portal/spec-model/key-type" );
-const { LIFECYCLE, SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { ELEMENT_KIND, LIFECYCLE, SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
 const { ERROR_CODE_LIST, linkConditions, linkModule, linkRules } = require( "@health-dev-portal/spec-model/links" );
 const { validateMessageTree } = require( "@health-dev-portal/spec-model/validation" );
+const { compareVersions } = require( "#cells" );
+const { DEFAULT_ATTRIBUTE, checkPart } = require( "#message-tree" );
+const { isErrorMessage, isMessageCode } = require( "#messages-sheet" );
+const { isRuleId } = require( "#rules-sheet" );
 const { foldLookAlikes } = require( "#scripts" );
 const { importConditions } = require( "#condition-import" );
 
 const flatten = ( elements ) => elements.flatMap( ( node ) => [ node, ...flatten( node.children ) ] );
+
+// What the sheet readers check as they read a row, checked again on the content by their own tests. An edit was never
+// checked for these, and a version's inherited ones went at its first recheck (final review, I2). The identity goes in
+// the details, so an anomaly on an element no sheet holds still finds its item.
+const elementAnomalies = ( messages ) => messages.flatMap( ( message ) => flatten( message.elements ) ).flatMap( ( node ) => {
+    const found = [];
+    const named = { identity: node.identity };
+    if ( node.kind === ELEMENT_KIND.ATTRIBUTE ) {
+        checkPart( node.attribute || DEFAULT_ATTRIBUTE, node.source, found, named );
+    } else if ( node.kind !== ELEMENT_KIND.POLYMORPHIC ) {
+        // A polymorphic element is checked through its variants, which carry its tag, as the tree builder does.
+        if ( !node.tag ) {
+            found.push( createAnomaly( "missing-tag", node.source, named ) );
+        } else if ( checkPart( node.tag, node.source, found, named ) && node.kind !== ELEMENT_KIND.GROUP ) {
+            checkPart( node.attribute || DEFAULT_ATTRIBUTE, node.source, found, named );
+        }
+    }
+    if ( !node.name || !( node.name.en || node.name.bg ) ) {
+        found.push( createAnomaly( "missing-name", node.source, named ) );
+    }
+    return found;
+} );
+
+const messageAnomalies = ( messages ) => messages.flatMap( ( message ) => [
+    ...( isMessageCode( message.code ) ? [] : [ createAnomaly( "malformed-message-code", message.source, { value: message.code, code: message.code } ) ] ),
+    ...( message.pairedWith || isErrorMessage( message ) ? [] : [ createAnomaly( "unpaired-message", message.source, { code: message.code } ) ] )
+] );
 const rowOf = ( source ) => source ? source.row : null;
 
 // Design record §5.3: a reference to a condition that does not exist blocks; both sides are in the same version.
@@ -105,11 +136,15 @@ module.exports.checkModuleLanguage = ( messages, conditions, catalogue, options 
  */
 module.exports.checkContent = ( kind, content, targets ) => {
     if ( kind === SPEC_KIND.MODULE ) {
-        const anomalies = [ ...repeated( content.messages, ( message ) => message.code, "duplicate-message", "code" ) ];
+        const anomalies = [ ...repeated( content.messages, ( message ) => message.code, "duplicate-message", "code" ), ...messageAnomalies( content.messages ),
+            ...elementAnomalies( content.messages ) ];
         for ( const message of content.messages ) {
             anomalies.push( ...validateMessageTree( message.elements ) );
         }
         anomalies.push( ...repeated( content.conditions, ( condition ) => condition.id, "duplicate-condition", "id" ) );
+        // The Conditions sheet's reader reports this too; measured, all but one published module has one.
+        anomalies.push( ...content.conditions.filter( ( condition ) => !condition.text ).map( ( condition ) => createAnomaly( "empty-condition", condition.source,
+            { id: condition.id } ) ) );
         const language = module.exports.checkModuleLanguage( content.messages, content.conditions, targets.catalogue );
         anomalies.push( ...language.blueprintAnomalies, ...language.conditionAnomalies );
         const checked = { ...content, conditions: language.conditions, conditionBindings: language.conditionBindings, blueprintBindings: language.blueprintBindings };
@@ -125,12 +160,19 @@ module.exports.checkContent = ( kind, content, targets ) => {
         const entries = content.list.entries;
         return {
             content: { ...content, list: { ...content.list, keyType: keyTypeOf( entries.map( ( entry ) => entry.key ) ) } },
-            anomalies: repeated( entries, ( entry ) => entry.key, "duplicate-key", "key" )
+            anomalies: [
+                ...repeated( entries, ( entry ) => entry.key, "duplicate-key", "key" ),
+                ...entries.filter( ( entry ) => entry.since && entry.validUntil && compareVersions( entry.validUntil, entry.since ) < 0 )
+                    .map( ( entry ) => createAnomaly( "valid-until-before-since", entry.source, { since: entry.since, validUntil: entry.validUntil, key: entry.key } ) )
+            ]
         };
     }
     if ( kind === SPEC_KIND.RULES ) {
         const anomalies = [ ...repeated( content.rules, ( rule ) => rule.id, "duplicate-rule", "id" ) ];
         for ( const rule of content.rules ) {
+            if ( !isRuleId( rule.id ) ) {
+                anomalies.push( createAnomaly( "malformed-rule-id", rule.source, { value: rule.id, id: rule.id } ) );
+            }
             if ( rule.lifecycle !== LIFECYCLE.WITHDRAWN && !( rule.definition && ( rule.definition.bg || rule.definition.en ) ) ) {
                 anomalies.push( createAnomaly( "rule-without-definition", rule.source, { id: rule.id } ) );
             }
