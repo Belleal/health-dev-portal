@@ -20,7 +20,7 @@
  * item's revision goes up, a stale edit is refused whole, and every edit is checked.
  */
 
-const { before, beforeEach, it } = require( "node:test" );
+const { before, beforeEach, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { checkContent } = require( "@health-dev-portal/importer/check" );
 const { migrateSchema } = require( "#schema" );
@@ -28,7 +28,7 @@ const { ensureSpec, loadAnomalies, loadItems, loadVersion, storeVersion } = requ
 const { memoryStore } = require( "#files" );
 const { applyEdits, recheckVersion } = require( "#editing" );
 const { eachDatabase } = require( "./support/databases" );
-const { moduleVersion } = require( "./support/models" );
+const { codeListVersion, moduleVersion } = require( "./support/models" );
 
 // An R 1..1 String field an editor made: it was read from no sheet.
 const field = ( identity ) => ( {
@@ -145,6 +145,40 @@ eachDatabase( "Editing", ( db ) => {
         const anomalies = await recheckVersion( db(), store, id );
         assert.ok( anomalies.some( ( a ) => a.type === "duplicate-identity" ) );
         assert.deepEqual( await loadItems( db(), id ), before );
+    } );
+
+    describe( "a code list", () => {
+
+        let list;
+        let rows;
+        before( async () => {
+            await ensureSpec( db(), "CL900", "code-list" );
+            list = await storeVersion( db(), { spec: "CL900", kind: "code-list", number: null, stage: "development", content: codeListVersion( "CL900", [ "1", "2" ], null ) } );
+            rows = await loadItems( db(), list );
+        } );
+        const rowOf = ( kind ) => rows.find( ( row ) => row.kind === kind );
+
+        // Its name and status could change only through a workbook (final review, I3).
+        it( "edits the list's own fields, and never adds or takes away the list", async () => {
+            const own = rowOf( "list" );
+            const { revisions } = await applyEdits( db(), store, list, [ { op: "update", item: own.item_no, revision: 1,
+                data: { ...JSON.parse( own.data ), status: "removed" } } ] );
+            assert.deepEqual( revisions, { [ own.item_no ]: 2 } );
+            assert.equal( ( await loadVersion( db(), list ) ).content.list.status, "removed" );
+            await assert.rejects( applyEdits( db(), store, list, [ { op: "remove", item: own.item_no, revision: 2 } ] ), { name: "TypeError" } );
+        } );
+
+        // An entry's values follow the columns by place: a column added or taken away shifted every value under another
+        // title (final review, I4).
+        it( "refuses to add, remove or move a column while the list has entries, and edits one in place", async () => {
+            const column = rowOf( "column" );
+            const listNo = rowOf( "list" ).item_no;
+            await assert.rejects( applyEdits( db(), store, list, [ { op: "insert", kind: "column", parent: listNo, position: 0, data: { title: "Ново", column: 7 } } ] ),
+                { name: "TypeError" } );
+            await assert.rejects( applyEdits( db(), store, list, [ { op: "remove", item: column.item_no, revision: 1 } ] ), { name: "TypeError" } );
+            await applyEdits( db(), store, list, [ { op: "update", item: column.item_no, revision: 1, data: { ...JSON.parse( column.data ), title: "NHIF" } } ] );
+            assert.deepEqual( ( await loadVersion( db(), list ) ).content.list.columns.map( ( c ) => c.title ), [ "NHIF" ] );
+        } );
     } );
 
     it( "refuses to edit a version outside development", async () => {

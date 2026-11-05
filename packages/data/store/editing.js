@@ -37,8 +37,15 @@ const EDITABLE = Object.freeze( {
     [ SPEC_KIND.RULES ]: Object.freeze( { rule: null } )
 } );
 
+// What an editor only updates: a code list's own fields — its name and status could otherwise change only through a
+// workbook (final review, I3).
+const UPDATED_ONLY = Object.freeze( { [ SPEC_KIND.CODE_LIST ]: Object.freeze( [ "list" ] ) } );
+
 // The field each kind of item is identified by, as `encodeContent` stores it.
-const IDENTITY = Object.freeze( { message: "code", element: "identity", condition: "id", dictionary: "abbreviation", column: "title", entry: "key", rule: "id" } );
+const IDENTITY = Object.freeze( { message: "code", element: "identity", condition: "id", dictionary: "abbreviation", column: "title", entry: "key", rule: "id",
+    list: "id" } );
+
+const DONE = Object.freeze( { update: "edited", insert: "inserted", remove: "removed", move: "moved" } );
 
 // Children are items of their own; an update never carries them (decision 2).
 const CHILDREN = Object.freeze( { message: [ "elements" ], element: [ "children" ] } );
@@ -95,9 +102,14 @@ const edited = ( versionId, kind, stored, edits, first ) => {
     const placeAgain = ( group ) => group.forEach( ( row, index ) => {
         row.position_no = index;
     } );
-    const kindOf = ( itemKind ) => {
-        if ( !Object.hasOwn( allowed, itemKind ) ) {
-            throw new TypeError( `A ${ itemKind } is not edited in a ${ kind } version: ${ Object.keys( allowed ).join( ", " ) } are.` );
+    const kindOf = ( itemKind, op ) => {
+        if ( !Object.hasOwn( allowed, itemKind ) && !( op === "update" && ( UPDATED_ONLY[ kind ] || [] ).includes( itemKind ) ) ) {
+            throw new TypeError( `A ${ itemKind } is not ${ DONE[ op ] } in a ${ kind } version.` );
+        }
+        // An entry's values follow the columns by place: a column added, taken away or moved shifted every value under
+        // another title (final review, I4). Until a column's values move with it, its place is fixed while there are entries.
+        if ( itemKind === "column" && op !== "update" && [ ...rows.values() ].some( ( row ) => row.kind === "entry" ) ) {
+            throw new TypeError( `A column is not ${ DONE[ op ] } while the list has entries: each entry's values follow the columns by place.` );
         }
         return itemKind;
     };
@@ -136,7 +148,7 @@ const edited = ( versionId, kind, stored, edits, first ) => {
         if ( !row ) {
             throw new RangeError( `Item ${ edit.item } was removed by an earlier edit of the same batch.` );
         }
-        kindOf( row.kind );
+        kindOf( row.kind, edit.op );
         return row;
     };
 
@@ -146,7 +158,7 @@ const edited = ( versionId, kind, stored, edits, first ) => {
             Object.assign( row, own( row.kind, edit.data ) );
             touched.add( row.item_no );
         } else if ( edit.op === "insert" ) {
-            const itemKind = kindOf( edit.kind );
+            const itemKind = kindOf( edit.kind, edit.op );
             const row = { item_no: next, kind: itemKind, ...own( itemKind, edit.data ), parent_no: null, position_no: 0, revision: 1 };
             place( row, parentFor( itemKind, edit.parent ), edit.position );
             rows.set( next, row );
