@@ -175,7 +175,12 @@ const movedKeys = ( before, after, kept ) => {
             moved.add( key );
             continue;
         }
-        siblings.set( item.parent, [ ...( siblings.get( item.parent ) || [] ), key ] );
+        // Appended in place: a copy per sibling took about 4.7 s for CL011's 39,005 entries, on every edit's refresh (CodeRabbit
+        // on #16).
+        if ( !siblings.has( item.parent ) ) {
+            siblings.set( item.parent, [] );
+        }
+        siblings.get( item.parent ).push( key );
     }
     const order = new Map( [ ...before.keys() ].map( ( key, index ) => [ key, index ] ) );
     for ( const keys of siblings.values() ) {

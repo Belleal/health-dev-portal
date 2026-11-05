@@ -82,8 +82,10 @@
  * @property {number} position_no Among its siblings, from 0.
  * @property {string} data The model object's own fields as JSON, without its children.
  * @property {string} hash SHA-256 of `data`.
- * @property {number} [revision] From 1, raised by one each time its data is edited or it is moved (design record §7.4);
- *     present when loaded with `loadItems`.
+ * @property {number} [revision] From 1, raised by one each time its data changes, and each time an editor's edit names it
+ *     — a `move` included (design record §7.4). A place changed by anything else — a sibling's insert, removal or move, a
+ *     carried change, a workbook — is not content, and keeps it (plan 6a, decision 3). Present when loaded with
+ *     `loadItems`.
  */
 
 /**
