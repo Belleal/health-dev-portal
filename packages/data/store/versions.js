@@ -17,9 +17,12 @@
 
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
-const { guardStatements } = require( "#schema" );
+const { guardStatements, staleStatement } = require( "#schema" );
 const { decodeContent, encodeContent } = require( "#items" );
-const { diffRows } = require( "#item-diff" );
+const { diffRows, nextAfter } = require( "#item-diff" );
+
+// Another write in between makes a replacement stale; it is computed again, this many times at most.
+const ATTEMPTS = 3;
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 
 /**
@@ -89,6 +92,7 @@ const contentStatements = ( versionId, kind, content, anomalies ) => {
     const encoded = content ? encodeContent( kind, content ) : { items: [], hash: null };
     return {
         hash: encoded.hash,
+        next: encoded.items.length + 1,
         statements: [
             ...insertStatements( "items", ITEM_COLUMNS, encoded.items.map( ( item ) => [ versionId, item.item_no, item.kind, item.identity, item.parent_no, item.position_no,
                 item.data, item.hash ] ) ),
@@ -195,11 +199,12 @@ module.exports.storeVersion = async ( db, input ) => {
     if ( !stages.some( ( entry ) => entry.stage === input.stage ) ) {
         stages.push( { stage: input.stage, enteredOn: null } );
     }
-    const { hash, statements } = contentStatements( id, input.kind, input.content || null, input.anomalies || [] );
+    const { hash, next, statements } = contentStatements( id, input.kind, input.content || null, input.anomalies || [] );
     await db.batch( [
-        { sql: "INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )",
-            params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), hash,
-                new Date().toISOString() ] },
+        { sql: `INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, next_item_no, created_at )
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
+        params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), hash, next,
+            new Date().toISOString() ] },
         ...insertStatements( "version_stages", STAGE_COLUMNS, stages.map( ( entry ) => [ id, entry.stage, orNull( entry.enteredOn ) ] ) ),
         ...statements
     ] );
@@ -219,10 +224,11 @@ module.exports.loadItems = async ( db, versionId ) => db.all(
     "SELECT item_no, kind, identity, parent_no, position_no, data, hash, revision FROM items WHERE version_id = ? ORDER BY item_no", [ versionId ] );
 
 /**
- * Replaces an unfrozen version's content, anomalies and hash, in one batch behind the frozen-version guard. The content is
- * matched to the stored rows by identity (`diffRows`): only what differs changes, and every other item keeps its number
- * and revision. Wholesale, every item was renumbered and its revision reset, and §7.4's revision check could not survive
- * the workbook route (plan 5, Minor 16).
+ * Replaces an unfrozen version's content, anomalies and hash, in one batch behind the lock, the frozen-version guard and
+ * the stale check. The content is matched to the stored rows by identity (`diffRows`): only what differs changes, every
+ * other item keeps its number and revision, and a new item takes a number never used in the version. Wholesale, every
+ * item was renumbered and its revision reset, and §7.4's revision check could not survive the workbook route (plan 5,
+ * Minor 16).
  *
  * @method
  * @param {import( "#definitions" ).Database} db
@@ -232,28 +238,39 @@ module.exports.loadItems = async ( db, versionId ) => db.all(
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the version is frozen; nothing is written.
  * @throws {RangeError} When there is no such version.
+ * @throws {Error} When other writes changed the version under every one of three attempts.
  * @public
  */
 module.exports.storeContent = async ( db, versionId, content, anomalies ) => {
-    const row = await db.get( "SELECT s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
-    if ( !row ) {
-        throw new RangeError( `There is no version ${ versionId }.` );
-    }
-    const stored = await module.exports.loadItems( db, versionId );
-    const diff = content ? diffRows( row.kind, stored, content ) : { updates: [], inserts: [], deletes: stored, moves: [] };
-    try {
-        await db.batch( [
-            ...guardStatements( versionId ),
-            ...module.exports.rowStatements( versionId, diff ),
-            ...module.exports.anomalyReplacement( versionId, module.exports.rowsAfter( stored, diff ), anomalies ),
-            { sql: "UPDATE versions SET content_hash = ? WHERE id = ?", params: [ content ? encodeContent( row.kind, content ).hash : null, versionId ] }
-        ] );
-    } catch ( error ) {
-        if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
-            throw new FrozenVersionError( versionId );
+    for ( let attempt = 1; attempt <= ATTEMPTS; attempt += 1 ) {
+        // Read before the rows, and checked again in the batch: a difference computed from rows read before another write
+        // undid that write, or left an item under a parent it removed, and the version no longer loaded (final review, C2).
+        const row = await db.get( "SELECT s.kind, v.content_hash, v.next_item_no FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
+        if ( !row ) {
+            throw new RangeError( `There is no version ${ versionId }.` );
         }
-        throw error;
+        const stored = await module.exports.loadItems( db, versionId );
+        const diff = content ? diffRows( row.kind, stored, content, row.next_item_no ) : { updates: [], inserts: [], deletes: stored, moves: [] };
+        try {
+            await db.batch( [
+                ...guardStatements( versionId ),
+                staleStatement( versionId, row.content_hash, row.next_item_no ),
+                ...module.exports.rowStatements( versionId, diff ),
+                ...module.exports.anomalyReplacement( versionId, module.exports.rowsAfter( stored, diff ), anomalies ),
+                { sql: "UPDATE versions SET content_hash = ?, next_item_no = ? WHERE id = ?",
+                    params: [ content ? encodeContent( row.kind, content ).hash : null, nextAfter( row.next_item_no, diff ), versionId ] }
+            ] );
+            return;
+        } catch ( error ) {
+            if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
+                throw new FrozenVersionError( versionId );
+            }
+            if ( !( error instanceof ConstraintError && error.constraint === "stale_guard" ) ) {
+                throw error;
+            }
+        }
     }
+    throw new Error( `Version ${ versionId } changed while its content was replaced, ${ ATTEMPTS } times over.` );
 };
 
 /**

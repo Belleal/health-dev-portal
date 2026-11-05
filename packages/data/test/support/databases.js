@@ -52,6 +52,35 @@ if ( POSTGRES ) {
 module.exports.DATABASES = TARGETS.map( ( target ) => target.name );
 
 /**
+ * A database whose first batch waits for `meanwhile` to run on the real one: another writer's change landing between
+ * what a write read and the batch it sends. Later batches go straight through.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {function(): Promise<void>} meanwhile
+ * @returns {import( "#definitions" ).Database}
+ * @public
+ */
+module.exports.interleaved = ( db, meanwhile ) => {
+    let pending = meanwhile;
+    return {
+        dialect: db.dialect,
+        all: ( sql, params ) => db.all( sql, params ),
+        get: ( sql, params ) => db.get( sql, params ),
+        run: ( sql, params ) => db.run( sql, params ),
+        batch: async ( statements ) => {
+            if ( pending ) {
+                const now = pending;
+                pending = null;
+                await now();
+            }
+            return db.batch( statements );
+        },
+        close: () => db.close()
+    };
+};
+
+/**
  * Runs `body` once per database, each in its own `describe`, with a database opened before the suite and closed —
  * for PostgreSQL, its schema dropped — after it.
  *

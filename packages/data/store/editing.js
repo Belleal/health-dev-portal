@@ -21,7 +21,7 @@ const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { refreshChangelog } = require( "#changelog" );
 const { ConstraintError } = require( "#database" );
 const { decodeContent, decodeRows, encodeContent } = require( "#items" );
-const { diffRows, sameData } = require( "#item-diff" );
+const { diffRows, nextAfter, sameData } = require( "#item-diff" );
 const { editStatement, guardStatements, staleStatement } = require( "#schema" );
 const { loadTargets } = require( "#targets" );
 const { FrozenVersionError, anomalyReplacement, loadItems, rowStatements, rowsAfter } = require( "#versions" );
@@ -79,16 +79,16 @@ const own = ( kind, data ) => {
     return { identity: identity === undefined ? null : identity, data: json, hash: sha256( json ) };
 };
 
-// The edits applied in memory, in order, to copies of the stored rows: numbers stay, an insert takes the highest plus
-// one, and siblings are placed again from 0 (decision 3). Each edit's revision is checked against the stored one as it
-// comes, so the first stale item is the one named.
-const edited = ( versionId, kind, stored, edits ) => {
+// The edits applied in memory, in order, to copies of the stored rows: numbers stay, an insert takes the version's next
+// number, never one used before, and siblings are placed again from 0 (decision 3). Each edit's revision is checked
+// against the stored one as it comes, so the first stale item is the one named.
+const edited = ( versionId, kind, stored, edits, first ) => {
     const allowed = EDITABLE[ kind ];
     const was = new Map( stored.map( ( row ) => [ row.item_no, row ] ) );
     const rows = new Map( stored.map( ( row ) => [ row.item_no, { ...row } ] ) );
     const touched = new Set();
     const inserted = [];
-    let next = stored.reduce( ( highest, row ) => Math.max( highest, row.item_no ), 0 ) + 1;
+    let next = Math.max( first, stored.reduce( ( highest, row ) => Math.max( highest, row.item_no ), 0 ) + 1 );
 
     const siblings = ( parent, itemKind ) => [ ...rows.values() ].filter( ( row ) => row.parent_no === parent && row.kind === itemKind )
         .sort( ( a, b ) => a.position_no - b.position_no || a.item_no - b.item_no );
@@ -182,7 +182,7 @@ const edited = ( versionId, kind, stored, edits ) => {
             throw new TypeError( `"${ edit.op }" is not an edit: update, insert, remove and move are.` );
         }
     }
-    return { rows: [ ...rows.values() ].sort( ( a, b ) => a.item_no - b.item_no ), touched: touched, inserted: inserted };
+    return { rows: [ ...rows.values() ].sort( ( a, b ) => a.item_no - b.item_no ), touched: touched, inserted: inserted, next: next };
 };
 
 // What the batch writes, by number against the stored rows. An item edited, or whose data the check changed, goes up one
@@ -209,8 +209,8 @@ const edit = async ( db, store, versionId, edits ) => {
     for ( let attempt = 1; attempt <= ATTEMPTS; attempt += 1 ) {
         // The hash is read before the rows: an edit landing between them makes this batch stale, and never lets it write
         // over rows newer than the hash it checks.
-        const version = await db.get( "SELECT v.spec_id, v.number, v.stage, v.content_hash, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?",
-            [ versionId ] );
+        const version = await db.get( `SELECT v.spec_id, v.number, v.stage, v.content_hash, v.next_item_no, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id
+            WHERE v.id = ?`, [ versionId ] );
         if ( !version ) {
             throw new RangeError( `There is no version ${ versionId }.` );
         }
@@ -221,23 +221,24 @@ const edit = async ( db, store, versionId, edits ) => {
             throw new TypeError( `Version ${ versionId } has no content to edit.` );
         }
         const stored = await loadItems( db, versionId );
-        const working = edited( versionId, version.kind, stored, edits );
+        const working = edited( versionId, version.kind, stored, edits, version.next_item_no );
         // Checked as it now stands, and its derived parts — conditions, bindings, a list's key type — folded back by key, so
         // an unchanged one keeps its number and revision.
         const { content } = decodeRows( version.kind, version.spec_id, version.number, working.rows );
         const checked = checkContent( version.kind, content, await loadTargets( db, store, versionId ) );
-        const rows = rowsAfter( working.rows, diffRows( version.kind, working.rows, checked.content ) );
+        const folded = diffRows( version.kind, working.rows, checked.content, working.next );
+        const rows = rowsAfter( working.rows, folded );
         const change = changes( stored, rows, working.touched );
         // Hashed as `storeContent` hashes, from the content the rows hold, so equal content hashes alike whatever its history.
         const hash = encodeContent( version.kind, decodeContent( version.kind, version.spec_id, version.number, rows ) ).hash;
         try {
             await db.batch( [
                 ...guardStatements( versionId ),
-                staleStatement( versionId, version.content_hash ),
+                staleStatement( versionId, version.content_hash, version.next_item_no ),
                 ...edits.filter( ( one ) => one.op !== "insert" ).map( ( one ) => editStatement( versionId, one.item, one.revision ) ),
                 ...rowStatements( versionId, change ),
                 ...anomalyReplacement( versionId, rows, checked.anomalies ),
-                { sql: "UPDATE versions SET content_hash = ? WHERE id = ?", params: [ hash, versionId ] }
+                { sql: "UPDATE versions SET content_hash = ?, next_item_no = ? WHERE id = ?", params: [ hash, nextAfter( working.next, folded ), versionId ] }
             ] );
         } catch ( error ) {
             if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {

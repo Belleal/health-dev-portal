@@ -106,6 +106,18 @@ eachDatabase( "Editing", ( db ) => {
             [ "contents/note@value", "contents/lrn", "contents/dose@value", "contents/note@value" ] );
     } );
 
+    // The number a removal freed was taken again at revision 1, and an edit made against the removed item then landed on
+    // the new one (final review, C1).
+    it( "never gives a removed item's number to another, so a stale edit to it is refused", async () => {
+        const insert = ( identity ) => ( { op: "insert", kind: "element", parent: contentsNo, position: 0, data: field( identity ) } );
+        const { inserted: [ x ] } = await applyEdits( db(), store, id, [ insert( "contents/x@value" ) ] );
+        await applyEdits( db(), store, id, [ { op: "remove", item: x, revision: 1 } ] );
+        const { inserted: [ y ] } = await applyEdits( db(), store, id, [ insert( "contents/y@value" ) ] );
+        assert.ok( y > x, `${ y } after ${ x }` );
+        await assert.rejects( applyEdits( db(), store, id, [ { op: "update", item: x, revision: 1, data: field( "contents/x@value" ) } ] ),
+            { name: "EditConflictError", item: x } );
+    } );
+
     it( "refuses an edit made against an older revision, writing nothing", async () => {
         await applyEdits( db(), store, id, [ { op: "update", item: lrnNo, revision: 1, data: { ...lrn, description: { bg: "първа", en: null } } } ] );
         await assert.rejects( applyEdits( db(), store, id, [

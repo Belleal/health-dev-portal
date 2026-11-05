@@ -21,7 +21,7 @@ const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
 const { applyEdits, recheckVersion } = require( "#editing" );
 const { decodeContent, encodeContent } = require( "#items" );
-const { diffRows, keyRows } = require( "#item-diff" );
+const { diffRows, keyRows, nextAfter } = require( "#item-diff" );
 const { guardStatements, staleStatement } = require( "#schema" );
 const { FrozenVersionError, findVersion, loadItems, loadVersion, rowStatements } = require( "#versions" );
 
@@ -152,16 +152,19 @@ module.exports.carryChange = async ( db, store, spec, before, after, upstreamId 
             return { applied: 0, conflicts: 0 };
         }
         // The hash is read before the rows, so an edit landing between them makes the batch stale rather than undone.
-        const version = await db.get( "SELECT v.number, v.content_hash, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ found.id ] );
+        const version = await db.get( "SELECT v.number, v.content_hash, v.next_item_no, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?",
+            [ found.id ] );
         const rows = await loadItems( db, found.id );
         const { content, applied, conflicts } = merge( version.kind, before, after, decodeContent( version.kind, spec, version.number, rows ) );
+        const diff = diffRows( version.kind, rows, content, version.next_item_no );
         const now = new Date().toISOString();
         try {
             await db.batch( [
                 ...guardStatements( found.id ),
-                staleStatement( found.id, version.content_hash ),
-                ...rowStatements( found.id, diffRows( version.kind, rows, content ) ),
-                { sql: "UPDATE versions SET base_id = ?, content_hash = ? WHERE id = ?", params: [ upstreamId, encodeContent( version.kind, content ).hash, found.id ] },
+                staleStatement( found.id, version.content_hash, version.next_item_no ),
+                ...rowStatements( found.id, diff ),
+                { sql: "UPDATE versions SET base_id = ?, content_hash = ?, next_item_no = ? WHERE id = ?",
+                    params: [ upstreamId, encodeContent( version.kind, content ).hash, nextAfter( version.next_item_no, diff ), found.id ] },
                 // One conflict per item: a later change to it replaces the earlier, whose upstream is no longer there to choose.
                 ...conflicts.flatMap( ( conflict ) => [
                     { sql: "DELETE FROM conflicts WHERE version_id = ? AND item_key = ?", params: [ found.id, conflict.key ] },

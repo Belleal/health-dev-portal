@@ -108,6 +108,10 @@ const INITIAL = [
 // Plan 6a: the changelog written while editing (design record §7.5), conflicts from approved changes (§7.8), and a guard
 // for a single item's revision (§7.4).
 const EDITING = [
+    // The number the version's next item takes. Taken from the highest left, a number a removal freed went to the next
+    // insert at revision 1, and an edit made against the removed item landed on the new one (final review, C1).
+    "ALTER TABLE versions ADD COLUMN next_item_no INTEGER NOT NULL DEFAULT 1",
+    "UPDATE versions SET next_item_no = COALESCE( ( SELECT MAX( item_no ) FROM items WHERE items.version_id = versions.id ), 0 ) + 1",
     "ALTER TABLE changelog_entries ADD COLUMN difference_key TEXT",
     "ALTER TABLE changelog_entries ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK ( flagged IN ( 0, 1 ) )",
     "CREATE INDEX changelog_difference ON changelog_entries ( version_id, difference_key )",
@@ -178,16 +182,24 @@ module.exports.guardStatements = ( versionId ) => [
  * from: it inserts into `write_guards`, whose `stale_guard` check refuses the row, when the content hash differs. It goes
  * after `guardStatements`, under their lock, so the content cannot change between the check and the write.
  *
+ * A write that numbers items also passes the next item number it read. Content removed and put back hashes as it did, so
+ * the hash alone would let a batch number its inserts from a mark another write has since passed.
+ *
  * @method
  * @param {string} versionId
- * @param {string} contentHash The hash the batch's input was read under.
+ * @param {string|null} contentHash The hash the batch's input was read under; `null` for a version without content.
+ * @param {number} [nextItem] The next item number it was read under.
  * @returns {import( "#definitions" ).Statement}
  * @public
  */
-module.exports.staleStatement = ( versionId, contentHash ) => ( {
-    sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND ( content_hash IS NULL OR content_hash <> ? )",
-    params: [ versionId, contentHash ]
-} );
+module.exports.staleStatement = ( versionId, contentHash, nextItem ) => {
+    const hash = contentHash === null ? "content_hash IS NOT NULL" : "content_hash IS NULL OR content_hash <> ?";
+    const number = nextItem === undefined ? "" : " OR next_item_no <> ?";
+    return {
+        sql: `INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND ( ${ hash }${ number } )`,
+        params: [ versionId, ...( contentHash === null ? [] : [ contentHash ] ), ...( nextItem === undefined ? [] : [ nextItem ] ) ]
+    };
+};
 
 /**
  * The statement that makes a batch fail when an item is no longer at the revision an edit was made against (design

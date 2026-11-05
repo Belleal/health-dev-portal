@@ -69,6 +69,17 @@ const keyedItems = ( kind, content ) => {
 module.exports.sameData = ( left, right ) => canonical( JSON.parse( left ) ) === canonical( JSON.parse( right ) );
 
 /**
+ * The version's next item number once a diff is written: past every number it inserts.
+ *
+ * @method
+ * @param {number} next The number it was computed from.
+ * @param {{inserts: import( "#definitions" ).ItemRow[]}} diff
+ * @returns {number}
+ * @public
+ */
+module.exports.nextAfter = ( next, diff ) => diff.inserts.reduce( ( highest, row ) => Math.max( highest, row.item_no + 1 ), next );
+
+/**
  * Stored rows under their item keys, keyed by the same function as a content (`itemKeys`): the rows are decoded, and each
  * object traced back to the row it came from.
  *
@@ -87,21 +98,23 @@ module.exports.keyRows = ( kind, rows ) => {
  * What it takes to make stored rows hold a new content, matching them by item key (plan 6a, decision 3).
  * - A matched row whose data differs is updated, its revision raised by one.
  * - A matched row that only changed parent or place is moved; a place is not content, so its revision stays.
- * - An unmatched item is inserted, numbered after the highest stored number, in document order.
+ * - An unmatched item is inserted, numbered from the version's next item number, in document order.
  * - An unmatched stored row is deleted.
  *
  * @method
  * @param {string} kind One of `SPEC_KIND`: module, code-list or rules.
  * @param {import( "#definitions" ).ItemRow[]} stored With their revisions.
  * @param {Object} content
+ * @param {number} [next] The version's `next_item_no`. A number is never taken twice, so a removed item's never goes to
+ *     another (final review, C1); without it, the highest stored plus one.
  * @returns {{updates: import( "#definitions" ).ItemRow[], inserts: import( "#definitions" ).ItemRow[], deletes: import( "#definitions" ).ItemRow[],
  *     moves: import( "#definitions" ).ItemRow[]}} Rows as they are to be written; deletes as they were.
  * @public
  */
-module.exports.diffRows = ( kind, stored, content ) => {
+module.exports.diffRows = ( kind, stored, content, next ) => {
     const before = module.exports.keyRows( kind, stored );
     const after = keyedItems( kind, content );
-    let next = stored.reduce( ( highest, row ) => Math.max( highest, row.item_no ), 0 ) + 1;
+    next = Math.max( next || 0, stored.reduce( ( highest, row ) => Math.max( highest, row.item_no ), 0 ) + 1 );
     const numbers = new Map( [ ...after.keys() ].map( ( key ) => [ key, before.has( key ) ? before.get( key ).item_no : next++ ] ) );
     const result = { updates: [], inserts: [], deletes: [], moves: [] };
     for ( const [ key, item ] of after ) {

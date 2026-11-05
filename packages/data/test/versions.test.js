@@ -24,7 +24,7 @@ const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { migrateSchema } = require( "#schema" );
 const { ensureSpec, findVersion, freezeVersion, loadAnomalies, loadItems, loadVersion, storeContent, storeVersion } = require( "#versions" );
-const { eachDatabase } = require( "./support/databases" );
+const { eachDatabase, interleaved } = require( "./support/databases" );
 const { codeListVersion, moduleVersion } = require( "./support/models" );
 
 eachDatabase( "Versions", ( db ) => {
@@ -122,6 +122,31 @@ eachDatabase( "Versions", ( db ) => {
             assert.deepEqual( [ kept.identity, kept.revision ], [ row.identity, 1 ], row.identity );
         }
         assert.deepEqual( ( await loadVersion( db(), id ) ).content, changed );
+    } );
+
+    it( "never gives a number a replacement freed to another item", async () => {
+        await ensureSpec( db(), "e-numbers", "module" );
+        const id = await storeVersion( db(), { spec: "e-numbers", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        const highest = Math.max( ...( await loadItems( db(), id ) ).map( ( row ) => row.item_no ) );
+        const fewer = moduleVersion( null );
+        fewer.blueprintBindings = [];
+        await storeContent( db(), id, fewer, [] );
+        fewer.dictionary.push( { ...fewer.dictionary[ 0 ], abbreviation: "НЗИС" } );
+        await storeContent( db(), id, fewer, [] );
+        assert.ok( ( await loadItems( db(), id ) ).find( ( row ) => row.identity === "НЗИС" ).item_no > highest );
+    } );
+
+    // The difference was computed from rows read before the batch, with no stale check: a write landing in between left
+    // an element under a message the replacement removed, and the version no longer loaded (final review, C2).
+    it( "computes a replacement again when another write lands before its batch", async () => {
+        await ensureSpec( db(), "e-race", "module" );
+        const id = await storeVersion( db(), { spec: "e-race", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        const added = moduleVersion( null );
+        added.messages[ 1 ].elements[ 0 ].children.push( { ...added.messages[ 0 ].elements[ 0 ].children[ 0 ], identity: "contents/late", children: [] } );
+        const workbook = { ...moduleVersion( null ), spec: "e-race" };
+        workbook.messages.pop();
+        await storeContent( interleaved( db(), () => storeContent( db(), id, added, [] ) ), id, workbook, [] );
+        assert.deepEqual( ( await loadVersion( db(), id ) ).content, workbook );
     } );
 
     it( "maps an anomaly on an item an editor made by its identity", async () => {

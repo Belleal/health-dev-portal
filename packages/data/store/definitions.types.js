@@ -73,8 +73,8 @@
 
 /**
  * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
- * @property {number} item_no From 1, in document order when stored; an item inserted later takes the highest plus one,
- *     and keeps its number however it moves (plan 6a, decision 3).
+ * @property {number} item_no From 1, in document order when stored; an item inserted later takes the version's
+ *     `next_item_no`, never a number used before, and keeps it however it moves (plan 6a, decision 3).
  * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
  *     `column`, `entry` or `rule`.
  * @property {string|null} identity Its key within the version; indexed, not unique (HEL-19).
