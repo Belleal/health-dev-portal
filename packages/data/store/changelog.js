@@ -24,22 +24,25 @@ const { CHANGE_CATEGORY, CHANGE_ORIGIN, STAGE } = require( "@health-dev-portal/s
 
 const ENTRY_COLUMNS = [ "id", "version_id", "position_no", "category", "origin", "text_bg", "text_en", "source" ];
 
-// A version edited without pause changes under its refresh; past this, the caller decides.
+// A version edited without pause changes under its refresh; past this, it gives way to the writes that overtook it.
 const ATTEMPTS = 3;
 
 const asJson = ( value ) => value === null || value === undefined ? null : JSON.stringify( value );
 
 // An entry goes after the version's last, its place taken in the statement itself, so two writers never share one.
 // PostgreSQL types the selected parameters from the columns they go into (measured with pg 8.23.1 on PostgreSQL 18).
+// A difference another refresh has just entered is left as that refresh wrote it, under the one-per-difference index.
 const insertEntry = ( versionId, entry ) => ( {
     sql: `INSERT INTO changelog_entries ( id, version_id, position_no, category, origin, target_kind, target_identity, before_value, after_value, text_bg, text_en,
-        difference_key ) SELECT ?, ?, COALESCE( MAX( position_no ), -1 ) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM changelog_entries WHERE version_id = ?`,
+        difference_key ) SELECT ?, ?, COALESCE( MAX( position_no ), -1 ) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM changelog_entries WHERE version_id = ?
+        ON CONFLICT DO NOTHING`,
     params: [ entry.id, versionId, entry.category, entry.origin, entry.target, entry.identity, entry.before, entry.after, entry.textBg, entry.textEn, entry.key, versionId ]
 } );
 
 // An editor's change to a detected entry makes it theirs (plan 6a, decision 9), in the statement itself: read first, a
 // refresh in between could delete the detected entry and the change land on nothing.
-const BY_EDITOR = `origin = CASE WHEN origin = '${ CHANGE_ORIGIN.DETECTED }' THEN '${ CHANGE_ORIGIN.EDITED }' ELSE origin END`;
+const DETECTED = `origin = '${ CHANGE_ORIGIN.DETECTED }'`;
+const BY_EDITOR = `origin = CASE WHEN ${ DETECTED } THEN '${ CHANGE_ORIGIN.EDITED }' ELSE origin END`;
 
 const categoryOf = ( category ) => {
     if ( !Object.values( CHANGE_CATEGORY ).includes( category ) ) {
@@ -88,23 +91,27 @@ const reconcile = ( versionId, differences, entries ) => {
             continue;
         }
         byKey.delete( difference.key );
-        // A detected entry's category follows the difference; one the editor set stays theirs.
         const category = entry.origin === CHANGE_ORIGIN.DETECTED ? difference.category : entry.category;
         if ( entry.before_value !== before || entry.after_value !== after || entry.category !== category || entry.flagged !== 0
             || entry.target_kind !== difference.target || entry.target_identity !== difference.identity ) {
-            statements.push( { sql: `UPDATE changelog_entries SET category = ?, target_kind = ?, target_identity = ?, before_value = ?, after_value = ?, flagged = 0
-                WHERE id = ?`, params: [ category, difference.target, difference.identity, before, after, entry.id ] } );
+            // A detected entry's category follows the difference; one the editor set stays theirs — decided in the statement,
+            // since the editor may take the entry over after it was read.
+            statements.push( { sql: `UPDATE changelog_entries SET category = CASE WHEN ${ DETECTED } THEN ? ELSE category END, target_kind = ?, target_identity = ?,
+                before_value = ?, after_value = ?, flagged = 0 WHERE id = ?`, params: [ difference.category, difference.target, difference.identity, before, after, entry.id ] } );
             counts.updated += 1;
         }
     }
-    // What is left names a difference that is gone: detected, it goes; the editor's, it is flagged for them to judge.
+    // What is left names a difference that is gone: detected, it goes; the editor's, it is flagged for them to judge. Read
+    // as detected, an entry the editor explained in the meantime was deleted with its explanation (final review, I1), so
+    // each statement holds only for the origin the entry has when it runs.
     for ( const entry of byKey.values() ) {
         if ( entry.origin === CHANGE_ORIGIN.DETECTED ) {
-            statements.push( { sql: "DELETE FROM changelog_entries WHERE id = ?", params: [ entry.id ] } );
+            statements.push( { sql: `DELETE FROM changelog_entries WHERE id = ? AND ${ DETECTED }`, params: [ entry.id ] } );
             counts.removed += 1;
-        } else if ( entry.flagged === 0 ) {
-            statements.push( { sql: "UPDATE changelog_entries SET flagged = 1 WHERE id = ?", params: [ entry.id ] } );
-            counts.flagged += 1;
+        }
+        if ( entry.origin === CHANGE_ORIGIN.DETECTED || entry.flagged === 0 ) {
+            statements.push( { sql: `UPDATE changelog_entries SET flagged = 1 WHERE id = ? AND NOT ${ DETECTED } AND flagged = 0`, params: [ entry.id ] } );
+            counts.flagged += entry.origin === CHANGE_ORIGIN.DETECTED ? 0 : 1;
         }
     }
     return { statements: statements, counts: counts };
@@ -117,15 +124,16 @@ const reconcile = ( versionId, differences, entries ) => {
  * - A difference that changed updates its entry's values, and keeps the category and text the editor gave it.
  * - A difference that is gone removes a `detected` entry, and flags one the editor edited.
  * Imported and editor's entries name no difference, and are never touched. One batch writes it behind the lock, the
- * frozen guard and the stale check, so it never records the differences of content that has since changed.
+ * frozen guard and the stale check, so it never records the differences of content that has since changed. Overtaken by
+ * later writes three times, it gives way: each of those refreshes in its turn.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
  * @param {string} versionId
- * @returns {Promise<{added: number, updated: number, removed: number, flagged: number}>}
+ * @returns {Promise<{added: number, updated: number, removed: number, flagged: number, superseded?: boolean}>}
+ *     `superseded` when it gave way and wrote nothing.
  * @throws {FrozenVersionError} When the version is frozen.
  * @throws {RangeError} When there is no such version.
- * @throws {Error} When the content changed under every one of three attempts.
  * @public
  */
 module.exports.refreshChangelog = async ( db, versionId ) => {
@@ -151,7 +159,8 @@ module.exports.refreshChangelog = async ( db, versionId ) => {
             }
         }
     }
-    throw new Error( `Version ${ versionId } changed while its changelog was refreshed, ${ ATTEMPTS } times over.` );
+    // Thrown, it told an edit that had been written that it had failed, and a retry inserted twice (final review).
+    return { added: 0, updated: 0, removed: 0, flagged: 0, superseded: true };
 };
 
 /**

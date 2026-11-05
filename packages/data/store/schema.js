@@ -114,7 +114,9 @@ const EDITING = [
     "UPDATE versions SET next_item_no = COALESCE( ( SELECT MAX( item_no ) FROM items WHERE items.version_id = versions.id ), 0 ) + 1",
     "ALTER TABLE changelog_entries ADD COLUMN difference_key TEXT",
     "ALTER TABLE changelog_entries ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK ( flagged IN ( 0, 1 ) )",
-    "CREATE INDEX changelog_difference ON changelog_entries ( version_id, difference_key )",
+    // One entry per difference: two refreshes of one content each inserted it, and the second stayed for good (final
+    // review, I1).
+    "CREATE UNIQUE INDEX changelog_difference ON changelog_entries ( version_id, difference_key ) WHERE difference_key IS NOT NULL",
     `CREATE TABLE conflicts (
         id TEXT PRIMARY KEY,
         version_id TEXT NOT NULL REFERENCES versions ( id ),

@@ -21,14 +21,14 @@
  * version whose base is the production one.
  */
 
-const { before, it } = require( "node:test" );
+const { before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, freezeVersion, loadItems, storeVersion } = require( "#versions" );
+const { ensureSpec, freezeVersion, loadItems, storeContent, storeVersion } = require( "#versions" );
 const { memoryStore } = require( "#files" );
-const { addChangelogEntry, dropChangelogEntry, editChangelogEntry, loadChangelog, restoreChangelogEntry, storeHistory } = require( "#changelog" );
+const { addChangelogEntry, dropChangelogEntry, editChangelogEntry, loadChangelog, refreshChangelog, restoreChangelogEntry, storeHistory } = require( "#changelog" );
 const { applyEdits } = require( "#editing" );
-const { eachDatabase } = require( "./support/databases" );
+const { eachDatabase, interleaved } = require( "./support/databases" );
 const { moduleVersion } = require( "./support/models" );
 
 const LRN = "element:P001:contents/lrn#1|cardinality";
@@ -113,6 +113,56 @@ eachDatabase( "Live changelog", ( db ) => {
         const added = entries.find( ( entry ) => entry.id === id );
         assert.deepEqual( [ added.origin, added.category, added.target_identity, added.flagged ], [ "editor", "breaking", "P001", false ] );
         assert.equal( added.position_no, Math.max( ...entries.filter( ( entry ) => entry.id !== id ).map( ( entry ) => entry.position_no ) ) + 1 );
+    } );
+
+    // A refresh's statements were computed from entries read before its batch, which checks only the content: a refresh
+    // never changes that, so another refresh or an editor's change in between went unseen (final review, I1).
+    describe( "with another write in between", () => {
+
+        let spec = 0;
+        const fresh = async () => {
+            spec += 1;
+            const id = `e-between-${ spec }`;
+            await ensureSpec( db(), id, "module" );
+            const base = await storeVersion( db(), { spec: id, kind: "module", number: "1.0.0", stage: "production", content: { ...moduleVersion( "1.0.0" ), spec: id } } );
+            const version = await storeVersion( db(), { spec: id, kind: "module", number: null, stage: "development", content: { ...moduleVersion( null ), spec: id }, base: base } );
+            const described = { ...moduleVersion( null ), spec: id };
+            described.messages[ 0 ].elements[ 0 ].children[ 0 ].description = { bg: "ново", en: null };
+            return { id: id, version: version, described: described, plain: { ...moduleVersion( null ), spec: id } };
+        };
+        const entriesFor = async ( spec, key ) => ( await loadChangelog( db(), spec ) )[ 0 ].entries.filter( ( entry ) => entry.difference_key === key );
+        const DESCRIBED = "element:P001:contents/lrn#1|description";
+
+        it( "keeps an explanation the editor gave while a refresh was computing, flagged", async () => {
+            const { id, version, described, plain } = await fresh();
+            await storeContent( db(), version, described, [] );
+            await refreshChangelog( db(), version );
+            const [ entry ] = await entriesFor( id, DESCRIBED );
+            await storeContent( db(), version, plain, [] );
+            await refreshChangelog( interleaved( db(), () => editChangelogEntry( db(), entry.id, { textBg: "Обяснение" } ) ), version );
+            const kept = await entriesFor( id, DESCRIBED );
+            assert.deepEqual( kept.map( ( e ) => [ e.origin, e.flagged, e.text_bg ] ), [ [ "edited", true, "Обяснение" ] ] );
+        } );
+
+        it( "stores one entry for a difference two refreshes found at once", async () => {
+            const { id, version, described } = await fresh();
+            await storeContent( db(), version, described, [] );
+            await refreshChangelog( interleaved( db(), () => refreshChangelog( db(), version ) ), version );
+            assert.equal( ( await entriesFor( id, DESCRIBED ) ).length, 1 );
+        } );
+
+        // The edit was written; throwing told the caller it was not, and a retry inserted twice. Every write refreshes in
+        // its turn, so a refresh overtaken three times has nothing left to do (final review, Task 6 ruling reversed).
+        it( "returns, writing nothing, when later writes overtake every attempt", async () => {
+            const { version, described, plain } = await fresh();
+            let flip = 0;
+            const overtaken = { ...interleaved( db(), async () => {} ), batch: async ( statements ) => {
+                flip += 1;
+                await storeContent( db(), version, flip % 2 ? described : plain, [] );
+                return db().batch( statements );
+            } };
+            assert.deepEqual( await refreshChangelog( overtaken, version ), { added: 0, updated: 0, removed: 0, flagged: 0, superseded: true } );
+        } );
     } );
 
     it( "refuses to write the changelog of a frozen version", async () => {
