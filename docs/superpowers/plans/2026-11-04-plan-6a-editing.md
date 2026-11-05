@@ -46,8 +46,15 @@ Reject any at review, before Task 1.
 
    A batch of edits is all or nothing. An edit whose revision is not the stored one is refused with `EditConflictError`
    naming the item, and nothing of the batch is written (§7.4: "nothing is overwritten unseen"). An edited item's
-   revision goes up by one.
-3. **Item numbers are stable.** An inserted item takes the version's highest `item_no` plus one; order comes from
+   revision goes up by one; a moved item is edited, its shifted siblings are not.
+
+   Bindings are derived and never edited. A code list's own item is updated, never added, removed or moved. A column
+   keeps its place while the list has entries: each entry's values follow the columns by place, so a column added,
+   removed or moved shifted every value under another title (final review). Moving the values with a column is the
+   editing screens' (plan 10).
+3. **Item numbers are stable.** An inserted item takes the version's next number, `versions.next_item_no`, never one
+   used before: taken from the highest left, a number a removal freed went to the next insert at revision 1, and an edit
+   made against the removed item landed on the new one (final review). Order comes from
    `position_no` (plan 5's decoder already sorts by it). Siblings after an insert, remove or move get new positions, not
    new numbers, and their revisions stay — a position is not content.
 4. **An item's key** identifies it across versions and across a content replacement:
@@ -60,17 +67,25 @@ Reject any at review, before Task 1.
    | list, column, entry | `list:<id>`, `column:<title>`, `entry:<key>#<occurrence>` |
 
    `occurrence` counts from 1 among items of that kind and identity in that scope, in document order, so the two
-   `contents/note@value` of e-Examination 1.3.10 (HEL-19) are `#1` and `#2`. Bindings are derived and have no key.
+   `contents/note@value` of e-Examination 1.3.10 (HEL-19) are `#1` and `#2`. A repeated code, ID, abbreviation or
+   title keeps the plain key for its first and takes `#2`, `#3`… after: a repeat is reported and loaded as published, and
+   under one key a Map kept only the last, so a save that changed nothing deleted the first (found in Task 5). Bindings
+   are derived and have no key in a difference; stored, they are matched by their identity and occurrence like any item,
+   so an unchanged save churns none (Task 3).
 5. **`checkContent( kind, content, targets )` in the importer** returns the content with its derived parts recomputed
    and the model's anomalies:
-   - **module:** `validateMessageTree` per message; unknown and duplicate conditions; each condition parsed, printed,
-     bound and type-checked (`importConditions`); blueprints bound and their fields checked when a catalogue is given;
-     `linkModule` and `linkConditions` against `targets.codeLists` and `targets.rules`;
-   - **code list:** duplicate keys; `keyType` recomputed;
-   - **rules:** duplicate rules; an active rule without a definition; `linkRules` against CL999 when a target has it.
+   - **module:** `validateMessageTree` per message; unknown, duplicate and empty conditions; each condition parsed,
+     printed, bound and type-checked (`importConditions`); blueprints bound and their fields checked when a catalogue is
+     given; `linkModule` and `linkConditions` against `targets.codeLists` and `targets.rules`; and what the sheet readers
+     check as they read a row — tags (missing, invalid, non-Latin), names, message codes and pairing;
+   - **code list:** duplicate keys; an entry valid until before its since; `keyType` recomputed;
+   - **rules:** duplicate rules and a malformed rule ID; an active rule without a definition; `linkRules` against CL999
+     when a target has it.
 
-   `importModuleWorkbook` calls it for everything after the trees are built, so a workbook and an edit are checked by
-   the same code.
+   The row checks use the readers' own predicates, and a test compares `checkContent` with the importer on all 12
+   published workbooks, type by type and row by row (final review: eight row checks were missing, and the comparison
+   found a ninth, the empty condition). `importModuleWorkbook` shares the stage after the trees are built
+   (`checkModuleLanguage`), so a workbook and an edit are checked by the same code.
 6. **An edited version's anomalies are the model's.** A version started from a defective one inherits its anomalies
    (§7.11). The first check after an edit replaces them with `checkContent`'s, so anomalies that describe the source
    workbook's layout — fills, indentation, sheets — go, and the model's — a repeated identity or key, a value that is no
@@ -86,7 +101,7 @@ Reject any at review, before Task 1.
    | Target | Breaking | Non-breaking |
    |---|---|---|
    | message | removed; `address`, `direction`, `sender`, `recipient` or `pairedWith` changed; `lifecycle` to `withdrawn` | added; `title`; any other lifecycle |
-   | element | removed; added when required (`R` with minimum above 0); minimum raised or maximum lowered; requirement to `R`; `dataType`, `tag`, `attribute` or `codeList` changed; `constraint` narrowed (a length tightened or added, a charset or format added or changed); `fixedValue` added or changed; a rule or condition added | added when optional; `name`, `description`, `defaultValue`; anything widened or removed not listed as breaking; moved |
+   | element | removed; added when required (`R` with minimum above 0); minimum raised or maximum lowered; requirement to `R`; `dataType`, `tag`, `attribute` or `codeList` changed; `constraint` narrowed (a length tightened or added, a charset or format added or changed); `fixedValue` added or changed; a rule or condition added; moved | added when optional; `name`, `description`, `defaultValue`; anything widened or removed not listed as breaking |
    | condition | added; text changed | removed |
    | entry | removed; `validUntil` set | added; any other field |
    | column / list | column removed; `keyType` changed; status to `removed` | column added; any other field |
@@ -94,7 +109,9 @@ Reject any at review, before Task 1.
    | dictionary | — | everything |
 
    §7.5 names a removed rule breaking; a new rule constrains senders and is proposed breaking too, as a plan call the
-   editor corrects at will.
+   editor corrects at will. A moved element is breaking (Boris, 2026-11-05): the XSDs are sequences in workbook row
+   order (§4.10), so a move changes what a valid message is. "Moved" is a changed parent, or a place outside the longest
+   run of siblings kept in their old order, so an insertion moves no one and a swap of two moves one.
 
    **Never compared:**
    - `source`, `depth` and `path`, which say where an item was read or sits, not what it says;
@@ -112,8 +129,10 @@ Reject any at review, before Task 1.
 10. **Conflicts are rows** (`conflicts`, new table): the development version, the item key, the base's, the upstream's
     and the development's data. Plan 6b refuses submission while a version has one.
 11. **Migration `0002-editing`.**
-    - **New columns:** `changelog_entries.difference_key` and `changelog_entries.flagged`, added with
-      `ALTER TABLE … ADD COLUMN`, which SQLite and PostgreSQL read alike.
+    - **New columns:** `changelog_entries.difference_key` and `changelog_entries.flagged`, and
+      `versions.next_item_no` (decision 3, set from the stored rows), added with `ALTER TABLE … ADD COLUMN`, which
+      SQLite and PostgreSQL read alike. `difference_key` is unique per version, in a partial index, so two refreshes of
+      one content cannot both enter a difference.
     - **New table:** `conflicts`, which `TABLES` gains.
     - **`write_guards` recreated** with a third check, `edit_guard`. SQLite cannot add a constraint to an existing
       table, and the table is always empty, so dropping and recreating it loses nothing.
@@ -337,10 +356,10 @@ it( "checks a value against the list it names, through the targets", () => {
   - `diffRows( kind, stored: ItemRow[], content ): { updates, inserts, deletes, moves }`. Rows are matched by key:
     - a matched row whose data differs is an update, revision + 1;
     - one whose parent or position differs is a move;
-    - unmatched new items are inserts, numbered from the highest `item_no` + 1;
+    - unmatched new items are inserts, numbered from the version's `next_item_no`;
     - unmatched stored rows are deletes.
 
-    Bindings are replaced whole: deleted and inserted.
+    Bindings are matched by identity and occurrence, like any item.
   - `storeContent( db, versionId, content, anomalies )` writes `diffRows`' result behind the guard. It keeps its
     signature; it no longer renumbers.
   - `loadItems( db, versionId ): Promise<ItemRow[]>`, with `revision`, in `item_no` order.
@@ -668,10 +687,15 @@ it( "loads a workbook into development, changing only what differs", async () =>
     development version, it does nothing.
 
     Plan 6b calls it when the approver approves a change into implementation; plan 6a tests it directly.
-  - `listConflicts( db, versionId ): Promise<Conflict[]>`.
-  - `resolveConflict( db, store, conflictId, { choose: "upstream"|"current"|"combined", data? } )`. It applies the
-    chosen data as an edit (Task 5), against the item's current revision, and removes the conflict row.
-  - Typedef `Conflict { id, version, key, base, upstream, current }`.
+  - `listConflicts( db, versionId ): Promise<Conflict[]>`, each with the development item's revision now.
+  - `resolveConflict( db, store, conflictId, { choose: "upstream"|"current"|"combined", data?, revision } )`. It applies
+    the chosen data as an edit (Task 5) against the revision the editor saw, refusing with `EditConflictError` if the
+    item has changed since, and removes the conflict row. Against the revision at the moment of resolving, a choice
+    overwrote an edit made since, unseen (final review).
+  - Typedef `Conflict { id, version, key, base, upstream, current, revision }`.
+
+  A carried item goes right after the sibling it follows upstream that development also has, else first: placed at its
+  index upstream, it came in among development's own items and its changelog showed a move nobody made (final review).
 
 - [ ] **Step 1: Write the failing tests**
 
