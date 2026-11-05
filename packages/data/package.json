@@ -13,24 +13,32 @@
         "hdp-migrate": "./bin/migrate.js"
     },
     "exports": {
+        "./carry": "./store/carry.js",
         "./changelog": "./store/changelog.js",
         "./copy": "./store/copy.js",
         "./database": "./db/database.js",
         "./definitions": "./store/definitions.types.js",
+        "./development": "./store/development.js",
+        "./editing": "./store/editing.js",
         "./files": "./store/files.js",
         "./manifest": "./load/manifest.js",
         "./migration": "./load/migration.js",
         "./resolution": "./store/resolution.js",
         "./schema": "./store/schema.js",
+        "./targets": "./store/targets.js",
         "./versions": "./store/versions.js"
     },
     "imports": {
+        "#carry": "./store/carry.js",
         "#changelog": "./store/changelog.js",
         "#copy": "./store/copy.js",
         "#database": "./db/database.js",
         "#definitions": "./store/definitions.types.js",
+        "#development": "./store/development.js",
+        "#editing": "./store/editing.js",
         "#errors": "./db/errors.js",
         "#files": "./store/files.js",
+        "#item-diff": "./store/item-diff.js",
         "#items": "./store/items.js",
         "#manifest": "./load/manifest.js",
         "#migration": "./load/migration.js",
@@ -38,6 +46,7 @@
         "#resolution": "./store/resolution.js",
         "#schema": "./store/schema.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
+        "#targets": "./store/targets.js",
         "#versions": "./store/versions.js"
     },
     "dependencies": {

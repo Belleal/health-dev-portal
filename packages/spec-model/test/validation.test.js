@@ -100,6 +100,13 @@ describe( "validateMessageTree", () => {
         assert.deepEqual( validateMessageTree( [ node( { children: [ node( { identity: "contents/x@name", kind: "attribute" } ) ] } ) ] ), [] );
     } );
 
+    // An element an editor made was never read from a sheet: its source is null, and checking it threw (plan 6a).
+    it( "checks elements that have no source", () => {
+        const tree = [ node( { identity: "contents", kind: "group", source: null, children: [ node( { source: null } ), node( { source: null } ) ] } ) ];
+        const [ anomaly ] = validateMessageTree( tree );
+        assert.deepEqual( [ anomaly.type, anomaly.row, anomaly.details.firstRow ], [ "duplicate-identity", null, null ] );
+    } );
+
     it( "skips checks that need a value the row did not have", () => {
         assert.deepEqual( validateMessageTree( [ node( { identity: null, cardinality: null } ) ] ), [] );
     } );

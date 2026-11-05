@@ -32,13 +32,15 @@ const showCardinality = ( cardinality ) => `${ cardinality.min }..${ cardinality
 module.exports.validateMessageTree = ( elements ) => {
     const anomalies = [];
     const firstRows = new Map();
+    // An element an editor made was never read from a sheet, and has no source (plan 6a).
+    const rowOf = ( node ) => node.source ? node.source.row : null;
     const visit = ( node ) => {
         if ( node.identity ) {
             if ( firstRows.has( node.identity ) ) {
                 anomalies.push( createAnomaly( "duplicate-identity", node.source,
-                    { identity: node.identity, firstRow: firstRows.get( node.identity ), row: node.source.row } ) );
+                    { identity: node.identity, firstRow: firstRows.get( node.identity ), row: rowOf( node ) } ) );
             } else {
-                firstRows.set( node.identity, node.source.row );
+                firstRows.set( node.identity, rowOf( node ) );
             }
         }
         const cardinality = node.cardinality;

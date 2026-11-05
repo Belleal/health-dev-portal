@@ -83,6 +83,70 @@ module.exports.encodeContent = ( kind, content ) => {
     return { items: items, hash: sha256( JSON.stringify( items.map( ( item ) => [ item.kind, item.identity, item.parent_no, item.position_no, item.data ] ) ) ) };
 };
 
+const TOP = Object.freeze( { message: "messages", condition: "conditions", dictionary: "dictionary", "condition-binding": "conditionBindings",
+    "blueprint-binding": "blueprintBindings", rule: "rules" } );
+const CHILDREN = Object.freeze( { element: [ "elements", "children" ], column: [ "columns" ], entry: [ "entries" ] } );
+const SHELL = Object.freeze( { message: { elements: [] }, element: { children: [] }, list: { columns: [], entries: [] } } );
+
+/**
+ * Builds a version's content back from its rows, and says which row each object came from. Every object is made first
+ * and placed second, so a parent need not come before its children: an item moved under one inserted after it has the
+ * lower number (plan 6a). Siblings are ordered by position, then by item number.
+ *
+ * @method
+ * @param {string} kind One of `SPEC_KIND`: module, code-list or rules.
+ * @param {string} spec
+ * @param {string|null} number The stored version's number, which the content's `version` takes.
+ * @param {import( "#definitions" ).ItemRow[]} items
+ * @returns {{content: import( "#definitions" ).VersionContent, rowOf: Map<Object, import( "#definitions" ).ItemRow>}}
+ * @throws {TypeError} For an item of a kind no content has.
+ * @public
+ */
+module.exports.decodeRows = ( kind, spec, number, items ) => {
+    const objects = new Map();
+    const rowOf = new Map();
+    for ( const item of items ) {
+        if ( !( item.kind in TOP ) && !( item.kind in CHILDREN ) && item.kind !== "list" ) {
+            throw new TypeError( `Unknown item kind "${ item.kind }" in ${ spec } ${ number }.` );
+        }
+        const object = { ...JSON.parse( item.data ), ...structuredClone( SHELL[ item.kind ] || {} ) };
+        objects.set( item.item_no, object );
+        rowOf.set( object, item );
+    }
+    const top = { messages: [], conditions: [], dictionary: [], conditionBindings: [], blueprintBindings: [], rules: [] };
+    let list = null;
+    const arrays = new Set();
+    for ( const item of items ) {
+        const object = objects.get( item.item_no );
+        let array;
+        if ( item.kind === "list" ) {
+            list = object;
+            continue;
+        } else if ( item.kind in TOP ) {
+            array = top[ TOP[ item.kind ] ];
+        } else {
+            const parent = objects.get( item.parent_no );
+            array = parent[ CHILDREN[ item.kind ].find( ( field ) => Array.isArray( parent[ field ] ) ) ];
+        }
+        array.push( object );
+        arrays.add( array );
+    }
+    const rank = ( object ) => rowOf.get( object );
+    for ( const array of arrays ) {
+        array.sort( ( a, b ) => rank( a ).position_no - rank( b ).position_no || rank( a ).item_no - rank( b ).item_no );
+    }
+    let content;
+    if ( kind === SPEC_KIND.MODULE ) {
+        content = { kind: kind, spec: spec, version: number, messages: top.messages, conditions: top.conditions, conditionBindings: top.conditionBindings,
+            blueprintBindings: top.blueprintBindings, dictionary: top.dictionary };
+    } else if ( kind === SPEC_KIND.CODE_LIST ) {
+        content = { kind: kind, spec: spec, version: number, list: list };
+    } else {
+        content = { kind: kind, spec: spec, version: number, rules: top.rules };
+    }
+    return { content: content, rowOf: rowOf };
+};
+
 /**
  * Builds a version's content back from its items, whatever order they arrive in: siblings are ordered by position,
  * then by item number.
@@ -95,57 +159,4 @@ module.exports.encodeContent = ( kind, content ) => {
  * @returns {import( "#definitions" ).VersionContent}
  * @public
  */
-module.exports.decodeContent = ( kind, spec, number, items ) => {
-    const order = new Map();
-    const objects = new Map();
-    const lists = new Map();
-    const place = ( array, object, item ) => {
-        order.set( object, [ item.position_no, item.item_no ] );
-        array.push( object );
-        lists.set( array, true );
-    };
-    const top = { messages: [], conditions: [], dictionary: [], conditionBindings: [], blueprintBindings: [], rules: [] };
-    let list = null;
-    for ( const item of items ) {
-        const data = JSON.parse( item.data );
-        const parent = item.parent_no === null ? null : objects.get( item.parent_no );
-        let object = data;
-        if ( item.kind === "message" ) {
-            object = { ...data, elements: [] };
-            place( top.messages, object, item );
-        } else if ( item.kind === "element" ) {
-            object = { ...data, children: [] };
-            place( parent.elements || parent.children, object, item );
-        } else if ( item.kind === "list" ) {
-            object = list = { ...data, columns: [], entries: [] };
-        } else if ( item.kind === "column" ) {
-            place( parent.columns, object, item );
-        } else if ( item.kind === "entry" ) {
-            place( parent.entries, object, item );
-        } else if ( item.kind === "condition" ) {
-            place( top.conditions, object, item );
-        } else if ( item.kind === "dictionary" ) {
-            place( top.dictionary, object, item );
-        } else if ( item.kind === "condition-binding" ) {
-            place( top.conditionBindings, object, item );
-        } else if ( item.kind === "blueprint-binding" ) {
-            place( top.blueprintBindings, object, item );
-        } else if ( item.kind === "rule" ) {
-            place( top.rules, object, item );
-        } else {
-            throw new TypeError( `Unknown item kind "${ item.kind }" in ${ spec } ${ number }.` );
-        }
-        objects.set( item.item_no, object );
-    }
-    for ( const array of lists.keys() ) {
-        array.sort( ( a, b ) => order.get( a )[ 0 ] - order.get( b )[ 0 ] || order.get( a )[ 1 ] - order.get( b )[ 1 ] );
-    }
-    if ( kind === SPEC_KIND.MODULE ) {
-        return { kind: kind, spec: spec, version: number, messages: top.messages, conditions: top.conditions, conditionBindings: top.conditionBindings,
-            blueprintBindings: top.blueprintBindings, dictionary: top.dictionary };
-    }
-    if ( kind === SPEC_KIND.CODE_LIST ) {
-        return { kind: kind, spec: spec, version: number, list: list };
-    }
-    return { kind: kind, spec: spec, version: number, rules: top.rules };
-};
+module.exports.decodeContent = ( kind, spec, number, items ) => module.exports.decodeRows( kind, spec, number, items ).content;

@@ -16,14 +16,12 @@
  */
 
 const { createAnomaly } = require( "@health-dev-portal/spec-model/anomalies" );
-const { bindBlueprints, checkBlueprintFields } = require( "@health-dev-portal/spec-model/blueprints" );
 const { deepFreeze } = require( "@health-dev-portal/spec-model/freeze" );
-const { foldLookAlikes } = require( "#scripts" );
 const { buildMessageTree } = require( "#message-tree" );
 const { readMessageIndex } = require( "#messages-sheet" );
 const { readChangeNotes } = require( "#change-notes" );
 const { readConditions, readDictionary } = require( "#side-sheets" );
-const { importConditions } = require( "#condition-import" );
+const { checkModuleLanguage } = require( "#check-content" );
 const { TAB_STATUS, matchLegend } = require( "#legend" );
 const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
 const { ambiguousSheets, workbookVersion } = require( "#workbook-checks" );
@@ -36,16 +34,6 @@ const SHEETS = Object.freeze( {
 } );
 
 const MESSAGE_SHEET = /^[A-Z]\d{3}$/;
-
-const flatten = ( elements ) => elements.flatMap( ( node ) => [ node, ...flatten( node.children ) ] );
-
-// Design record §5.3: a reference to a condition that does not exist blocks; both sides are in this workbook.
-function undefinedConditions( messages, conditions ) {
-    const defined = new Set( conditions.map( ( condition ) => condition.id ) );
-    return messages.flatMap( ( message ) => flatten( message.elements ) )
-        .flatMap( ( node ) => node.conditions.filter( ( id ) => !defined.has( id ) )
-            .map( ( id ) => createAnomaly( "unknown-condition", node.source, { identity: node.identity || node.name.en, id: id } ) ) );
-}
 
 /**
  * Imports one module specification workbook into a module version (design record §4, §5).
@@ -114,22 +102,15 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
     const version = workbookVersion( notes, notesSheet ? notesSheet.name : null, options.fileName );
     anomalies.push( ...version.anomalies );
 
-    // A workbook name with a Cyrillic look-alike (`Аccommodation`) names the object its Latin spelling does.
-    const blueprints = options.catalogue
-        ? bindBlueprints( messages, options.catalogue, { name: ( text ) => foldLookAlikes( text ).folded } )
-        : { bindings: [], anomalies: [] };
-    anomalies.push( ...blueprints.anomalies, ...checkBlueprintFields( messages, blueprints.bindings ) );
-
-    const conditionsSheet = required( SHEETS.conditions );
+    // Blueprints and conditions are checked by the same code as an edit is (checkContent). The Conditions sheet's own
+    // findings keep their place between the two groups, as before the code was shared.
+    const conditionsSheet = sheetNamed( SHEETS.conditions );
     const conditions = conditionsSheet ? readConditions( conditionsSheet ) : { conditions: [], anomalies: [] };
-    anomalies.push( ...conditions.anomalies );
     // Without the sheet every reference would be reported on top of the missing sheet; the missing sheet says it all.
-    if ( conditionsSheet ) {
-        anomalies.push( ...undefinedConditions( messages, conditions.conditions ) );
-    }
-    const language = importConditions( conditions.conditions, messages,
-        options.catalogue ? { blueprints: options.catalogue.blueprints, bindings: blueprints.bindings } : undefined );
-    anomalies.push( ...language.anomalies );
+    const language = checkModuleLanguage( messages, conditions.conditions, options.catalogue || null, { conditionsDefined: Boolean( conditionsSheet ) } );
+    anomalies.push( ...language.blueprintAnomalies );
+    required( SHEETS.conditions );
+    anomalies.push( ...conditions.anomalies, ...language.conditionAnomalies );
 
     // Not every module has a dictionary, so its absence is not an anomaly.
     const dictionarySheet = sheetNamed( SHEETS.dictionary );
@@ -143,8 +124,8 @@ module.exports.importModuleWorkbook = ( workbook, options ) => {
             version: version.version,
             messages: messages,
             conditions: language.conditions,
-            conditionBindings: language.bindings,
-            blueprintBindings: blueprints.bindings,
+            conditionBindings: language.conditionBindings,
+            blueprintBindings: language.blueprintBindings,
             dictionary: dictionary.entries,
             changeNotes: notes.versions
         },

@@ -23,8 +23,8 @@
 const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, findVersion, freezeVersion, loadAnomalies, loadVersion, storeContent, storeVersion } = require( "#versions" );
-const { eachDatabase } = require( "./support/databases" );
+const { ensureSpec, findVersion, freezeVersion, loadAnomalies, loadItems, loadVersion, storeContent, storeVersion } = require( "#versions" );
+const { eachDatabase, interleaved } = require( "./support/databases" );
 const { codeListVersion, moduleVersion } = require( "./support/models" );
 
 eachDatabase( "Versions", ( db ) => {
@@ -95,6 +95,68 @@ eachDatabase( "Versions", ( db ) => {
         changed.messages.pop();
         await storeContent( db(), id, changed, [] );
         assert.deepEqual( ( await loadVersion( db(), id ) ).content, changed );
+    } );
+
+    it( "clears an unfrozen version's content when given none", async () => {
+        await ensureSpec( db(), "e-hospitalization", "module" );
+        const id = await storeVersion( db(), { spec: "e-hospitalization", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        await storeContent( db(), id, null, [] );
+        const loaded = await loadVersion( db(), id );
+        assert.deepEqual( [ loaded.content, loaded.contentHash, ( await loadItems( db(), id ) ).length ], [ null, null, 0 ] );
+    } );
+
+    // Replaced wholesale, every item was renumbered and its revision reset, and §7.4's revision check could not survive the
+    // workbook route (plan 5, Minor 16).
+    it( "keeps every unchanged item's number and revision when content is replaced", async () => {
+        await ensureSpec( db(), "e-referral", "module" );
+        const id = await storeVersion( db(), { spec: "e-referral", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        const before = await loadItems( db(), id );
+        const changed = { ...moduleVersion( null ), spec: "e-referral" };
+        changed.messages[ 0 ].elements[ 0 ].children[ 0 ].description = { bg: "ново", en: null };
+        await storeContent( db(), id, changed, [] );
+        const after = await loadItems( db(), id );
+        const lrn = ( rows ) => rows.find( ( row ) => row.identity === "contents/lrn" );
+        assert.deepEqual( [ lrn( after ).item_no, lrn( after ).revision ], [ lrn( before ).item_no, 2 ] );
+        for ( const row of before.filter( ( candidate ) => candidate.identity !== "contents/lrn" ) ) {
+            const kept = after.find( ( candidate ) => candidate.item_no === row.item_no );
+            assert.deepEqual( [ kept.identity, kept.revision ], [ row.identity, 1 ], row.identity );
+        }
+        assert.deepEqual( ( await loadVersion( db(), id ) ).content, changed );
+    } );
+
+    it( "never gives a number a replacement freed to another item", async () => {
+        await ensureSpec( db(), "e-numbers", "module" );
+        const id = await storeVersion( db(), { spec: "e-numbers", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        const highest = Math.max( ...( await loadItems( db(), id ) ).map( ( row ) => row.item_no ) );
+        const fewer = moduleVersion( null );
+        fewer.blueprintBindings = [];
+        await storeContent( db(), id, fewer, [] );
+        fewer.dictionary.push( { ...fewer.dictionary[ 0 ], abbreviation: "НЗИС" } );
+        await storeContent( db(), id, fewer, [] );
+        assert.ok( ( await loadItems( db(), id ) ).find( ( row ) => row.identity === "НЗИС" ).item_no > highest );
+    } );
+
+    // The difference was computed from rows read before the batch, with no stale check: a write landing in between left
+    // an element under a message the replacement removed, and the version no longer loaded (final review, C2).
+    it( "computes a replacement again when another write lands before its batch", async () => {
+        await ensureSpec( db(), "e-race", "module" );
+        const id = await storeVersion( db(), { spec: "e-race", kind: "module", number: null, stage: "development", content: moduleVersion( null ) } );
+        const added = moduleVersion( null );
+        added.messages[ 1 ].elements[ 0 ].children.push( { ...added.messages[ 0 ].elements[ 0 ].children[ 0 ], identity: "contents/late", children: [] } );
+        const workbook = { ...moduleVersion( null ), spec: "e-race" };
+        workbook.messages.pop();
+        await storeContent( interleaved( db(), () => storeContent( db(), id, added, [] ) ), id, workbook, [] );
+        assert.deepEqual( ( await loadVersion( db(), id ) ).content, workbook );
+    } );
+
+    it( "maps an anomaly on an item an editor made by its identity", async () => {
+        const id = ( await findVersion( db(), "e-referral", { stage: "development" } ) ).id;
+        const changed = moduleVersion( null );
+        changed.messages[ 0 ].elements[ 0 ].children.push( { ...changed.messages[ 0 ].elements[ 0 ].children[ 0 ], identity: "contents/new", source: null, children: [] } );
+        await storeContent( db(), id, changed, [ { type: "invalid-cardinality-range", level: "blocking", message: "…", sheet: null, row: null, column: null,
+            details: { identity: "contents/new" } } ] );
+        const [ anomaly ] = await loadAnomalies( db(), id );
+        assert.equal( anomaly.item, ( await loadItems( db(), id ) ).find( ( row ) => row.identity === "contents/new" ).item_no );
     } );
 
     it( "refuses a spec of another kind under a known key", async () => {

@@ -21,7 +21,7 @@
 
 const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { GUARD_SQL, TABLES, migrateSchema } = require( "#schema" );
+const { GUARD_SQL, TABLES, editStatement, migrateSchema } = require( "#schema" );
 const { eachDatabase } = require( "./support/databases" );
 
 eachDatabase( "Schema", ( db ) => {
@@ -33,11 +33,12 @@ eachDatabase( "Schema", ( db ) => {
 
     it( "applies each migration once", async () => {
         assert.deepEqual( await migrateSchema( db() ), [] );
-        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ), [ "0001-initial" ] );
+        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ).sort(), [ "0001-initial", "0002-editing" ] );
     } );
 
     it( "names the tables a copy carries, each of them empty", async () => {
-        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "files", "settings" ] );
+        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "conflicts", "files",
+            "settings" ] );
         for ( const table of TABLES ) {
             assert.deepEqual( await db().get( `SELECT COUNT(*) AS n FROM ${ table }` ), { n: 0 }, table );
         }
@@ -75,5 +76,15 @@ eachDatabase( "Schema", ( db ) => {
             { sql: "UPDATE versions SET content_hash = 'y' WHERE id = 'h'", params: [] }
         ] );
         assert.deepEqual( await db().get( "SELECT content_hash FROM versions WHERE id = 'h'" ), { content_hash: "y" } );
+    } );
+
+    it( "refuses a batch whose item is no longer at the revision it names, and says so apart from a stale version", async () => {
+        await db().run( "INSERT INTO items ( version_id, item_no, kind, position_no, data, hash, revision ) VALUES ( 'h', 1, 'rule', 0, '{}', 'x', 2 )" );
+        await assert.rejects( db().batch( [
+            editStatement( "h", 1, 1 ),
+            { sql: "UPDATE items SET revision = 3 WHERE version_id = 'h'", params: [] }
+        ] ), { name: "ConstraintError", constraint: "edit_guard" } );
+        await db().batch( [ editStatement( "h", 1, 2 ), { sql: "UPDATE items SET revision = 3 WHERE version_id = 'h'", params: [] } ] );
+        assert.deepEqual( await db().get( "SELECT revision FROM items WHERE version_id = 'h'" ), { revision: 3 } );
     } );
 } );

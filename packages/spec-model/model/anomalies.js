@@ -127,13 +127,15 @@ module.exports.ANOMALY_TYPES = Object.freeze( {
  *
  * @method
  * @param {string} type A key of `ANOMALY_TYPES`.
- * @param {{sheet?: string, row?: number, column?: number}} [source] Where in the workbook it was found.
+ * @param {{sheet?: string, row?: number, column?: number}|null} [source] Where in the workbook it was found; `null` for an
+ *     item an editor made, which was never read from a sheet.
  * @param {Object} [details] Values for the message template, kept on the anomaly.
  * @returns {import( "#definitions" ).Anomaly}
  * @throws {TypeError} When the type is not catalogued.
  * @public
  */
-module.exports.createAnomaly = ( type, source = {}, details = {} ) => {
+module.exports.createAnomaly = ( type, from = {}, details = {} ) => {
+    const source = from || {};
     const definition = module.exports.ANOMALY_TYPES[ type ];
     if ( !definition ) {
         // An uncatalogued type would surface with no level, and no report would ever count it as blocking.

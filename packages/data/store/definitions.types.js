@@ -73,7 +73,8 @@
 
 /**
  * @typedef {Object} ItemRow One item of a version's content, as stored (design record §3.2).
- * @property {number} item_no From 1, in document order.
+ * @property {number} item_no From 1, in document order when stored; an item inserted later takes the version's
+ *     `next_item_no`, never a number used before, and keeps it however it moves (plan 6a, decision 3).
  * @property {string} kind `message`, `element`, `condition`, `dictionary`, `condition-binding`, `blueprint-binding`, `list`,
  *     `column`, `entry` or `rule`.
  * @property {string|null} identity Its key within the version; indexed, not unique (HEL-19).
@@ -81,6 +82,43 @@
  * @property {number} position_no Among its siblings, from 0.
  * @property {string} data The model object's own fields as JSON, without its children.
  * @property {string} hash SHA-256 of `data`.
+ * @property {number} [revision] From 1, raised by one each time its data changes, and each time an editor's edit names it
+ *     — a `move` included (design record §7.4). A place changed by anything else — a sibling's insert, removal or move, a
+ *     carried change, a workbook — is not content, and keeps it (plan 6a, decision 3). Present when loaded with
+ *     `loadItems`.
+ */
+
+/**
+ * @typedef {Object} Edit One change an editor makes to one item (plan 6a, decision 2).
+ * @property {string} op `update`, `insert`, `remove` or `move`.
+ * @property {number} [item] The item changed; not for an insert.
+ * @property {number} [revision] The revision the editor saw; not for an insert.
+ * @property {string} [kind] What an insert adds: `message`, `element`, `condition`, `dictionary`, `column`, `entry` or
+ *     `rule`.
+ * @property {number|null} [parent] Where an insert or a move goes; `null` at the top.
+ * @property {number} [position] Its place among its siblings, from 0.
+ * @property {Object} [data] An update's or an insert's own fields; any children it carries are left out.
+ */
+
+/**
+ * @typedef {Object} Conflict An approved change upstream to an item the development version had also changed (design
+ *     record §7.8, plan 6a decision 10). Each data is the item's own fields, or `null` where it was not there.
+ * @property {string} id
+ * @property {string} version The development version's ID.
+ * @property {string} key The item's key.
+ * @property {Object|null} base Before the approved change.
+ * @property {Object|null} upstream After it.
+ * @property {Object|null} current In development, when the change came.
+ * @property {number|null} revision The development item's revision now, which a choice is made against; `null` when
+ *     development does not have it.
+ */
+
+/**
+ * @typedef {Object} EditResult What a batch of edits did.
+ * @property {Object<number, number>} revisions Each kept item whose revision went up, by number: those edited, and those
+ *     whose derived fields the check changed.
+ * @property {number[]} inserted The numbers the inserts took, in edit order.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies The version's anomalies now.
  */
 
 /**
