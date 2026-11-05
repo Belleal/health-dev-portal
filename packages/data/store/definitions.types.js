@@ -107,6 +107,8 @@
  * @property {Object|null} base Before the approved change.
  * @property {Object|null} upstream After it.
  * @property {Object|null} current In development, when the change came.
+ * @property {number|null} revision The development item's revision now, which a choice is made against; `null` when
+ *     development does not have it.
  */
 
 /**

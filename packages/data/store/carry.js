@@ -19,7 +19,7 @@ const crypto = require( "node:crypto" );
 const { compareContents, itemKeys } = require( "@health-dev-portal/spec-model/differences" );
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
-const { applyEdits, recheckVersion } = require( "#editing" );
+const { EditConflictError, applyEdits, recheckVersion } = require( "#editing" );
 const { decodeContent, encodeContent } = require( "#items" );
 const { diffRows, keyRows, nextAfter } = require( "#item-diff" );
 const { guardStatements, staleStatement } = require( "#schema" );
@@ -66,13 +66,38 @@ const setOwn = ( node, data ) => {
     Object.assign( node, structuredClone( data ) );
 };
 
+// Where an item goes among development's siblings: right after the nearest one it follows upstream that development
+// also has, else first. At its index upstream it came in among development's own items, and development's changelog
+// then showed a move nobody made (final review, I5).
+const placeAmong = ( siblings, node, upstream, key, mine ) => {
+    for ( let index = upstream.indexOf( key ) - 1; index >= 0; index -= 1 ) {
+        const anchor = mine.get( upstream[ index ] );
+        const at = anchor ? siblings.indexOf( anchor.node ) : -1;
+        if ( at >= 0 ) {
+            siblings.splice( at + 1, 0, node );
+            return;
+        }
+    }
+    siblings.unshift( node );
+};
+
 // The development content with the upstream change applied wherever development left the item as `before` had it, and
-// a conflict wherever it did not (design record §7.8). Removals go first, so an insertion's place is counted among the
+// a conflict wherever it did not (design record §7.8). Removals go first, so an insertion's place is found among the
 // siblings that stay.
 const merge = ( kind, before, after, content ) => {
     const was = itemKeys( kind, before );
     const now = itemKeys( kind, after );
     const mine = itemKeys( kind, content );
+    // Each item's siblings upstream, in order, grouped once: a list can hold 39,005 entries.
+    const groups = new Map();
+    for ( const [ key, item ] of now ) {
+        const group = `${ item.parent }\u0000${ item.kind }`;
+        if ( !groups.has( group ) ) {
+            groups.set( group, [] );
+        }
+        groups.get( group ).push( key );
+    }
+    const upstreamOf = ( key ) => groups.get( `${ now.get( key ).parent }\u0000${ now.get( key ).kind }` );
     const touched = new Set( compareContents( kind, before, content ).map( ( difference ) => itemOf( difference.key ) ) );
     const upstream = compareContents( kind, before, after );
     const moved = new Set( upstream.filter( ( difference ) => difference.aspect === "moved" ).map( ( difference ) => itemOf( difference.key ) ) );
@@ -103,7 +128,7 @@ const merge = ( kind, before, after, content ) => {
                 continue;
             }
             const node = { ...structuredClone( theirs.data ), ...( SHELL[ theirs.kind ] ? SHELL[ theirs.kind ]() : {} ) };
-            siblings.splice( Math.min( theirs.position, siblings.length ), 0, node );
+            placeAmong( siblings, node, upstreamOf( key ), key, mine );
             mine.set( key, { ...theirs, node: node } );
             applied += 1;
         } else {
@@ -116,7 +141,7 @@ const merge = ( kind, before, after, content ) => {
             if ( target ) {
                 const from = siblingsOf( content, mine, ours );
                 from.splice( from.indexOf( ours.node ), 1 );
-                target.splice( Math.min( theirs.position, target.length ), 0, ours.node );
+                placeAmong( target, ours.node, upstreamOf( key ), key, mine );
                 mine.set( key, { ...ours, parent: theirs.parent } );
             }
             applied += 1;
@@ -189,8 +214,11 @@ module.exports.carryChange = async ( db, store, spec, before, after, upstreamId 
 
 const parsed = ( json ) => json === null ? null : JSON.parse( json );
 
+const kindOf = async ( db, versionId ) => ( await db.get( "SELECT s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] ) ).kind;
+
 /**
- * A version's open conflicts, oldest first.
+ * A version's open conflicts, oldest first, each with the development item's revision now: the one a choice made on
+ * what is shown is checked against.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
@@ -200,22 +228,30 @@ const parsed = ( json ) => json === null ? null : JSON.parse( json );
  */
 module.exports.listConflicts = async ( db, versionId ) => {
     const rows = await db.all( "SELECT id, version_id, item_key, base_data, upstream_data, current_data, created_at FROM conflicts WHERE version_id = ?", [ versionId ] );
+    if ( !rows.length ) {
+        return [];
+    }
+    const keyed = keyRows( await kindOf( db, versionId ), await loadItems( db, versionId ) );
     // Sorted here, never by SQL: the two databases order text differently (design record §3.2).
     return rows.sort( ( a, b ) => a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.item_key < b.item_key ? -1 : a.item_key > b.item_key ? 1 : 0 )
         .map( ( row ) => ( { id: row.id, version: row.version_id, key: row.item_key, base: parsed( row.base_data ), upstream: parsed( row.upstream_data ),
-            current: parsed( row.current_data ) } ) );
+            current: parsed( row.current_data ), revision: keyed.has( row.item_key ) ? keyed.get( row.item_key ).revision : null } ) );
 };
 
-// The edit that makes the development item hold the chosen data, against its revision now. An item development no
+// The edit that makes the development item hold the chosen data, made against the revision the editor saw: against the
+// one at the moment of resolving, an edit made since was overwritten unseen (final review, I6). An item development no
 // longer has goes back where its base has it.
-const editFor = async ( db, conflict, rows, chosen ) => {
+const editFor = async ( db, conflict, rows, chosen, seen ) => {
     const keyed = keyRows( conflict.kind, rows );
     const row = keyed.get( conflict.item_key );
+    if ( ( row ? row.revision : null ) !== seen ) {
+        throw new EditConflictError( conflict.version_id, row ? row.item_no : null, seen );
+    }
     if ( chosen === null ) {
-        return row ? { op: "remove", item: row.item_no, revision: row.revision } : null;
+        return row ? { op: "remove", item: row.item_no, revision: seen } : null;
     }
     if ( row ) {
-        return { op: "update", item: row.item_no, revision: row.revision, data: chosen };
+        return { op: "update", item: row.item_no, revision: seen, data: chosen };
     }
     const base = conflict.base_id ? await loadVersion( db, conflict.base_id ) : null;
     const item = base && base.content ? itemKeys( conflict.kind, base.content ).get( conflict.item_key ) : undefined;
@@ -230,19 +266,21 @@ const editFor = async ( db, conflict, rows, chosen ) => {
 
 /**
  * Settles a conflict by the editor's choice: the upstream data, development's current data, or a combination the
- * editor wrote. The choice is applied as an edit (`applyEdits`) against the item's revision now, so it is checked and
- * its changelog written like any edit, and the conflict goes.
+ * editor wrote. The choice is applied as an edit (`applyEdits`) against the revision the editor saw, so it is checked
+ * and its changelog written like any edit, and the conflict goes.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
  * @param {import( "#definitions" ).FileStore} store
  * @param {string} conflictId
- * @param {{choose: string, data?: Object}} choice `choose` is `upstream`, `current` or `combined`; `data` is the combined
- *     item's own fields.
+ * @param {{choose: string, data?: Object, revision?: number|null}} choice `choose` is `upstream`, `current` or
+ *     `combined`; `data` is the combined item's own fields; `revision` is the one `listConflicts` showed, `null` for an
+ *     item development did not have, and is needed for all but `current`.
  * @returns {Promise<void>}
  * @throws {RangeError} When there is no such conflict.
- * @throws {TypeError} For a choice that is none, combined data that is not an object, or an item with nowhere to go.
- * @throws {import( "#editing" ).EditConflictError} When the item changed while the choice was applied; the conflict stays.
+ * @throws {TypeError} For a choice that is none, combined data that is not an object, no revision, or an item with
+ *     nowhere to go.
+ * @throws {import( "#editing" ).EditConflictError} When the item has changed since the editor saw it; the conflict stays.
  * @public
  */
 module.exports.resolveConflict = async ( db, store, conflictId, choice ) => {
@@ -263,7 +301,10 @@ module.exports.resolveConflict = async ( db, store, conflictId, choice ) => {
         throw new TypeError( `"${ choice.choose }" is not a choice: upstream, current and combined are.` );
     }
     if ( choice.choose !== "current" ) {
-        const edit = await editFor( db, conflict, await loadItems( db, conflict.version_id ), chosen );
+        if ( choice.revision === undefined ) {
+            throw new TypeError( "A choice names the revision of the development item it was made on, as listConflicts gave it." );
+        }
+        const edit = await editFor( db, conflict, await loadItems( db, conflict.version_id ), chosen, choice.revision );
         if ( edit ) {
             await applyEdits( db, store, conflict.version_id, [ edit ] );
         }

@@ -94,11 +94,46 @@ eachDatabase( "Carry", ( db ) => {
         afterChange = next;
     } );
 
+    // Applied against the revision at the moment of resolving, a choice made on what the editor saw overwrote an edit made
+    // since, unseen (final review, I6).
+    it( "refuses a choice made on an item that has changed since, and keeps the conflict", async () => {
+        const [ conflict ] = await listConflicts( db(), development );
+        const lrn = ( await loadItems( db(), development ) ).find( ( row ) => row.identity === "contents/lrn" );
+        assert.equal( conflict.revision, lrn.revision );
+        await applyEdits( db(), store, development, [ { op: "update", item: lrn.item_no, revision: lrn.revision,
+            data: { ...JSON.parse( lrn.data ), description: { bg: "още едно", en: null } } } ] );
+        await assert.rejects( resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision } ), { name: "EditConflictError" } );
+        assert.equal( ( await developmentContent() ).messages[ 0 ].elements[ 0 ].children[ 0 ].description.bg, "още едно" );
+        assert.equal( ( await listConflicts( db(), development ) ).length, 1 );
+    } );
+
     it( "resolves a conflict by the editor's choice", async () => {
         const [ conflict ] = await listConflicts( db(), development );
-        await resolveConflict( db(), store, conflict.id, { choose: "upstream" } );
+        await resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision } );
         assert.equal( ( await developmentContent() ).messages[ 0 ].elements[ 0 ].children[ 0 ].constraint.maxLength, 60 );
         assert.deepEqual( await listConflicts( db(), development ), [] );
+    } );
+
+    // Placed at its index upstream, an item came in among development's own, and its changelog showed a move nobody made
+    // (final review, I5).
+    it( "places a carried item after the one it follows upstream, among development's own", async () => {
+        await ensureSpec( db(), "e-anchor", "module" );
+        const upstream = await storeVersion( db(), { spec: "e-anchor", kind: "module", number: "1.0.0", stage: "implementation",
+            content: { ...imported( "1.0.0" ), spec: "e-anchor" } } );
+        const own = await startDevelopment( db(), store, "e-anchor" );
+        const contents = ( await loadItems( db(), own ) ).find( ( row ) => row.identity === "contents" );
+        const field = ( identity ) => ( { ...afterChange.messages[ 0 ].elements[ 0 ].children[ 2 ], identity: identity, source: null, children: undefined } );
+        await applyEdits( db(), store, own, [ { op: "insert", kind: "element", parent: contents.item_no, position: 0, data: field( "contents/x@value" ) },
+            { op: "insert", kind: "element", parent: contents.item_no, position: 1, data: field( "contents/y@value" ) } ] );
+        const was = ( await loadVersion( db(), upstream ) ).content;
+        const now = structuredClone( was );
+        now.messages[ 0 ].elements[ 0 ].children.splice( 1, 0, { ...field( "contents/new@value" ), children: [] } );
+        await storeContent( db(), upstream, now, [] );
+        await carryChange( db(), store, "e-anchor", was, now, upstream );
+        const order = ( await loadVersion( db(), own ) ).content.messages[ 0 ].elements[ 0 ].children.map( ( child ) => child.identity );
+        assert.deepEqual( order.slice( 0, 5 ), [ "contents/x@value", "contents/y@value", "contents/lrn", "contents/new@value", "contents/dose@value" ] );
+        const keys = ( await loadChangelog( db(), "e-anchor" ) )[ 0 ].entries.map( ( entry ) => entry.difference_key );
+        assert.ok( !keys.some( ( key ) => key.endsWith( "|moved" ) ), keys.join( ", " ) );
     } );
 
     it( "does nothing for a spec without a development version", async () => {
