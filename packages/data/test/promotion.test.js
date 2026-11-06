@@ -31,7 +31,7 @@ const { startDevelopment } = require( "#development" );
 const { loadRelease, submitRelease, submitRound, withdrawVersion } = require( "#releases" );
 const { approveRelease, returnRelease } = require( "#review" );
 const { promoteReleases, retirePreviousProduction, setPlannedDate } = require( "#promotion" );
-const { eachDatabase } = require( "./support/databases" );
+const { eachDatabase, interleaved } = require( "./support/databases" );
 const { ACTOR, APPROVER, BY_EDITOR, NOW, cleanModule } = require( "./support/lifecycle" );
 const { codeListVersion } = require( "./support/models" );
 
@@ -204,6 +204,19 @@ eachDatabase( "Promotion", ( db ) => {
         await assert.rejects( withdrawVersion( db(), alone, BY_EDITOR ), { name: "UnderReviewError" } );
         await returnRelease( db(), release, { comments: [ { text: "Не." } ], ...BY_APPROVER } );
         await withdrawVersion( db(), alone, BY_EDITOR );
+        assert.equal( ( await loadRelease( db(), release ) ).status, "abandoned" );
+    } );
+
+    // Each withdrawal counted what was left before its batch, so two at once each saw the other still there, and the
+    // release stayed returned with no version (review of PR 18).
+    it( "abandons a release whose last two versions are withdrawn at once", async () => {
+        await production( "e-pair-a", "1.0.0" );
+        await production( "e-pair-b", "1.0.0" );
+        const first = await startDevelopment( db(), store, "e-pair-a" );
+        const second = await startDevelopment( db(), store, "e-pair-b" );
+        const release = await submitRelease( db(), { versions: [ first, second ], summary: SUMMARY, actor: ACTOR, now: NOW } );
+        await returnRelease( db(), release, { comments: [ { text: "Не." } ], ...BY_APPROVER } );
+        await withdrawVersion( interleaved( db(), () => withdrawVersion( db(), second, BY_EDITOR ) ), first, BY_EDITOR );
         assert.equal( ( await loadRelease( db(), release ) ).status, "abandoned" );
     } );
 

@@ -453,14 +453,16 @@ module.exports.withdrawVersion = async ( db, versionId, input ) => {
         if ( release.status === RELEASE_STATUS.REVIEW ) {
             throw new UnderReviewError( versionId );
         }
-        const left = await db.get( `SELECT COUNT(*) AS n FROM versions WHERE release_id = ? AND id <> ? AND stage <> '${ STAGE.RETIRED }'`, [ release.id, versionId ] );
         return { statements: [
             module.exports.lockRelease( release.id ),
             module.exports.releaseIs( release.id, release.status ),
             ...guardStatements( versionId ),
             { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND ( release_id IS NULL OR release_id <> ? )", params: [ versionId, release.id ] },
             { sql: "UPDATE versions SET release_id = NULL WHERE id = ?", params: [ versionId ] },
-            ...( left.n === 0 ? [ { sql: "UPDATE releases SET status = ? WHERE id = ?", params: [ RELEASE_STATUS.ABANDONED, release.id ] } ] : [] ),
+            // Whether anything is left is decided here, under the release's lock: counted before the batch, two
+            // withdrawals at once each saw the other's version, and the empty release was never abandoned (review of PR 18).
+            { sql: "UPDATE releases SET status = ? WHERE id = ? AND NOT EXISTS ( SELECT 1 FROM versions WHERE release_id = ? AND stage <> ? )",
+                params: [ RELEASE_STATUS.ABANDONED, release.id, release.id, STAGE.RETIRED ] },
             module.exports.eventStatement( { release: release.id, version: versionId, event: RELEASE_EVENT.WITHDRAWN, author: author } )
         ], result: undefined };
     } );
