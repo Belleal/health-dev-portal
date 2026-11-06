@@ -22,7 +22,10 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { fold } = require( "#fold" );
+const { fold, needles } = require( "#fold" );
+
+// Whether a query reaches a text, as the filter decides it: the text folded, the query in either of its forms.
+const reaches = ( query, text ) => needles( query ).some( ( form ) => fold( text ).includes( form ) );
 
 describe( "The filter's folding", () => {
 
@@ -50,6 +53,18 @@ describe( "The filter's folding", () => {
         assert.equal( fold( "" ), "" );
         assert.equal( fold( null ), "" );
         assert.equal( fold( undefined ), "" );
+    } );
+
+    it( "finds a Cyrillic word by its romanisation as well as by look-alikes (ruling 3)", () => {
+        // Each is a query a reader types; the two forms disagree on p, c and h, so neither alone reaches all three.
+        assert.equal( reaches( "retsepta", "рецепта" ), true );
+        assert.equal( reaches( "shapka", "Шапка" ), true );
+        assert.equal( reaches( "PeЦeпTA", "рецепта" ), true );
+        assert.equal( reaches( "tip na retsepta", "Тип на рецепта" ), true );
+        assert.equal( reaches( "retsepti", "рецепта" ), false );
+        assert.deepEqual( needles( "" ), [] );
+        assert.deepEqual( needles( null ), [] );
+        assert.equal( needles( "abc" ).length, 2 );
     } );
 
     it( "treats a number as its text", () => {

@@ -74,6 +74,9 @@ const query = ( parameters ) => {
         .map( ( [ name, value ] ) => `${ name }=${ encodeURIComponent( String( value ) ) }` );
     return written.length ? `?${ written.join( "&" ) }` : "";
 };
+// A filter's text: trimmed, since a space around it is never what the reader means, and none at all when it is blank. Builders
+// and parser alike, so that an address a builder writes is read back as it was given.
+const filterText = ( value ) => value === null || value === undefined || String( value ).trim() === "" ? null : String( value ).trim();
 const text = ( value ) => value === null || value === undefined || value === "" ? null : String( value );
 
 /**
@@ -224,7 +227,7 @@ module.exports.elementSlugs = ( message ) => {
  * @returns {string}
  * @public
  */
-module.exports.lists = ( lang, parameters = {} ) => `/${ language( lang ) }/nomenclatures${ query( { q: text( parameters.q ) } ) }`;
+module.exports.lists = ( lang, parameters = {} ) => `/${ language( lang ) }/nomenclatures${ query( { q: filterText( parameters.q ) } ) }`;
 
 /**
  * One code list at a stage or number, filtered, with or without its expired entries, at a page of 500 rows.
@@ -243,7 +246,7 @@ module.exports.list = ( lang, id, at, parameters = {} ) => {
         throw new RangeError( `${ JSON.stringify( parameters.page ) } is not a page number.` );
     }
     return `/${ language( lang ) }/nomenclatures/${ listId( id ) }/${ atSegment( at ) }`
-        + query( { q: text( parameters.q ), expired: parameters.expired === true ? "1" : null, page: page > 1 ? page : null } );
+        + query( { q: filterText( parameters.q ), expired: parameters.expired === true ? "1" : null, page: page > 1 ? page : null } );
 };
 
 /**
@@ -358,7 +361,7 @@ const specsPage = ( lang, rest ) => {
 
 // The page under `/{lang}/nomenclatures/…`.
 const nomenclaturesPage = ( lang, rest, search ) => {
-    const q = text( search.get( "q" ) );
+    const q = filterText( search.get( "q" ) );
     if ( rest.length === 0 ) {
         return { lang: lang, page: "lists", query: { q: q } };
     }

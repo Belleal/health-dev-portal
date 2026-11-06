@@ -26,7 +26,7 @@ const { fixedFile } = require( "@health-dev-portal/data/fixed-files" );
 const { findPublished, findPublishedById, listPublished, readersOf } = require( "@health-dev-portal/data/published" );
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
-const { fold } = require( "#fold" );
+const { fold, needles } = require( "#fold" );
 const { formatDate } = require( "#format" );
 const { label, otherLanguage } = require( "#labels" );
 const { page } = require( "#layout" );
@@ -108,9 +108,13 @@ module.exports.listsPage = async ( context, parts ) => {
     const { q } = parts.query;
     const published = ( await listPublished( db ) ).filter( ( one ) => one.kind === SPEC_KIND.CODE_LIST );
     const named = await Promise.all( published.map( async ( one ) => ( { published: one, name: await nameOf( db, nameSource( one ) ) } ) ) );
-    // Both sides folded the same way; the name in each language is searched, as the reader may know either.
-    const needle = q === null ? null : fold( q );
-    const shown = needle === null ? named : named.filter( ( one ) => fold( [ one.published.spec, one.name && one.name.bg, one.name && one.name.en ].filter( Boolean ).join( "\n" ) ).includes( needle ) );
+    // The text is folded; the query is searched in both of its forms (`needles`). The name in each language is searched,
+    // as the reader may know either.
+    const forms = q === null ? null : needles( q );
+    const shown = forms === null ? named : named.filter( ( one ) => {
+        const text = fold( [ one.published.spec, one.name && one.name.bg, one.name && one.name.en ].filter( Boolean ).join( "\n" ) );
+        return forms.some( ( form ) => text.includes( form ) );
+    } );
     const title = label( lang, "sectionNomenclatures" );
     const main = html`<h1>${ title }</h1>
 <p>${ label( lang, "listsLede" ) }</p>
@@ -245,9 +249,10 @@ module.exports.listPage = async ( context, parts ) => {
     const withDisplay = list.entries.some( hasDisplay );
     const expiredCount = list.entries.filter( ( entry ) => isExpired( entry, version.number ) ).length;
     // Both sides folded the same way (decision 9).
-    const needle = q === null ? null : fold( q );
-    const haystack = needle === null ? null : haystackOf( db, version, list.entries );
-    const matching = list.entries.filter( ( entry, index ) => ( expired || !isExpired( entry, version.number ) ) && ( needle === null || haystack[ index ].includes( needle ) ) );
+    const forms = q === null ? null : needles( q );
+    const haystack = forms === null ? null : haystackOf( db, version, list.entries );
+    const matching = list.entries.filter( ( entry, index ) => ( expired || !isExpired( entry, version.number ) )
+        && ( forms === null || forms.some( ( form ) => haystack[ index ].includes( form ) ) ) );
     const pages = Math.max( 1, Math.ceil( matching.length / PAGE_SIZE ) );
     // A page past the last is no page: a filter that leaves nothing still has its first, empty.
     if ( number > pages ) {

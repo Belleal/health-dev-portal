@@ -40,9 +40,9 @@ const LOOK_ALIKE = new RegExp( `[${ [ ...LOOK_ALIKES.keys() ].join( "" ) }]`, "g
  * The look-alikes come before the romanisation, and that order is the one that works. Romanising first would turn a
  * Cyrillic "р" into "r" while a Latin "p" typed for it stayed "p", so a reader who types "PeЦeпTA" for "рецепта" would
  * find nothing. Mapped first, both are "р" and are romanised together. The price is that a Latin letter is read as its
- * look-alike rather than as a romanisation where the two differ (b, c, h, p, x, y): "p" finds "р", not "п". That is
- * the better guess for a reader of Bulgarian text on a Latin keyboard, and a letter with no look-alike (ц, ш, ж, ч)
- * is still found by its romanisation.
+ * look-alike rather than as a romanisation where the two differ (b, c, h, p, x, y). A query typed as a romanisation is
+ * therefore not folded with this function alone: `needles` adds the query romanised as typed, and the filter matches
+ * on either.
  *
  * @method
  * @param {string|number|null|undefined} text
@@ -52,4 +52,20 @@ const LOOK_ALIKE = new RegExp( `[${ [ ...LOOK_ALIKES.keys() ].join( "" ) }]`, "g
 module.exports.fold = ( text ) => {
     const lower = ( text === null || text === undefined ? "" : String( text ) ).normalize( "NFC" ).toLowerCase();
     return transliterate( lower.replace( LOOK_ALIKE, ( letter ) => LOOK_ALIKES.get( letter ) ) );
+};
+
+/**
+ * The forms a reader's query is searched in, against text folded by `fold`: the query folded the same way, which finds
+ * what was typed with Latin look-alikes ("PeЦeпTA"); and the query only lower-cased and romanised, with no look-alikes
+ * mapped, which finds what was typed as a romanisation ("retsepta", "shapka"). The two disagree where a Latin letter
+ * is both (p is р as a look-alike and п as a romanisation), so an entry is a match when either form is in its text.
+ *
+ * @method
+ * @param {string|null|undefined} text
+ * @returns {string[]} One form or two, never empty strings: none for no text.
+ * @public
+ */
+module.exports.needles = ( text ) => {
+    const typed = text === null || text === undefined ? "" : String( text ).normalize( "NFC" ).toLowerCase();
+    return [ ...new Set( [ module.exports.fold( text ), transliterate( typed ) ].filter( ( form ) => form !== "" ) ) ];
 };

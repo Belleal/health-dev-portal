@@ -48,6 +48,8 @@ const ROUND_TRIPS = [
         { lang: "bg", page: "message", spec: "e-prescription", at: "1.5.1", code: "P001", tab: "elements", slug: "contents/prescription/lrn" } ],
     [ () => element( "en", "e-prescription", "testing", "P001", `contents/${ NOTE }~2` ),
         { lang: "en", page: "message", spec: "e-prescription", at: "testing", code: "P001", tab: "elements", slug: `contents/${ NOTE }~2` } ],
+    [ () => lists( "bg", { q: "  " } ), { lang: "bg", page: "lists", query: { q: null } } ],
+    [ () => lists( "bg", { q: " рецепта " } ), { lang: "bg", page: "lists", query: { q: "рецепта" } } ],
     [ () => lists( "bg" ), { lang: "bg", page: "lists", query: { q: null } } ],
     [ () => lists( "en", { q: "рецепта" } ), { lang: "en", page: "lists", query: { q: "рецепта" } } ],
     [ () => list( "bg", "CL007", "production" ), { lang: "bg", page: "list", id: "CL007", at: "production", query: { q: null, expired: false, page: 1 } } ],
@@ -66,6 +68,16 @@ const ROUND_TRIPS = [
 ];
 
 describe( "Addresses", () => {
+
+    it( "reads a filter with its surrounding spaces taken off, and a blank one as none", () => {
+        assert.equal( parseAddress( "/bg/nomenclatures?q=%20%20" ).query.q, null );
+        assert.equal( parseAddress( "/bg/nomenclatures?q=%20abc%20" ).query.q, "abc" );
+        assert.equal( parseAddress( "/bg/nomenclatures/CL007/production?q=%20%20" ).query.q, null );
+        assert.equal( parseAddress( "/bg/nomenclatures/CL007/production?q=%09%20%D1%80%D0%B5%D1%86%D0%B5%D0%BF%D1%82%D0%B0%20" ).query.q, "рецепта" );
+        // The builders write it the same way.
+        assert.equal( list( "bg", "CL007", "production", { q: "  " } ), "/bg/nomenclatures/CL007/production" );
+        assert.equal( lists( "bg", { q: " abc " } ), "/bg/nomenclatures?q=abc" );
+    } );
 
     it( "turns every address back into what built it", () => {
         for ( const [ build, parts ] of ROUND_TRIPS ) {

@@ -23,6 +23,7 @@
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { SEED, SEEDED, assertPublic, get, rowsOf, seedContent, startPortal } = require( "./support/server" );
+const { transliterate } = require( "@ti-engine/web-content/transliterate" );
 const paths = require( "#paths" );
 
 const FIXED = "public, max-age=86400";
@@ -76,6 +77,25 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         // The filter is a GET form, which works without a script, and keeps the reader's words.
         assert.match( none.text, /<form class="filter" method="get" action="\/bg\/nomenclatures">/ );
         assert.match( none.text, /value="zzzzzzzz"/ );
+    } );
+
+    it( "finds a list and an entry by a romanised query as well, and ignores spaces around any query", async () => {
+        // A name typed in Latin letters the way the Streamlined System writes it: "Tip na retsepta", with a stray space.
+        const name = ( await seedContent( SEED.cl007.spec, SEED.cl007.production ) ).list.name.bg;
+        const romanised = transliterate( name ).toLowerCase();
+        assert.equal( romanised, "tip na retsepta" );
+        assert.ok( keysOf( ( await get( `/bg/nomenclatures?q=${ encodeURIComponent( ` ${ romanised } ` ) }` ) ).text ).includes( "CL007" ) );
+        // An entry of the list, "Рецепта - зелена" (T6), by "retsepta - zelena".
+        const entries = keysOf( ( await get( "/bg/nomenclatures/CL007/production?q=retsepta%20-%20zelena" ) ).text );
+        assert.deepEqual( entries, [ "T6" ] );
+        // A look-alike query still finds it, and a trailing space no longer defeats the Cyrillic one.
+        assert.deepEqual( keysOf( ( await get( "/bg/nomenclatures/CL007/production?q=PeЦeпTA%20-%20ЗeЛeнA" ) ).text ), [ "T6" ] );
+        assert.deepEqual( keysOf( ( await get( "/bg/nomenclatures/CL007/production?q=%D1%80%D0%B5%D1%86%D0%B5%D0%BF%D1%82%D0%B0%20-%20%D0%B7%D0%B5%D0%BB%D0%B5%D0%BD%D0%B0%20" ) ).text ), [ "T6" ] );
+        // A query of only spaces is no filter: the same first page as none.
+        const blank = await get( "/bg/nomenclatures/CL007/production?q=%20%20" );
+        assert.equal( blank.status, 200 );
+        assert.equal( rowsOf( blank.text ).length, rowsOf( ( await get( "/bg/nomenclatures/CL007/production" ) ).text ).length );
+        assert.equal( keysOf( ( await get( "/bg/nomenclatures?q=%20%20" ) ).text ).length, keysOf( ( await get( "/bg/nomenclatures" ) ).text ).length );
     } );
 
     it( "shows a list's columns, hides expired entries unless asked, and names the messages that use it", async () => {
