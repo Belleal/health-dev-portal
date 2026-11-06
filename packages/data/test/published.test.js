@@ -184,7 +184,14 @@ eachDatabase( "Published", ( db ) => {
         assert.deepEqual( entries.breaking.map( ( entry ) => entry.text ), [ { bg: "Нарушаваща промяна", en: "A breaking change" } ] );
         assert.deepEqual( entries[ "non-breaking" ].map( ( entry ) => entry.text.bg ), [ "Обикновена промяна" ] );
         assert.deepEqual( entries[ "dropped-plan" ], [] );
-        assert.deepEqual( Object.keys( entries.breaking[ 0 ] ), [ "origin", "target", "before", "after", "text" ] );
+        assert.deepEqual( Object.keys( entries.breaking[ 0 ] ), [ "origin", "target", "aspect", "before", "after", "text" ] );
+        assert.equal( entries.breaking[ 0 ].aspect, null, "an entry written by hand has no aspect" );
+        // A detected entry's key ends in its aspect, after the last "|".
+        const detected = ( await db().all( "SELECT e.id FROM changelog_entries e JOIN versions v ON v.id = e.version_id WHERE v.spec_id = ? AND v.number = ? AND e.text_bg = ?",
+            [ "e-pub", "1.6.0", "Обикновена промяна" ] ) )[ 0 ].id;
+        await db().run( "UPDATE changelog_entries SET origin = ?, difference_key = ? WHERE id = ?", [ "detected", "element:P001:a@value#1|requirement", detected ] );
+        assert.equal( ( await publishedChangelog( db(), "e-pub" ) )[ 0 ].entries[ "non-breaking" ][ 0 ].aspect, "requirement" );
+        await db().run( "UPDATE changelog_entries SET origin = ?, difference_key = NULL WHERE id = ?", [ "editor", detected ] );
         assert.deepEqual( [ entries.breaking[ 0 ].origin, entries.breaking[ 0 ].target, entries.breaking[ 0 ].before, entries.breaking[ 0 ].after ], [ "editor", null, null, null ] );
         const text = JSON.stringify( versions );
         assert.equal( text.includes( "Отпаднала" ), false );

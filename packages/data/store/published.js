@@ -133,6 +133,8 @@ module.exports.publishedChangelog = async ( db, spec ) => {
         for ( const entry of entries.get( version.id ) || [] ) {
             if ( !entry.dropped ) {
                 grouped[ entry.category ].push( { origin: entry.origin, target: entry.target_kind === null ? null : { kind: entry.target_kind, identity: entry.target_identity },
+                    // A detected entry's key ends in the aspect it was found for (`…|requirement`); an entry written by hand has no key.
+                    aspect: entry.difference_key ? entry.difference_key.slice( entry.difference_key.lastIndexOf( "|" ) + 1 ) : null,
                     before: entry.before_value === null ? null : JSON.parse( entry.before_value ), after: entry.after_value === null ? null : JSON.parse( entry.after_value ),
                     text: { bg: entry.text_bg, en: entry.text_en } } );
             }

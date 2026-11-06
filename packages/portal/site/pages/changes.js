@@ -26,14 +26,14 @@ const { findPublished, listPublished, publishedChangelog, publications } = requi
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
 const { CHANGE_CATEGORY, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
-const { formatCount, formatDate } = require( "#format" );
+const { formatDate } = require( "#format" );
 const { label } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
 const { CACHE, notFound, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { localText } = require( "#text" );
-const { differenceRow, shownValue } = require( "./message" );
+const { aspectName, differenceRow, shownValue } = require( "./message" );
 const { modulesAndRules } = require( "./stages" );
 
 // A changelog's groups, in the order a version lists them (decision 10).
@@ -90,40 +90,14 @@ const versionNotes = ( lang, version ) => {
     return notes.join( " · " );
 };
 
-// An item a detected entry holds whole — an element, a condition, a list entry — as against a value of one of its fields:
-// the entry of an item that came or went has the item itself as `after` or `before`, which no reader wants as JSON.
-const isItem = ( value ) => value !== null && typeof value === "object" && !Array.isArray( value )
-    && !( Object.hasOwn( value, "bg" ) && Object.hasOwn( value, "en" ) ) && !( Object.hasOwn( value, "min" ) && Object.hasOwn( value, "max" ) ) && !Object.hasOwn( value, "raw" );
-
-// A value a detected entry holds. The entry stores no aspect, so a value is read by its shape: a cardinality as `0..1`, a
-// constraint by its text, a model text in the page's language, anything else as `shownValue` writes it.
-const entryValue = ( lang, value ) => {
-    if ( value !== null && typeof value === "object" && Object.hasOwn( value, "min" ) && Object.hasOwn( value, "max" ) ) {
-        return html`${ formatCount( value ) }`;
-    }
-    if ( value !== null && typeof value === "object" && typeof value.raw === "string" ) {
-        return html`<code>${ value.raw }</code>`;
-    }
-    return shownValue( lang, {}, value );
-};
-
-// One entry: what it concerns and what changed. An editor's or imported entry has text; a detected one has the values
-// before and after, or says the item is new or removed.
+// One entry: what it concerns, what changed and the values. An editor's or imported entry has text, which takes the cells
+// after the target; a detected one names its aspect, read like a comparison's difference, with the values before and after.
 const entryRow = ( lang, entry ) => {
     const target = entry.target ? html`<code>${ entry.target.identity || entry.target.kind }</code>` : html`—`;
-    let what;
-    if ( entry.text.bg || entry.text.en ) {
-        what = localText( entry.text, lang );
-    } else if ( entry.before === null && isItem( entry.after ) ) {
-        what = html`${ label( lang, "markerNew" ) }`;
-    } else if ( entry.after === null && isItem( entry.before ) ) {
-        what = html`${ label( lang, "markerRemoved" ) }`;
-    } else if ( entry.before === null && entry.after === null ) {
-        what = html`—`;
-    } else {
-        what = html`${ entryValue( lang, entry.before ) } → ${ entryValue( lang, entry.after ) }`;
+    if ( entry.text.bg || entry.text.en || !entry.aspect ) {
+        return html`<tr><td>${ target }</td><td colspan="3">${ localText( entry.text, lang ) }</td></tr>\n`;
     }
-    return html`<tr><td>${ target }</td><td>${ what }</td></tr>\n`;
+    return html`<tr><td>${ target }</td><td>${ aspectName( lang, entry.aspect ) }</td><td>${ shownValue( lang, entry, entry.before ) }</td><td>${ shownValue( lang, entry, entry.after ) }</td></tr>\n`;
 };
 
 // One version's section: its heading, at `level`, with the notes, then its entries by group, each group with its count.
@@ -133,7 +107,7 @@ const versionSection = ( lang, version, level ) => {
 <h${ level }>${ label( lang, "versionHeading", { number: version.number } ) } <span class="muted">· ${ versionNotes( lang, version ) }</span></h${ level }>
 ${ groups.length === 0 ? html`<p class="muted">${ label( lang, "changelogNone" ) }</p>\n` : groups.map( ( group ) => html`<h${ level + 1 }>${ label( lang, "groupCount", { group: label( lang, group.name ), count: version.entries[ group.category ].length } ) }</h${ level + 1 }>
 <table class="rows">
-<thead><tr><th scope="col">${ label( lang, "columnAbout" ) }</th><th scope="col">${ label( lang, "columnChange" ) }</th></tr></thead>
+<thead><tr><th scope="col">${ label( lang, "columnAbout" ) }</th><th scope="col">${ label( lang, "columnChange" ) }</th><th scope="col">${ label( lang, "columnBefore" ) }</th><th scope="col">${ label( lang, "columnAfter" ) }</th></tr></thead>
 <tbody>
 ${ version.entries[ group.category ].map( ( entry ) => entryRow( lang, entry ) ) }</tbody>
 </table>

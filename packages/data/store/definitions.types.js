@@ -236,6 +236,7 @@
  * @typedef {Object} PublishedEntry A changelog entry as the site shows it; `before` and `after` are parsed.
  * @property {string} origin One of `CHANGE_ORIGIN`.
  * @property {{kind: string, identity: string|null}|null} target
+ * @property {string|null} aspect For a detected entry, what changed: `added`, `removed`, `moved` or a field name; `null` for one written by hand or imported.
  * @property {*} before
  * @property {*} after
  * @property {{bg: string|null, en: string|null}} text

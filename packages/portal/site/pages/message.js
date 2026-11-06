@@ -75,7 +75,8 @@ const conditionsTab = ( lang, { spec, at, message, content } ) => {
 
 /**
  * A value a difference or a changelog entry names, as a reader reads it. An added or removed element is the row itself,
- * and a move names its parents' internal keys, so neither shows a value; a changelog entry has no aspect and shows any value.
+ * and a move names its parents' internal keys, so neither shows a value. A detected changelog entry carries the aspect it
+ * was found for, and is read like a difference; one written by hand has none and shows any value as it is.
  *
  * @method
  * @param {string} lang
@@ -110,6 +111,17 @@ const ASPECTS = Object.freeze( {
 } );
 
 /**
+ * What changed, named: `new`, `removed` or `moved` in words, any other aspect by its field name in `<code>`.
+ *
+ * @method
+ * @param {string} lang
+ * @param {string} aspect `added`, `removed`, `moved` or a field name.
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString}
+ * @public
+ */
+const aspectName = module.exports.aspectName = ( lang, aspect ) => Object.hasOwn( ASPECTS, aspect ) ? html`${ ASPECTS[ aspect ]( lang ) }` : html`<code>${ aspect }</code>`;
+
+/**
  * One structural difference as a table row: what it touches, what changed, before, after, and its category. The Changes tab
  * here and the comparison page (changes.js) show differences alike.
  *
@@ -119,8 +131,7 @@ const ASPECTS = Object.freeze( {
  * @returns {import( "@ti-engine/web-content/html" ).SafeString}
  * @public
  */
-module.exports.differenceRow = ( lang, difference ) => html`<tr><td><code>${ difference.identity || "—" }</code></td><td>${ Object.hasOwn( ASPECTS, difference.aspect )
-    ? ASPECTS[ difference.aspect ]( lang ) : html`<code>${ difference.aspect }</code>` }</td><td>${ shownValue( lang, difference, difference.before ) }</td><td>${ shownValue( lang, difference, difference.after ) }</td><td>${ difference.category === CHANGE_CATEGORY.BREAKING
+module.exports.differenceRow = ( lang, difference ) => html`<tr><td><code>${ difference.identity || "—" }</code></td><td>${ aspectName( lang, difference.aspect ) }</td><td>${ shownValue( lang, difference, difference.before ) }</td><td>${ shownValue( lang, difference, difference.after ) }</td><td>${ difference.category === CHANGE_CATEGORY.BREAKING
     ? html`<strong>${ label( lang, "categoryBreaking" ) }</strong>` : label( lang, "categoryNonBreaking" ) }</td></tr>\n`;
 
 // The Changes tab (decision 7): on a version in testing, how the message differs from production's, item by item,

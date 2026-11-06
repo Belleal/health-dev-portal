@@ -76,9 +76,12 @@ describe( "The changes pages and the feeds", { skip: !SEEDED && "build the seed 
             assert.match( section, change.pattern );
         }
         assert.equal( section.includes( "&quot;identity&quot;" ), false, "no item dumped as JSON" );
-        assert.match( section, /exampleNote@value<\/code><\/td><td>new</ );
-        assert.match( section, /0\.\.1 → 1\.\.1/ );
-        assert.match( section, /O → R/ );
+        // Each row names the aspect that changed, beside the values.
+        assert.match( section, /exampleNote@value<\/code><\/td><td>new<\/td><td>.<\/td><td>.<\/td>/u );
+        assert.match( section, /supplements@value<\/code><\/td><td><code>requirement<\/code><\/td><td>O<\/td><td>R<\/td>/ );
+        assert.match( section, /supplements@value<\/code><\/td><td><code>cardinality<\/code><\/td><td>0\.\.1<\/td><td>1\.\.1<\/td>/ );
+        assert.match( section, /lrn@value<\/code><\/td><td><code>description<\/code><\/td>/ );
+        assert.match( page, /<th scope="col">Before<\/th><th scope="col">After<\/th>/ );
     } );
 
     it( "says when a version's dates were not recorded", async () => {
