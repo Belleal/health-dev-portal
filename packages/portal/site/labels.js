@@ -192,7 +192,20 @@ module.exports.LABELS = Object.freeze( {
         csvNote: "В CSV стойност, която започва с =, +, -, @, табулация или нов ред, е предшествана от ', за да не бъде приета за формула от електронната таблица. JSON е точният файл.",
         usedInTitle: "Използва се в",
         usedInMore: "и още {count}",
-        usedInNone: "Не се използва от публикуван модул."
+        usedInNone: "Не се използва от публикуван модул.",
+        errorsTitleProduction: "Грешки и предупреждения",
+        errorsTitleTesting: "Грешки и предупреждения в тестване",
+        errorsLede: "Грешките са кодовете от номенклатура CL999, а предупрежденията — от CL998. Към всяка грешка са посочени бизнес правилата, които я пораждат.",
+        errorsVersions: "Показани версии",
+        errorsFromProduction: "{spec} {number} (продукция; няма версия в тестване)",
+        errorsFromStage: "{spec} {number}",
+        errorsTestingLink: "Какво предстои: грешки и предупреждения в тестване",
+        errorsProductionLink: "Грешки и предупреждения в продукция",
+        errorsSectionErrors: "Грешки (CL999)",
+        errorsSectionWarnings: "Предупреждения (CL998)",
+        errorsRaisedBy: "Пораждана от правилата",
+        errorsNoRules: "Няма правило, което да я поражда.",
+        errorsNone: "Няма публикувана версия."
     } ),
     en: Object.freeze( {
         siteName: "NHIS · Developers",
@@ -350,7 +363,20 @@ module.exports.LABELS = Object.freeze( {
         csvNote: "In the CSV a value that starts with =, +, -, @, a tab or a line break is preceded by ', so that a spreadsheet does not take it for a formula. The JSON is the exact file.",
         usedInTitle: "Used in",
         usedInMore: "and {count} more",
-        usedInNone: "No published module uses it."
+        usedInNone: "No published module uses it.",
+        errorsTitleProduction: "Errors and warnings",
+        errorsTitleTesting: "Errors and warnings in testing",
+        errorsLede: "Errors are the codes of code list CL999 and warnings those of CL998. Each error names the business rules that raise it.",
+        errorsVersions: "Versions shown",
+        errorsFromProduction: "{spec} {number} (production; there is no version in testing)",
+        errorsFromStage: "{spec} {number}",
+        errorsTestingLink: "What is coming: errors and warnings in testing",
+        errorsProductionLink: "Errors and warnings in production",
+        errorsSectionErrors: "Errors (CL999)",
+        errorsSectionWarnings: "Warnings (CL998)",
+        errorsRaisedBy: "Raised by the rules",
+        errorsNoRules: "No rule raises it.",
+        errorsNone: "No version is published."
     } )
 } );
 

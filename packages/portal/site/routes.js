@@ -24,6 +24,7 @@
 const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
 const { home, parseAddress } = require( "#paths" );
 const { CACHE, failed, notFound, redirect } = require( "#responses" );
+const { errorsPage } = require( "#pages/errors" );
 const { homePage } = require( "#pages/home" );
 const { messagePage } = require( "#pages/message" );
 const { downloadFile, listPage, listsPage } = require( "#pages/nomenclatures" );
@@ -42,7 +43,8 @@ const PAGES = Object.freeze( {
     message: messagePage,
     lists: listsPage,
     list: listPage,
-    download: downloadFile
+    download: downloadFile,
+    errors: errorsPage
 } );
 
 /**
