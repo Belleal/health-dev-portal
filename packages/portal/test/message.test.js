@@ -162,6 +162,13 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         assert.ok( links.includes( "/bg/specs/e-prescription/1.5.1/P001/elements/contents/prescription/group/medication/dosageInstruction/doseQuantityCode~3" ) );
         const sidebar = /<aside class="sidebar"[^>]*>([\s\S]*?)<\/aside>/.exec( response.text )[ 1 ];
         assert.match( sidebar, /<h2>\/doctor<\/h2>[\s\S]*?<a href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001" aria-current="true">P001/ );
+        // A response sits with its request; "other" keeps only what has neither an address nor a paired one with it.
+        const groups = new Map( [ ...sidebar.matchAll( /<h2>([^<]*)<\/h2>\s*<ul>([\s\S]*?)<\/ul>/g ) ]
+            .map( ( match ) => [ match[ 1 ], [ ...match[ 2 ].matchAll( /<li><a href="[^"]*\/([A-Z]\d{3})"/g ) ].map( ( one ) => one[ 1 ] ) ] ) );
+        assert.deepEqual( [ ...groups.keys() ], [ "/doctor", "/pharmacy", "друго" ] );
+        assert.deepEqual( groups.get( "/doctor" ), [ "P001", "P002", "P007", "P008", "P017", "P018", "P019", "P020" ] );
+        assert.ok( groups.get( "/pharmacy" ).includes( "P004" ) && groups.get( "/pharmacy" ).includes( "P022" ) );
+        assert.deepEqual( groups.get( "друго" ), [ "P099" ] );
         assert.match( sidebar, /href="\/bg\/specs\/e-prescription\/1\.5\.1\/conditions"[\s\S]*href="\/bg\/specs\/e-prescription\/1\.5\.1\/dictionary"[\s\S]*href="\/bg\/errors"/ );
     } );
 

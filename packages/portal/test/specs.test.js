@@ -24,7 +24,7 @@
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { SEED, SEEDED, assertPublic, get, rowsOf, seedContent, startPortal } = require( "./support/server" );
-const { endpointSegment, stageBand } = require( "#pages/version" );
+const { bySegment, endpointSegment, stageBand } = require( "#pages/version" );
 
 const FIXED = "public, max-age=86400";
 const BRIEF = "public, max-age=60";
@@ -32,6 +32,22 @@ const BRIEF = "public, max-age=60";
 // Each group of a module's page: its heading and the HTML up to the next.
 const segmentsOf = ( text ) => new Map( [ ...text.matchAll( /<section class="segment">\s*<h2>([^<]*)<\/h2>([\s\S]*?)<\/section>/g ) ]
     .map( ( match ) => [ match[ 1 ], match[ 2 ] ] ) );
+
+// The codes a group lists, by the link that opens each of its rows: a row's other cells link the paired message too.
+const codesOf = ( group ) => [ ...group.matchAll( /<tr><td><a href="[^"]*\/([A-Z]\d{3})">/g ) ].map( ( match ) => match[ 1 ] );
+
+// Where the seed's messages belong, read from its content: under the segment of their own address, else of their
+// paired message's (the controller's ruling on decision 7), else under "other".
+const expectedSegments = ( messages, other ) => {
+    const segment = ( address ) => address ? `/${ address.split( "/" ).filter( Boolean ).at( -2 ) }` : null;
+    const groups = new Map();
+    for ( const message of messages ) {
+        const paired = messages.find( ( one ) => one.code === message.pairedWith );
+        const key = segment( message.address ) || ( paired && segment( paired.address ) ) || other;
+        groups.set( key, [ ...( groups.get( key ) || [] ), message.code ] );
+    }
+    return groups;
+};
 
 describe( "An endpoint's segment", () => {
 
@@ -42,6 +58,18 @@ describe( "An endpoint's segment", () => {
         assert.equal( endpointSegment( "/issue" ), null );
         assert.equal( endpointSegment( null ), null );
         assert.equal( endpointSegment( "" ), null );
+    } );
+
+    it( "groups a response under its request's segment, and only what has neither under other", () => {
+        const message = ( code, address, pairedWith = null ) => ( { code: code, address: address, pairedWith: pairedWith } );
+        const groups = bySegment( [ message( "X001", "/v1/x/doctor/issue", "X002" ), message( "X002", null, "X001" ), message( "X003", "/v1/x/pharmacy/fetch", "X004" ),
+            message( "X004", null, "X003" ), message( "X005", null, null ), message( "X006", null, "X999" ), message( "X007", null, "X005" ), message( "X008", "/v1/x/doctor/cancel" ) ] );
+        assert.deepEqual( groups.map( ( group ) => [ group.segment, group.messages.map( ( one ) => one.code ) ] ), [
+            [ "/doctor", [ "X001", "X002", "X008" ] ],
+            [ "/pharmacy", [ "X003", "X004" ] ],
+            // No address; paired with no message of the version; paired with a message that has no address either.
+            [ null, [ "X005", "X006", "X007" ] ]
+        ] );
     } );
 } );
 
@@ -87,11 +115,16 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
         assertPublic( response, FIXED );
         const segments = segmentsOf( response.text );
         assert.deepEqual( [ ...segments.keys() ], [ "/doctor", "/pharmacy", "друго" ] );
-        assert.match( segments.get( "/doctor" ), /href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001"/ );
-        assert.match( segments.get( "/pharmacy" ), /href="\/bg\/specs\/e-prescription\/1\.5\.1\/P003"/ );
-        // A response has no address of its own, so it is under "other" (decision 7).
-        assert.match( segments.get( "друго" ), /href="\/bg\/specs\/e-prescription\/1\.5\.1\/P002"/ );
         const content = await seedContent( SEED.ePrescription.spec, SEED.ePrescription.production );
+        const expected = expectedSegments( content.messages, "друго" );
+        for ( const [ segment, group ] of segments ) {
+            assert.deepEqual( codesOf( group ), expected.get( segment ), segment );
+        }
+        // A response is listed with its request, under the endpoint it is returned from; only P099, the error message
+        // that answers any request and pairs with none, is left under "other".
+        assert.deepEqual( codesOf( segments.get( "/doctor" ) ).slice( 0, 2 ), [ "P001", "P002" ] );
+        assert.ok( codesOf( segments.get( "/pharmacy" ) ).includes( "P004" ) );
+        assert.deepEqual( codesOf( segments.get( "друго" ) ), [ "P099" ] );
         assert.equal( rowsOf( response.text ).length, content.messages.length );
         for ( const link of [ "conditions", "dictionary" ] ) {
             assert.match( response.text, new RegExp( `href="/bg/specs/e-prescription/1\\.5\\.1/${ link }"` ) );

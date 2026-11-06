@@ -55,7 +55,10 @@ module.exports.endpointSegment = ( address ) => {
 
 /**
  * A module's messages by endpoint segment, each group in the module's own order and the groups in the order they first
- * appear; the messages with no segment last, as "other", where `segment` is `null`.
+ * appear. A response has no address of its own, and is listed under the segment of the request it answers, through
+ * `pairedWith`: read literally, decision 7 put every response under "other", where no reader would look for it
+ * (controller's ruling, task 5 review). Only a message with neither an address nor a paired one that has one is
+ * "other", last, where `segment` is `null`.
  *
  * @method
  * @param {import( "@health-dev-portal/spec-model/definitions" ).Message[]} messages
@@ -65,7 +68,9 @@ module.exports.endpointSegment = ( address ) => {
 module.exports.bySegment = ( messages ) => {
     const groups = new Map();
     for ( const message of messages ) {
-        const segment = module.exports.endpointSegment( message.address );
+        // One step only: the paired message's own address, never its pair's in turn.
+        const paired = message.pairedWith ? messages.find( ( one ) => one.code === message.pairedWith ) : null;
+        const segment = module.exports.endpointSegment( message.address ) || ( paired ? module.exports.endpointSegment( paired.address ) : null );
         if ( !groups.has( segment ) ) {
             groups.set( segment, [] );
         }
