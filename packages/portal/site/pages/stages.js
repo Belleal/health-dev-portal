@@ -23,23 +23,22 @@
 
 const { html } = require( "@ti-engine/web-content/html" );
 const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
-const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 const { formatDate } = require( "#format" );
 const { label } = require( "#labels" );
 const { spec: specPath } = require( "#paths" );
 const { SPEC_NAMES, specName } = require( "#spec-names" );
 
 /**
- * Whether a spec's testing version is ahead of the one in production, which a page marks in red. A spec with no
- * production version has nothing to be ahead of.
+ * Whether a spec's testing version carries what production does not, which a page marks in red: it differs from the
+ * production one, or there is none in production at all, as a new spec is.
  *
  * @method
  * @param {import( "@health-dev-portal/data/definitions" ).PublishedSpec} published
  * @returns {boolean}
  * @public
  */
-module.exports.isAhead = ( published ) => published.testing !== null && published.production !== null
-    && compareNumbers( published.testing.number, published.production.number ) > 0;
+module.exports.isAhead = ( published ) => published.testing !== null
+    && ( published.production === null || published.testing.number !== published.production.number );
 
 /**
  * The modules and the rules among the published specs, in the home page's order: those `spec-names.js` names first, in

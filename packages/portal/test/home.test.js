@@ -23,6 +23,7 @@
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { SEED, SEEDED, assertPublic, get, rowsOf, startPortal } = require( "./support/server" );
+const { nomenclaturesRow } = require( "#pages/home" );
 const { stageTable } = require( "#pages/stages" );
 
 // The seed has no module with a previous production version (only CL007 does, and a code list is not a table row), so
@@ -34,6 +35,14 @@ describe( "The table of versions by stage", () => {
     it( "shows previous production with the date it stays backward compatible until, in each language", () => {
         assert.match( String( stageTable( { lang: "bg", specs: [ published ], link: false } ) ), />2\.0\.0<br><span class="muted">обратно съвместима до 30\.04\.2027</ );
         assert.match( String( stageTable( { lang: "en", specs: [ published ], link: false } ) ), />2\.0\.0<br><span class="muted">backward compatible until 30 Apr 2027</ );
+    } );
+
+    it( "marks a testing version red when nothing is in production, and counts such a code list as ahead", () => {
+        const fresh = { spec: "e-new", kind: "module", testing: { number: "1.0.0", expiresOn: null }, production: null, previousProduction: null };
+        assert.match( String( stageTable( { lang: "en", specs: [ fresh ], link: false } ) ), /<span class="ahead">1\.0\.0<\/span>/ );
+        const list = ( spec, testing, production ) => ( { spec: spec, kind: "code-list", testing: testing && { number: testing }, production: production && { number: production }, previousProduction: null } );
+        const row = String( nomenclaturesRow( "en", [ list( "CL900", "1.0.0", null ), list( "CL901", "1.5.2", "1.5.1" ), list( "CL902", "1.5.1", "1.5.1" ), list( "CL903", null, "1.5.1" ) ] ) );
+        assert.match( row, />4 lists, 2 with a newer testing version</ );
     } );
 
     it( "links each version to its spec page at that stage when asked, and marks no version ahead without a testing one", () => {

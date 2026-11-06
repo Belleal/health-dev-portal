@@ -37,7 +37,16 @@ const LATEST = 10;
 
 // The code lists are one row, not forty: how many there are and how many have a testing version ahead, linked to their
 // index.
-const nomenclaturesRow = ( lang, published ) => {
+/**
+ * The table's one row for the code lists.
+ *
+ * @method
+ * @param {string} lang
+ * @param {import( "@health-dev-portal/data/definitions" ).PublishedSpec[]} published Every published spec; the code lists are picked out.
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString}
+ * @public
+ */
+module.exports.nomenclaturesRow = ( lang, published ) => {
     const codeLists = published.filter( ( one ) => one.kind === SPEC_KIND.CODE_LIST );
     const ahead = codeLists.filter( isAhead ).length;
     return html`<tr><td><a href="${ lists( lang ) }">${ label( lang, "sectionNomenclatures" ) }</a></td><td colspan="3">${ label( lang, "nomenclaturesSummary", { count: codeLists.length, ahead: ahead } ) }</td></tr>\n`;
@@ -68,7 +77,7 @@ module.exports.homePage = async ( context ) => {
     const due = await upcoming( db );
     const latest = await publications( db, { limit: LATEST } );
     const main = html`<h1>${ label( lang, "versionsByStage" ) }</h1>
-${ stageTable( { lang: lang, specs: modulesAndRules( published ), link: false, extra: nomenclaturesRow( lang, published ) } ) }
+${ stageTable( { lang: lang, specs: modulesAndRules( published ), link: false, extra: module.exports.nomenclaturesRow( lang, published ) } ) }
 ${ aheadLegend( lang ) }`;
     const panel = html`<h2>${ label( lang, "upcomingTitle" ) }</h2>
 ${ due.length === 0 ? html`<p class="muted">${ label( lang, "upcomingNone" ) }</p>` : html`<ul class="releases">
