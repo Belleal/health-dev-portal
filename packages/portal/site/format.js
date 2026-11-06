@@ -16,13 +16,122 @@
  */
 
 /*
- * Values written the way each language reads them (plan 8a, decision 5; design record §7.12): dates and counts.
+ * Values written the way each language reads them (plan 8a, decisions 5 and 7; design record §7.12): dates, counts and
+ * an element's constraints.
  */
 
+const { html } = require( "@ti-engine/web-content/html" );
 const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
-const { otherLanguage } = require( "#labels" );
+const { label, otherLanguage } = require( "#labels" );
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+// The character classes NHIS-Commons 1.13.1 defines (design record §4.10), each with its meaning. `ans` is used in the
+// workbooks and defined nowhere, so it has no meaning here either: one made up would read as the specification's.
+const CHARSETS = Object.freeze( {
+    n: ( lang ) => label( lang, "charsetDigits" ),
+    an: ( lang ) => label( lang, "charsetLatin" ),
+    a: ( lang ) => label( lang, "charsetLetters" )
+} );
+
+// A format as the workbooks write it; the model keeps a key for each (spec-model's Constraint).
+const FORMATS = Object.freeze( { "date": "YYYY-MM-DD", "date-time": "ISO 8601", "yymmdd": "YYMMDD", "boolean": "true/false", "base64": "base64" } );
+
+const bound = ( value ) => typeof value === "number" && Number.isFinite( value );
+const formatName = ( format ) => Object.hasOwn( FORMATS, format ) ? FORMATS[ format ] : format;
+const characters = ( lang, count ) => count === 1 ? label( lang, "lengthOne" ) : label( lang, "lengthCount", { count: count } );
+const digits = ( lang, count ) => count === 1 ? label( lang, "digitsOne" ) : label( lang, "digitsCount", { count: count } );
+
+// A bound in words: "до 36 знака", "от 2 до 5 цифри", "точно 36 знака".
+const spelled = ( lang, min, max, amount ) => {
+    if ( bound( min ) && bound( max ) ) {
+        return min === max ? label( lang, "boundExactly", { amount: amount( lang, max ) } ) : label( lang, "boundBetween", { min: min, amount: amount( lang, max ) } );
+    }
+    return bound( max ) ? label( lang, "boundUpTo", { amount: amount( lang, max ) } ) : label( lang, "boundAtLeast", { amount: amount( lang, min ) } );
+};
+
+/**
+ * What a character class means, as NHIS-Commons defines it.
+ *
+ * @method
+ * @param {string|null|undefined} charset e.g. `an`.
+ * @param {string} lang
+ * @returns {string|null} `null` for a class with no published definition, such as `ans`.
+ * @public
+ */
+module.exports.charsetMeaning = ( charset, lang ) => typeof charset === "string" && Object.hasOwn( CHARSETS, charset ) ? CHARSETS[ charset ]( lang ) : null;
+
+/**
+ * An element's constraints as the tree table shows them (decision 7): a string's length (`≤ 36`, `≥ 2`, `2–36`, `= 36`),
+ * its character class with its meaning in a `title`, and its format (`YYMMDD`, `base64`). On a number, `max=` counts
+ * digits, as HEL-26 settled (Boris, 2026-11-06), so it reads "до 2 цифри": the model still keeps it as `maxValue`, which
+ * HEL-34 renames, and a reader shown "≤ 2" would take it for a value.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} element
+ * @param {string} lang
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString} Escaped; empty for an element with no constraint.
+ * @public
+ */
+module.exports.describeConstraint = ( element, lang ) => {
+    const constraint = element && element.constraint;
+    if ( !constraint ) {
+        return html``;
+    }
+    const parts = [];
+    const { minLength, maxLength, minValue, maxValue } = constraint;
+    if ( bound( minLength ) && bound( maxLength ) ) {
+        parts.push( minLength === maxLength ? `= ${ maxLength }` : `${ minLength }–${ maxLength }` );
+    } else if ( bound( maxLength ) || bound( minLength ) ) {
+        parts.push( bound( maxLength ) ? `≤ ${ maxLength }` : `≥ ${ minLength }` );
+    }
+    if ( bound( minValue ) && bound( maxValue ) ) {
+        parts.push( minValue === maxValue ? digits( lang, maxValue ) : `${ minValue }–${ digits( lang, maxValue ) }` );
+    } else if ( bound( maxValue ) || bound( minValue ) ) {
+        parts.push( spelled( lang, minValue, maxValue, digits ) );
+    }
+    if ( constraint.charset ) {
+        const meaning = module.exports.charsetMeaning( constraint.charset, lang );
+        parts.push( meaning === null ? html`${ constraint.charset }` : html`<abbr title="${ meaning }">${ constraint.charset }</abbr>` );
+    }
+    if ( constraint.format ) {
+        parts.push( formatName( constraint.format ) );
+    }
+    return html`${ parts.map( ( part, index ) => index === 0 ? html`${ part }` : html`, ${ part }` ) }`;
+};
+
+/**
+ * An element's constraints in words, for the detail panel (decision 7): "до 36 знака", "знаци an: латински букви…",
+ * "формат YYMMDD".
+ *
+ * @method
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} element
+ * @param {string} lang
+ * @returns {string[]} Plain text, one constraint each; none for an element with no constraint.
+ * @public
+ */
+module.exports.spellConstraint = ( element, lang ) => {
+    const constraint = element && element.constraint;
+    if ( !constraint ) {
+        return [];
+    }
+    const words = [];
+    if ( bound( constraint.minLength ) || bound( constraint.maxLength ) ) {
+        words.push( spelled( lang, constraint.minLength, constraint.maxLength, characters ) );
+    }
+    if ( bound( constraint.minValue ) || bound( constraint.maxValue ) ) {
+        words.push( spelled( lang, constraint.minValue, constraint.maxValue, digits ) );
+    }
+    if ( constraint.charset ) {
+        const meaning = module.exports.charsetMeaning( constraint.charset, lang );
+        words.push( meaning === null ? label( lang, "characterClassUndefined", { charset: constraint.charset } )
+            : label( lang, "characterClass", { charset: constraint.charset, meaning: meaning } ) );
+    }
+    if ( constraint.format ) {
+        words.push( label( lang, "formatIs", { format: formatName( constraint.format ) } ) );
+    }
+    return words;
+};
 
 // The calendar date is formatted at UTC midnight, so the server's own zone can never move it to the day before.
 // Measured with Node 26 (ICU 78.3): "11 Dec 2026", "30 Apr 2027", and "5 Sept 2026", which is en-GB's own abbreviation.

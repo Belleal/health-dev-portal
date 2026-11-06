@@ -45,4 +45,24 @@
  * @property {string} [to] The comparison's newer number.
  */
 
+/**
+ * @typedef {Object} ShownVersion The spec version an address names, as its page shows it (`pages/version.findShown`).
+ * @property {import( "@health-dev-portal/data/definitions" ).PublishedVersion & {content: Object}} version Public, not
+ *     retired, with its content.
+ * @property {boolean} fixed Whether the address names it by number: its fixed address (decision 3).
+ * @property {string} cache Its `Cache-Control`: a day at a fixed address, a minute at a stage's (decision 4).
+ */
+
+/**
+ * @typedef {Object} ElementMarkers How a message differs from production's, element by element (decision 7; design
+ *     record §8.3), as `pages/message-tree.elementMarkers` gives it.
+ * @property {Map<Object, string>} marks Each current element that differs: `new` or `changed`.
+ * @property {Map<string, Array<{key: string, node: Object}>>} removed The elements production has and this version does
+ *     not, by the item key of their former parent, in production's document order.
+ * @property {Map<Object, string>} keys Each current element's item key, as `itemKeys` names it.
+ * @property {string} root The message's own key: the former parent of a removed top-level element.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).Difference[]} differences The message's differences
+ *     from production's, in `compareContents`' order.
+ */
+
 module.exports = {};

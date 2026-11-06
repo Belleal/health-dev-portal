@@ -602,6 +602,78 @@ button.copy {
     padding-left: 1rem;
 }
 
+/* A spec version's pages: the stage switcher's links in a row, as the band's own items. */
+.band .stages,
+.band ul {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.band p {
+    margin: 0;
+}
+
+/* A tag, a path or an endpoint keeps its case in a heading: XML is case-sensitive, and an upper-cased /doctor is no
+   address anyone can call. */
+h1 code,
+h2 code,
+h3 code,
+.segment h2,
+.sidebar h2 {
+    text-transform: none;
+}
+
+.sidebar .title {
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+}
+
+.sidebar h2 {
+    margin: 0.6rem 0 0.1rem;
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+
+.address {
+    margin: 0.25rem 0 0;
+}
+
+/* A rule's definition keeps the workbook's lines. */
+.lines {
+    white-space: pre-line;
+}
+
+table.rows pre {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* The detail panel: the element's facts as a list of terms, the long identities wrapped rather than overflowing. */
+.panel h2 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    overflow-wrap: anywhere;
+}
+
+.facts {
+    margin: 0.75rem 0;
+}
+
+.facts dt {
+    color: var(--muted);
+    font-size: 0.85em;
+}
+
+.facts dd {
+    margin: 0 0 0.45rem;
+    overflow-wrap: anywhere;
+}
+
 .foot {
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--line);

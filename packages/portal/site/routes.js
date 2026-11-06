@@ -25,7 +25,8 @@ const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
 const { home, parseAddress } = require( "#paths" );
 const { CACHE, failed, notFound, redirect } = require( "#responses" );
 const { homePage } = require( "#pages/home" );
-const { specsIndexPage } = require( "#pages/specs" );
+const { messagePage } = require( "#pages/message" );
+const { conditionsPage, dictionaryPage, specPage, specsIndexPage } = require( "#pages/specs" );
 
 // Each kind of page `parseAddress` gives, and the function that answers it,
 // `( context: PageContext, parts: Address ) => Promise<void>` (#definitions), which sends its own response through
@@ -33,7 +34,11 @@ const { specsIndexPage } = require( "#pages/specs" );
 // else meanwhile.
 const PAGES = Object.freeze( {
     home: homePage,
-    specs: specsIndexPage
+    specs: specsIndexPage,
+    spec: specPage,
+    conditions: conditionsPage,
+    dictionary: dictionaryPage,
+    message: messagePage
 } );
 
 /**
