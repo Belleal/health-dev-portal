@@ -17,13 +17,13 @@
 
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
-const { guardStatements, staleStatement } = require( "#schema" );
+const { guardStatements, reviewStatement, staleStatement } = require( "#schema" );
 const { decodeContent, encodeContent } = require( "#items" );
 const { diffRows, nextAfter } = require( "#item-diff" );
+const { RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 
 // Another write in between makes a replacement stale; it is computed again, this many times at most.
 const ATTEMPTS = 3;
-const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 
 /**
  * A write to a frozen version (design record §7.7): its content and what it resolved against never change again.
@@ -42,6 +42,25 @@ class FrozenVersionError extends Error {
     }
 }
 module.exports.FrozenVersionError = FrozenVersionError;
+
+/**
+ * A change to a version under review (design record §7.4): the approver reviews what was submitted, so it is read-only
+ * until it is returned. It lives here, beside `FrozenVersionError`, since the changelog and editing both raise it.
+ *
+ * @public
+ */
+class UnderReviewError extends Error {
+
+    /**
+     * @param {string} version The version's ID.
+     */
+    constructor( version ) {
+        super( `Version ${ version } is under review: it is read-only until the approver returns it (design record §7.4).` );
+        this.name = "UnderReviewError";
+        this.version = version;
+    }
+}
+module.exports.UnderReviewError = UnderReviewError;
 
 const ITEM_COLUMNS = [ "version_id", "item_no", "kind", "identity", "parent_no", "position_no", "data", "hash" ];
 const ANOMALY_COLUMNS = [ "version_id", "anomaly_no", "item_no", "type", "level", "message", "sheet", "row_number", "column_number", "details" ];
@@ -188,8 +207,10 @@ module.exports.ensureSpec = async ( db, id, kind ) => {
  * @param {import( "#definitions" ).Database} db
  * @param {{spec: string, kind: string, number: string|null, stage: string, content?: import( "#definitions" ).VersionContent,
  *     anomalies?: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[], release?: string, base?: string,
- *     stages?: Array<{stage: string, enteredOn: string|null}>, frozen?: boolean}} input The current stage is recorded even
- *     when `stages` leaves it out.
+ *     stages?: Array<{stage: string, enteredOn: string|null}>, frozen?: boolean, replaces?: string, approved?: boolean,
+ *     also?: function( string ): import( "#definitions" ).Statement[]}} input The current stage is recorded even when
+ *     `stages` leaves it out. A fix names the testing version it `replaces` and is stored `approved`, its content its
+ *     approved copy (plan 6b); `also` adds statements that name the new version to the same batch.
  * @returns {Promise<string>} The new version's ID.
  * @public
  */
@@ -201,12 +222,14 @@ module.exports.storeVersion = async ( db, input ) => {
     }
     const { hash, next, statements } = contentStatements( id, input.kind, input.content || null, input.anomalies || [] );
     await db.batch( [
-        { sql: `INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, next_item_no, created_at )
-            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-        params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), hash, next,
-            new Date().toISOString() ] },
+        { sql: `INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, replaces_id, content_hash, next_item_no, created_at )
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
+        params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), orNull( input.replaces ),
+            hash, next, new Date().toISOString() ] },
         ...insertStatements( "version_stages", STAGE_COLUMNS, stages.map( ( entry ) => [ id, entry.stage, orNull( entry.enteredOn ) ] ) ),
-        ...statements
+        ...statements,
+        ...( input.approved ? module.exports.approvedStatements( id ) : [] ),
+        ...( input.also ? input.also( id ) : [] )
     ] );
     return id;
 };
@@ -224,6 +247,60 @@ module.exports.loadItems = async ( db, versionId ) => db.all(
     "SELECT item_no, kind, identity, parent_no, position_no, data, hash, revision FROM items WHERE version_id = ? ORDER BY item_no", [ versionId ] );
 
 /**
+ * The statement that records who changed a version's content and when (design record §10.1), in the change's own
+ * batch, numbered after the version's last.
+ *
+ * @method
+ * @param {string} versionId
+ * @param {{actor: string, now: Date}} author
+ * @param {Array|string} edits The edits as sent, or `"workbook"` for the workbook route.
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.editLogStatement = ( versionId, author, edits ) => ( {
+    sql: "INSERT INTO edit_log ( id, version_id, edit_no, actor, at, edits ) SELECT ?, ?, COALESCE( MAX( edit_no ), 0 ) + 1, ?, ?, ? FROM edit_log WHERE version_id = ?",
+    params: [ crypto.randomUUID(), versionId, author.actor, author.now.toISOString(), JSON.stringify( edits ), versionId ]
+} );
+
+const APPROVED_COLUMNS = "version_id, item_no, kind, identity, parent_no, position_no, data, hash";
+
+/**
+ * The statements that make a version's current content its approved content (plan 6b, decision 4): its items copied,
+ * in the statement itself, and its hash recorded. An approval writes them in its own batch, so what is approved is what
+ * the batch's guards checked.
+ *
+ * @method
+ * @param {string} versionId
+ * @returns {import( "#definitions" ).Statement[]}
+ * @public
+ */
+module.exports.approvedStatements = ( versionId ) => [
+    { sql: "DELETE FROM approved_items WHERE version_id = ?", params: [ versionId ] },
+    { sql: `INSERT INTO approved_items ( ${ APPROVED_COLUMNS } ) SELECT ${ APPROVED_COLUMNS } FROM items WHERE version_id = ?`, params: [ versionId ] },
+    { sql: "UPDATE versions SET approved_hash = content_hash WHERE id = ?", params: [ versionId ] }
+];
+
+/**
+ * The approved content of a version in implementation: what the backend team builds and other specs read, while its
+ * items carry the changes still pending (design record §7.4).
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @returns {Promise<import( "#definitions" ).VersionContent|null>} `null` for a version with no approved copy.
+ * @public
+ */
+module.exports.loadApprovedContent = async ( db, versionId ) => {
+    const row = await db.get( "SELECT v.spec_id, v.number, v.approved_hash, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
+    if ( !row || row.approved_hash === null ) {
+        return null;
+    }
+    const items = await db.all( `SELECT item_no, kind, identity, parent_no, position_no, data, hash FROM approved_items WHERE version_id = ? ORDER BY item_no`,
+        [ versionId ] );
+    return decodeContent( row.kind, row.spec_id, row.number, items );
+};
+
+/**
  * Replaces an unfrozen version's content, anomalies and hash, in one batch behind the lock, the frozen-version guard and
  * the stale check. The content is matched to the stored rows by identity (`diffRows`): only what differs changes, every
  * other item keeps its number and revision, and a new item takes a number never used in the version. Wholesale, every
@@ -235,35 +312,47 @@ module.exports.loadItems = async ( db, versionId ) => db.all(
  * @param {string} versionId
  * @param {import( "#definitions" ).VersionContent|null} content `null` keeps no content at all.
  * @param {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} anomalies
+ * @param {{actor: string, now: Date}} [author] The person replacing it — the workbook route — whose write, like an edit,
+ *     is refused under review and recorded (design record §7.4, §10.1); none for the portal's own writes.
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the version is frozen; nothing is written.
+ * @throws {UnderReviewError} With an author, when the version is under review; nothing is written.
  * @throws {RangeError} When there is no such version.
  * @throws {Error} When other writes changed the version under every one of three attempts.
  * @public
  */
-module.exports.storeContent = async ( db, versionId, content, anomalies ) => {
+module.exports.storeContent = async ( db, versionId, content, anomalies, author ) => {
     for ( let attempt = 1; attempt <= ATTEMPTS; attempt += 1 ) {
         // Read before the rows, and checked again in the batch: a difference computed from rows read before another write
         // undid that write, or left an item under a parent it removed, and the version no longer loaded (final review, C2).
-        const row = await db.get( "SELECT s.kind, v.content_hash, v.next_item_no FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
+        const row = await db.get( `SELECT s.kind, v.content_hash, v.next_item_no, r.status AS release_status FROM versions v JOIN specs s ON s.id = v.spec_id
+            LEFT JOIN releases r ON r.id = v.release_id WHERE v.id = ?`, [ versionId ] );
         if ( !row ) {
             throw new RangeError( `There is no version ${ versionId }.` );
+        }
+        if ( author && row.release_status === RELEASE_STATUS.REVIEW ) {
+            throw new UnderReviewError( versionId );
         }
         const stored = await module.exports.loadItems( db, versionId );
         const diff = content ? diffRows( row.kind, stored, content, row.next_item_no ) : { updates: [], inserts: [], deletes: stored, moves: [] };
         try {
             await db.batch( [
                 ...guardStatements( versionId ),
+                ...( author ? [ reviewStatement( versionId ) ] : [] ),
                 staleStatement( versionId, row.content_hash, row.next_item_no ),
                 ...module.exports.rowStatements( versionId, diff ),
                 ...module.exports.anomalyReplacement( versionId, module.exports.rowsAfter( stored, diff ), anomalies ),
                 { sql: "UPDATE versions SET content_hash = ?, next_item_no = ? WHERE id = ?",
-                    params: [ content ? encodeContent( row.kind, content ).hash : null, nextAfter( row.next_item_no, diff ), versionId ] }
+                    params: [ content ? encodeContent( row.kind, content ).hash : null, nextAfter( row.next_item_no, diff ), versionId ] },
+                ...( author ? [ module.exports.editLogStatement( versionId, author, "workbook" ) ] : [] )
             ] );
             return;
         } catch ( error ) {
             if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
                 throw new FrozenVersionError( versionId );
+            }
+            if ( error instanceof ConstraintError && error.constraint === "review_guard" ) {
+                throw new UnderReviewError( versionId );
             }
             if ( !( error instanceof ConstraintError && error.constraint === "stale_guard" ) ) {
                 throw error;

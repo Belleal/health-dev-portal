@@ -23,8 +23,11 @@ const PAGE = 1000;
 // Each table's primary key, by which the source is read page by page. The order only has to hold within the source.
 const KEYS = Object.freeze( {
     specs: "id", releases: "id", versions: "id", version_stages: "version_id, stage", items: "version_id, item_no", anomalies: "version_id, anomaly_no",
-    changelog_entries: "id", resolutions: "version_id, spec_id", conflicts: "id", files: "hash", settings: "key"
+    changelog_entries: "id", resolutions: "version_id, spec_id", conflicts: "id", files: "hash", settings: "key", approved_items: "version_id, item_no",
+    rounds: "id", round_versions: "round_id, version_id", comments: "id", release_events: "id", edit_log: "id"
 } );
+
+const SELF = Object.freeze( [ "base_id", "replaces_id" ] );
 
 const sha256 = ( bytes ) => crypto.createHash( "sha256" ).update( bytes ).digest( "hex" );
 
@@ -94,14 +97,17 @@ module.exports.copyDatabase = async ( source, target ) => {
     }
     const counts = {};
     const digests = {};
-    const bases = [];
+    // A version names other versions — its base, and for a fix the version it replaces — which may come later in ID order,
+    // so both are set once every version is in. A fix copied before what it replaced failed on the foreign key (final
+    // review of plan 6b).
+    const later = [];
     for ( const table of TABLES ) {
         counts[ table ] = 0;
         digests[ table ] = await reading( source, table, async ( rows ) => {
             const columns = Object.keys( rows[ 0 ] );
             const values = rows.map( ( row ) => columns.map( ( column ) => {
-                if ( table === "versions" && column === "base_id" && row.base_id !== null ) {
-                    bases.push( [ row.base_id, row.id ] );
+                if ( table === "versions" && SELF.includes( column ) && row[ column ] !== null ) {
+                    later.push( { sql: `UPDATE versions SET ${ column } = ? WHERE id = ?`, params: [ row[ column ], row.id ] } );
                     return null;
                 }
                 return row[ column ];
@@ -110,8 +116,8 @@ module.exports.copyDatabase = async ( source, target ) => {
             counts[ table ] += rows.length;
         } );
     }
-    if ( bases.length ) {
-        await target.batch( bases.map( ( params ) => ( { sql: "UPDATE versions SET base_id = ? WHERE id = ?", params: params } ) ) );
+    if ( later.length ) {
+        await target.batch( later );
     }
     // A row deleted or added while the source was paged shifted the pages after it, and the copy finished without it,
     // saying nothing (CodeRabbit on #14).

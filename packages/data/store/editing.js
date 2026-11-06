@@ -17,14 +17,16 @@
 
 const crypto = require( "node:crypto" );
 const { checkContent } = require( "@health-dev-portal/importer/check" );
-const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { RELEASE_STATUS, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { refreshChangelog } = require( "#changelog" );
 const { ConstraintError } = require( "#database" );
 const { decodeContent, decodeRows, encodeContent } = require( "#items" );
 const { diffRows, nextAfter, sameData } = require( "#item-diff" );
-const { editStatement, guardStatements, staleStatement } = require( "#schema" );
+const { editStatement, guardStatements, reviewStatement, staleStatement } = require( "#schema" );
 const { loadTargets } = require( "#targets" );
-const { FrozenVersionError, anomalyReplacement, loadItems, rowStatements, rowsAfter } = require( "#versions" );
+const { FrozenVersionError, UnderReviewError, anomalyReplacement, editLogStatement, loadItems, rowStatements, rowsAfter } = require( "#versions" );
+
+module.exports.UnderReviewError = UnderReviewError;
 
 // Another edit of other items in between makes the batch stale; it is computed again, this many times at most.
 const ATTEMPTS = 3;
@@ -217,17 +219,26 @@ const changes = ( stored, rows, touched ) => {
     return result;
 };
 
-const edit = async ( db, store, versionId, edits ) => {
+// Where an editor works: a development version, and a version in implementation, whose edits wait apart from its approved
+// content until a round approves them (design record §7.4). Testing on is frozen (§7.7).
+const EDITED = Object.freeze( [ STAGE.DEVELOPMENT, STAGE.IMPLEMENTATION ] );
+
+// `author` is the person editing, or `null` for the portal's own recheck — which still runs on a version under review,
+// since approved changes reach it there (§7.4).
+const edit = async ( db, store, versionId, edits, author ) => {
     for ( let attempt = 1; attempt <= ATTEMPTS; attempt += 1 ) {
         // The hash is read before the rows: an edit landing between them makes this batch stale, and never lets it write
         // over rows newer than the hash it checks.
-        const version = await db.get( `SELECT v.spec_id, v.number, v.stage, v.content_hash, v.next_item_no, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id
-            WHERE v.id = ?`, [ versionId ] );
+        const version = await db.get( `SELECT v.spec_id, v.number, v.stage, v.content_hash, v.next_item_no, s.kind, r.status AS release_status FROM versions v
+            JOIN specs s ON s.id = v.spec_id LEFT JOIN releases r ON r.id = v.release_id WHERE v.id = ?`, [ versionId ] );
         if ( !version ) {
             throw new RangeError( `There is no version ${ versionId }.` );
         }
-        if ( version.stage !== STAGE.DEVELOPMENT ) {
-            throw new TypeError( `Version ${ versionId } is in ${ version.stage }: only a development version is edited (plan 6a, decision 1).` );
+        if ( !EDITED.includes( version.stage ) ) {
+            throw new TypeError( `Version ${ versionId } is in ${ version.stage }: only a version in development or implementation is edited (design record §7.4).` );
+        }
+        if ( author && version.release_status === RELEASE_STATUS.REVIEW ) {
+            throw new UnderReviewError( versionId );
         }
         if ( version.content_hash === null ) {
             throw new TypeError( `Version ${ versionId } has no content to edit.` );
@@ -246,15 +257,21 @@ const edit = async ( db, store, versionId, edits ) => {
         try {
             await db.batch( [
                 ...guardStatements( versionId ),
+                // Checked again under the lock a submission takes too: an edit computed before it and sent after it is refused.
+                ...( author ? [ reviewStatement( versionId ) ] : [] ),
                 staleStatement( versionId, version.content_hash, version.next_item_no ),
                 ...edits.filter( ( one ) => one.op !== "insert" ).map( ( one ) => editStatement( versionId, one.item, one.revision ) ),
                 ...rowStatements( versionId, change ),
                 ...anomalyReplacement( versionId, rows, checked.anomalies ),
-                { sql: "UPDATE versions SET content_hash = ?, next_item_no = ? WHERE id = ?", params: [ hash, nextAfter( working.next, folded ), versionId ] }
+                { sql: "UPDATE versions SET content_hash = ?, next_item_no = ? WHERE id = ?", params: [ hash, nextAfter( working.next, folded ), versionId ] },
+                ...( author ? [ editLogStatement( versionId, author, edits ) ] : [] )
             ] );
         } catch ( error ) {
             if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
                 throw new FrozenVersionError( versionId );
+            }
+            if ( error instanceof ConstraintError && error.constraint === "review_guard" ) {
+                throw new UnderReviewError( versionId );
             }
             // A stale item is found and named by the next attempt's own check.
             if ( error instanceof ConstraintError && ( error.constraint === "stale_guard" || error.constraint === "edit_guard" ) ) {
@@ -273,25 +290,46 @@ const edit = async ( db, store, versionId, edits ) => {
     throw new Error( `Version ${ versionId } changed while it was edited, ${ ATTEMPTS } times over.` );
 };
 
+
 /**
- * Applies a batch of edits to a development version, all or nothing (plan 6a, decision 2), and checks the result as a
- * workbook is checked (design record §5.4). The version's anomalies become the check's, so those that described a
- * workbook's layout go at the first edit (decision 6). One batch writes the changed rows, the anomalies and the content
- * hash behind the lock, the frozen guard, the stale guard and a revision guard per edited item.
+ * Who makes a change, and when: every change a person makes names both (design record §10.1).
+ *
+ * @method
+ * @param {{actor?: string, now?: Date}} [options]
+ * @returns {{actor: string, now: Date}}
+ * @throws {TypeError} When either is missing.
+ * @public
+ */
+module.exports.authorOf = ( options ) => {
+    if ( !options || typeof options.actor !== "string" || !options.actor || !( options.now instanceof Date ) || Number.isNaN( options.now.getTime() ) ) {
+        throw new TypeError( "A change names who makes it and when: { actor, now } (design record §10.1)." );
+    }
+    return { actor: options.actor, now: options.now };
+};
+
+/**
+ * Applies a batch of edits to a version in development or implementation, all or nothing (plan 6a, decision 2), and
+ * checks the result as a workbook is checked (design record §5.4). In implementation the edits are pending: the approved
+ * content stays as it was until a round approves them (§7.4). The version's anomalies become the check's, so those that
+ * described a workbook's layout go at the first edit (decision 6). One batch writes the changed rows, the anomalies, the
+ * content hash and who edited, behind the lock, the frozen guard, the review guard, the stale guard and a revision
+ * guard per edited item.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
  * @param {import( "#definitions" ).FileStore} store Where the blueprint catalogue is.
  * @param {string} versionId
  * @param {import( "#definitions" ).Edit[]} edits Applied in order.
+ * @param {{actor: string, now: Date}} options Who edits, and when.
  * @returns {Promise<import( "#definitions" ).EditResult>}
  * @throws {EditConflictError} When an edit names a revision its item is no longer at; nothing is written.
- * @throws {TypeError} For a version outside development, or an edit that is none.
+ * @throws {UnderReviewError} When the version's release is under review; nothing is written.
+ * @throws {TypeError} For no author, a version in another stage, or an edit that is none.
  * @throws {RangeError} For no such version, a position outside the siblings, or an item an earlier edit removed.
  * @throws {Error} When other edits changed the version under every one of three attempts.
  * @public
  */
-module.exports.applyEdits = async ( db, store, versionId, edits ) => edit( db, store, versionId, edits );
+module.exports.applyEdits = async ( db, store, versionId, edits, options ) => edit( db, store, versionId, edits, module.exports.authorOf( options ) );
 
 /**
  * Checks a development version as it stands and writes what the check gives: its derived parts and its anomalies. The
@@ -302,7 +340,7 @@ module.exports.applyEdits = async ( db, store, versionId, edits ) => edit( db, s
  * @param {import( "#definitions" ).FileStore} store
  * @param {string} versionId
  * @returns {Promise<import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]>}
- * @throws {TypeError} For a version outside development.
+ * @throws {TypeError} For a version in another stage than development or implementation.
  * @public
  */
-module.exports.recheckVersion = async ( db, store, versionId ) => ( await edit( db, store, versionId, [] ) ).anomalies;
+module.exports.recheckVersion = async ( db, store, versionId ) => ( await edit( db, store, versionId, [], null ) ).anomalies;

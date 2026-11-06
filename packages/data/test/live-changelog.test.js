@@ -29,6 +29,7 @@ const { memoryStore } = require( "#files" );
 const { addChangelogEntry, dropChangelogEntry, editChangelogEntry, loadChangelog, refreshChangelog, restoreChangelogEntry, storeHistory } = require( "#changelog" );
 const { applyEdits } = require( "#editing" );
 const { eachDatabase, interleaved } = require( "./support/databases" );
+const { BY_EDITOR } = require( "./support/lifecycle" );
 const { moduleVersion } = require( "./support/models" );
 
 const LRN = "element:P001:contents/lrn#1|cardinality";
@@ -66,33 +67,33 @@ eachDatabase( "Live changelog", ( db ) => {
     const entryOf = async ( key ) => ( await entriesOf() ).find( ( entry ) => entry.difference_key === key );
 
     it( "writes a detected entry for each difference as the editor edits", async () => {
-        await applyEdits( db(), store, development, [ await raiseMinimumOfLrn() ] );
+        await applyEdits( db(), store, development, [ await raiseMinimumOfLrn() ], BY_EDITOR );
         const entries = ( await entriesOf() ).filter( ( entry ) => entry.origin !== "imported" );
         assert.deepEqual( entries.map( ( e ) => [ e.difference_key, e.category, e.origin ] ), [ [ LRN, "breaking", "detected" ] ] );
     } );
 
     it( "keeps the editor's explanation and category when the same difference changes again", async () => {
         await editChangelogEntry( db(), ( await entryOf( LRN ) ).id, { category: "non-breaking", textBg: "Задължително поле" } );
-        await applyEdits( db(), store, development, [ await raiseMaximumOfLrnToo() ] );
+        await applyEdits( db(), store, development, [ await raiseMaximumOfLrnToo() ], BY_EDITOR );
         const entry = await entryOf( LRN );
         assert.deepEqual( [ entry.origin, entry.category, entry.text_bg, entry.after_value !== null ], [ "edited", "non-breaking", "Задължително поле", true ] );
         assert.deepEqual( JSON.parse( entry.after_value ), { min: 2, max: 3 } );
     } );
 
     it( "removes a detected entry whose difference is gone, and flags an edited one", async () => {
-        await applyEdits( db(), store, development, [ await restoreLrnCardinality() ] );
+        await applyEdits( db(), store, development, [ await restoreLrnCardinality() ], BY_EDITOR );
         const entry = await entryOf( LRN );
         assert.deepEqual( [ entry.origin, entry.flagged ], [ "edited", true ] );
-        await applyEdits( db(), store, development, [ await changeDoseName() ] );
-        await applyEdits( db(), store, development, [ await restoreDoseName() ] );
+        await applyEdits( db(), store, development, [ await changeDoseName() ], BY_EDITOR );
+        await applyEdits( db(), store, development, [ await restoreDoseName() ], BY_EDITOR );
         assert.equal( await entryOf( DOSE ), undefined );
     } );
 
     it( "keeps a dropped entry, marked dropped, and restores it", async () => {
-        await applyEdits( db(), store, development, [ await changeDoseName() ] );
+        await applyEdits( db(), store, development, [ await changeDoseName() ], BY_EDITOR );
         const dropped = await entryOf( DOSE );
         await dropChangelogEntry( db(), dropped.id );
-        await applyEdits( db(), store, development, [ await unrelatedEdit() ] );
+        await applyEdits( db(), store, development, [ await unrelatedEdit() ], BY_EDITOR );
         assert.deepEqual( [ ( await entryOf( DOSE ) ).dropped, ( await entryOf( DOSE ) ).origin ], [ true, "edited" ] );
         await restoreChangelogEntry( db(), dropped.id );
         assert.equal( ( await entryOf( DOSE ) ).dropped, false );
@@ -102,13 +103,13 @@ eachDatabase( "Live changelog", ( db ) => {
         // A development workbook's own notes, attached by plan 5, are not differences and are never reconciled away.
         const imported = ( await entriesOf() ).filter( ( e ) => e.origin === "imported" );
         assert.equal( imported.length, 1 );
-        await applyEdits( db(), store, development, [ await unrelatedEdit() ] );
+        await applyEdits( db(), store, development, [ await unrelatedEdit() ], BY_EDITOR );
         assert.deepEqual( ( await entriesOf() ).filter( ( e ) => e.origin === "imported" ), imported );
     } );
 
     it( "adds an editor's own entry last, which no edit takes away", async () => {
         const id = await addChangelogEntry( db(), development, { category: "breaking", textBg: "Сменен адрес", textEn: null, target: "message", identity: "P001" } );
-        await applyEdits( db(), store, development, [ await unrelatedEdit() ] );
+        await applyEdits( db(), store, development, [ await unrelatedEdit() ], BY_EDITOR );
         const entries = await entriesOf();
         const added = entries.find( ( entry ) => entry.id === id );
         assert.deepEqual( [ added.origin, added.category, added.target_identity, added.flagged ], [ "editor", "breaking", "P001", false ] );

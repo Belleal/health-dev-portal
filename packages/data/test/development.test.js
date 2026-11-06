@@ -29,6 +29,7 @@ const { memoryStore } = require( "#files" );
 const { loadChangelog } = require( "#changelog" );
 const { loadIntoDevelopment, startDevelopment } = require( "#development" );
 const { eachDatabase } = require( "./support/databases" );
+const { ACTOR, BY_EDITOR, putUnderReview } = require( "./support/lifecycle" );
 const { codeListVersion, moduleVersion } = require( "./support/models" );
 
 // Stored as the importer stores it: the derived parts as checkContent makes them, against nothing, since none of the lists
@@ -74,18 +75,29 @@ eachDatabase( "Development", ( db ) => {
         const before = await loadItems( db(), development );
         const workbook = { ...( await loadVersion( db(), development ) ).content, changeNotes: [] };
         workbook.messages[ 0 ].elements[ 0 ].children[ 0 ].description = { bg: "от работната книга", en: null };
-        await loadIntoDevelopment( db(), store, "e-prescription", workbook );
+        await loadIntoDevelopment( db(), store, "e-prescription", workbook, BY_EDITOR );
         const raised = ( await loadItems( db(), development ) ).filter( ( row ) => row.revision > ( before.find( ( r ) => r.item_no === row.item_no ) || { revision: 0 } ).revision );
         assert.deepEqual( raised.map( ( row ) => row.identity ), [ "contents/lrn" ] );
         assert.ok( ( await loadChangelog( db(), "e-prescription" ) )[ 0 ].entries.some( ( e ) => e.difference_key === "element:P001:contents/lrn#1|description" ) );
     } );
 
+    // An upload is a change like an edit (design record §7.4, §10.1): recorded with who and when, and refused under review.
+    it( "records who loaded a workbook, and refuses one into a version under review", async () => {
+        const logged = await db().all( "SELECT actor, edits FROM edit_log WHERE version_id = ?", [ development ] );
+        assert.deepEqual( logged.map( ( row ) => [ row.actor, JSON.parse( row.edits ) ] ), [ [ ACTOR, "workbook" ] ] );
+        await putUnderReview( db, development );
+        const workbook = { ...( await loadVersion( db(), development ) ).content, changeNotes: [] };
+        workbook.messages[ 0 ].elements[ 0 ].children[ 0 ].description = { bg: "по време на прегледа", en: null };
+        await assert.rejects( loadIntoDevelopment( db(), store, "e-prescription", workbook, BY_EDITOR ), { name: "UnderReviewError" } );
+        await db().run( "UPDATE releases SET status = 'returned' WHERE id = ( SELECT release_id FROM versions WHERE id = ? )", [ development ] );
+    } );
+
     it( "starts a development version for a workbook when there is none, and for a spec that has nothing yet", async () => {
-        await loadIntoDevelopment( db(), store, "CL011", { ...codeListVersion( "CL011", [ "A00.1", "A00.2" ], null ), changeNotes: [] } );
+        await loadIntoDevelopment( db(), store, "CL011", { ...codeListVersion( "CL011", [ "A00.1", "A00.2" ], null ), changeNotes: [] }, BY_EDITOR );
         const list = await findVersion( db(), "CL011", { stage: "development" } );
         assert.equal( list.base, ( await findVersion( db(), "CL011", { stage: "production" } ) ).id );
         assert.deepEqual( ( await loadChangelog( db(), "CL011" ) )[ 0 ].entries.map( ( e ) => e.difference_key ), [ "entry:A00.2#1|added" ] );
-        const { anomalies } = await loadIntoDevelopment( db(), store, "CL777", { ...codeListVersion( "CL777", [ "1", "1" ], null ), changeNotes: [] } );
+        const { anomalies } = await loadIntoDevelopment( db(), store, "CL777", { ...codeListVersion( "CL777", [ "1", "1" ], null ), changeNotes: [] }, BY_EDITOR );
         assert.equal( ( await findVersion( db(), "CL777", { stage: "development" } ) ).base, null );
         assert.ok( anomalies.some( ( a ) => a.type === "duplicate-key" ) );
     } );

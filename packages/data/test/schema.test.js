@@ -21,7 +21,7 @@
 
 const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { GUARD_SQL, TABLES, editStatement, migrateSchema } = require( "#schema" );
+const { GUARD_SQL, TABLES, editStatement, migrateSchema, reviewStatement } = require( "#schema" );
 const { eachDatabase } = require( "./support/databases" );
 
 eachDatabase( "Schema", ( db ) => {
@@ -33,12 +33,12 @@ eachDatabase( "Schema", ( db ) => {
 
     it( "applies each migration once", async () => {
         assert.deepEqual( await migrateSchema( db() ), [] );
-        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ).sort(), [ "0001-initial", "0002-editing" ] );
+        assert.deepEqual( ( await db().all( "SELECT id FROM schema_migrations" ) ).map( ( row ) => row.id ).sort(), [ "0001-initial", "0002-editing", "0003-review" ] );
     } );
 
     it( "names the tables a copy carries, each of them empty", async () => {
-        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "conflicts", "files",
-            "settings" ] );
+        assert.deepEqual( TABLES, [ "specs", "releases", "versions", "version_stages", "items", "approved_items", "anomalies", "changelog_entries", "resolutions",
+            "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "settings" ] );
         for ( const table of TABLES ) {
             assert.deepEqual( await db().get( `SELECT COUNT(*) AS n FROM ${ table }` ), { n: 0 }, table );
         }
@@ -86,5 +86,21 @@ eachDatabase( "Schema", ( db ) => {
         ] ), { name: "ConstraintError", constraint: "edit_guard" } );
         await db().batch( [ editStatement( "h", 1, 2 ), { sql: "UPDATE items SET revision = 3 WHERE version_id = 'h'", params: [] } ] );
         assert.deepEqual( await db().get( "SELECT revision FROM items WHERE version_id = 'h'" ), { revision: 3 } );
+    } );
+
+    // A column added with a default fills every row already there, so a release plan 5's migration made is accepted.
+    it( "gives a release written without a status, as plan 5's migration wrote them, the status accepted", async () => {
+        await db().run( "INSERT INTO releases ( id, created_at ) VALUES ( 'r', '2026-11-05' )" );
+        assert.deepEqual( await db().get( "SELECT status FROM releases WHERE id = 'r'" ), { status: "accepted" } );
+    } );
+
+    it( "refuses a batch on a version under review, naming review_guard, and lets it through once returned", async () => {
+        await db().run( "UPDATE versions SET release_id = 'r' WHERE id = 'h'" );
+        await db().run( "UPDATE releases SET status = 'review' WHERE id = 'r'" );
+        await assert.rejects( db().batch( [ reviewStatement( "h" ), { sql: "UPDATE versions SET content_hash = 'z' WHERE id = 'h'", params: [] } ] ),
+            { name: "ConstraintError", constraint: "review_guard" } );
+        await db().run( "UPDATE releases SET status = 'returned' WHERE id = 'r'" );
+        await db().batch( [ reviewStatement( "h" ), { sql: "UPDATE versions SET content_hash = 'z' WHERE id = 'h'", params: [] } ] );
+        assert.deepEqual( await db().get( "SELECT content_hash FROM versions WHERE id = 'h'" ), { content_hash: "z" } );
     } );
 } );

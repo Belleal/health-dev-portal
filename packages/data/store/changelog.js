@@ -17,10 +17,12 @@
 
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
-const { guardStatements, staleStatement } = require( "#schema" );
-const { FrozenVersionError, findVersion, loadVersion, storeVersion } = require( "#versions" );
+const { guardStatements, reviewStatement, staleStatement } = require( "#schema" );
+const { readContent } = require( "#targets" );
+const { FrozenVersionError, UnderReviewError, findVersion, loadVersion, storeVersion } = require( "#versions" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
-const { CHANGE_CATEGORY, CHANGE_ORIGIN, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { CHANGE_CATEGORY, CHANGE_ORIGIN, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 
 const ENTRY_COLUMNS = [ "id", "version_id", "position_no", "category", "origin", "text_bg", "text_en", "source" ];
 
@@ -51,13 +53,23 @@ const categoryOf = ( category ) => {
     return category;
 };
 
-// Runs a changelog write behind the version's lock and frozen guard.
-const guarded = async ( db, versionId, statements ) => {
+// Runs a changelog write behind the version's lock and frozen guard. An editor's write is refused under review too, as
+// the approver reviews the changelog as submitted (design record §7.4); the portal's own refresh is not.
+const guarded = async ( db, versionId, statements, byEditor = false ) => {
+    if ( byEditor ) {
+        const release = await db.get( "SELECT r.status FROM versions v JOIN releases r ON r.id = v.release_id WHERE v.id = ?", [ versionId ] );
+        if ( release && release.status === RELEASE_STATUS.REVIEW ) {
+            throw new UnderReviewError( versionId );
+        }
+    }
     try {
-        return await db.batch( [ ...guardStatements( versionId ), ...statements ] );
+        return await db.batch( [ ...guardStatements( versionId ), ...( byEditor ? [ reviewStatement( versionId ) ] : [] ), ...statements ] );
     } catch ( error ) {
         if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
             throw new FrozenVersionError( versionId );
+        }
+        if ( error instanceof ConstraintError && error.constraint === "review_guard" ) {
+            throw new UnderReviewError( versionId );
         }
         throw error;
     }
@@ -69,7 +81,7 @@ const entryWrite = async ( db, entryId, set, params ) => {
     if ( !entry ) {
         throw new RangeError( `There is no changelog entry ${ entryId }.` );
     }
-    const results = await guarded( db, entry.version_id, [ { sql: `UPDATE changelog_entries SET ${ set } WHERE id = ?`, params: [ ...params, entryId ] } ] );
+    const results = await guarded( db, entry.version_id, [ { sql: `UPDATE changelog_entries SET ${ set } WHERE id = ?`, params: [ ...params, entryId ] } ], true );
     if ( results[ results.length - 1 ].changes === 0 ) {
         throw new RangeError( `There is no changelog entry ${ entryId }.` );
     }
@@ -145,8 +157,10 @@ module.exports.refreshChangelog = async ( db, versionId ) => {
         if ( version.content === null ) {
             return { added: 0, updated: 0, removed: 0, flagged: 0 };
         }
-        const base = version.base ? await loadVersion( db, version.base ) : null;
-        const differences = compareContents( version.kind, base ? base.content : null, version.content );
+        // A base in implementation is compared as approved: as stored, its pending changes showed in this version's
+        // changelog as changes the editor never made (final review of plan 6b, I2).
+        const base = version.base ? await readContent( db, version.base ) : null;
+        const differences = compareContents( version.kind, base, version.content );
         const entries = await db.all( `SELECT id, category, origin, target_kind, target_identity, before_value, after_value, flagged, difference_key FROM changelog_entries
             WHERE version_id = ? AND difference_key IS NOT NULL`, [ versionId ] );
         const { statements, counts } = reconcile( versionId, differences, entries );
@@ -173,6 +187,7 @@ module.exports.refreshChangelog = async ( db, versionId ) => {
  * @param {{category?: string, textBg?: string|null, textEn?: string|null}} changes Only what is given changes.
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @throws {TypeError} For a category that is none.
  * @public
@@ -197,6 +212,7 @@ module.exports.editChangelogEntry = async ( db, entryId, changes ) => {
  * @param {string} entryId
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @public
  */
@@ -210,6 +226,7 @@ module.exports.dropChangelogEntry = async ( db, entryId ) => entryWrite( db, ent
  * @param {string} entryId
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @public
  */
@@ -224,6 +241,7 @@ module.exports.restoreChangelogEntry = async ( db, entryId ) => entryWrite( db, 
  * @param {{category: string, textBg: string|null, textEn: string|null, target?: string, identity?: string}} entry
  * @returns {Promise<string>} The new entry's ID.
  * @throws {FrozenVersionError} When the version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such version.
  * @throws {TypeError} For a category that is none.
  * @public
@@ -236,12 +254,13 @@ module.exports.addChangelogEntry = async ( db, versionId, entry ) => {
     const id = crypto.randomUUID();
     await guarded( db, versionId, [ insertEntry( versionId, { id: id, category: category, origin: CHANGE_ORIGIN.EDITOR, target: entry.target || null,
         identity: entry.identity || null, before: null, after: null, textBg: entry.textBg === undefined ? null : entry.textBg,
-        textEn: entry.textEn === undefined ? null : entry.textEn, key: null } ) ] );
+        textEn: entry.textEn === undefined ? null : entry.textEn, key: null } ) ], true );
     return id;
 };
 
 /**
- * Compares two dotted version numbers part by part as whole numbers, so 1.5.10 comes after 1.5.9 and 1.5 before 1.5.1.
+ * Compares two dotted version numbers part by part as whole numbers. It lives in the model now, beside the numbers'
+ * other rules (design record §7.2); the changelog and the migration keep reading it here.
  *
  * @method
  * @param {string} a
@@ -249,23 +268,7 @@ module.exports.addChangelogEntry = async ( db, versionId, entry ) => {
  * @returns {number} Negative, zero or positive, as for `Array.prototype.sort`.
  * @public
  */
-module.exports.compareNumbers = ( a, b ) => {
-    const left = a.split( "." );
-    const right = b.split( "." );
-    for ( let index = 0; index < Math.max( left.length, right.length ); index += 1 ) {
-        if ( left[ index ] === undefined || right[ index ] === undefined ) {
-            return left.length - right.length;
-        }
-        const difference = Number( left[ index ] ) - Number( right[ index ] );
-        if ( Number.isNaN( difference ) ) {
-            return left[ index ] < right[ index ] ? -1 : left[ index ] > right[ index ] ? 1 : 0;
-        }
-        if ( difference !== 0 ) {
-            return difference;
-        }
-    }
-    return 0;
-};
+module.exports.compareNumbers = compareNumbers;
 
 // One block per number, its notes in order. Nomenclatures 1.5.33 heads 1.3.12 twice; storing the blocks one by one
 // would keep the first and drop the second as already imported.
@@ -329,6 +332,22 @@ module.exports.storeHistory = async ( db, spec, kind, history, attach ) => {
     return { retired: retired, entries: entries };
 };
 
+const ENTRY_FIELDS = `e.id, e.version_id, e.position_no, e.category, e.origin, e.target_kind, e.target_identity, e.before_value, e.after_value, e.text_bg,
+    e.text_en, e.dropped, e.flagged, e.difference_key, e.source`;
+const entryOf = ( row ) => ( { ...row, dropped: row.dropped === 1, flagged: row.flagged === 1, source: row.source === null ? null : JSON.parse( row.source ) } );
+
+/**
+ * One version's changelog entries in order, as `loadChangelog` gives them: what a round keeps as submitted (§7.4).
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @returns {Promise<Object[]>}
+ * @public
+ */
+module.exports.loadEntries = async ( db, versionId ) => ( await db.all( `SELECT ${ ENTRY_FIELDS } FROM changelog_entries e WHERE e.version_id = ? ORDER BY e.position_no`,
+    [ versionId ] ) ).map( entryOf );
+
 /**
  * A spec's changelog, newest first: a development version, then the numbered versions in descending order, each with
  * its entries in order (design record §7.10).
@@ -343,12 +362,11 @@ module.exports.storeHistory = async ( db, spec, kind, history, attach ) => {
  */
 module.exports.loadChangelog = async ( db, spec ) => {
     const versions = await db.all( "SELECT id, number, stage FROM versions WHERE spec_id = ?", [ spec ] );
-    const rows = await db.all( `SELECT e.id, e.version_id, e.position_no, e.category, e.origin, e.target_kind, e.target_identity, e.before_value, e.after_value, e.text_bg,
-        e.text_en, e.dropped, e.flagged, e.difference_key, e.source FROM changelog_entries e JOIN versions v ON v.id = e.version_id WHERE v.spec_id = ?
-        ORDER BY e.position_no`, [ spec ] );
+    const rows = await db.all( `SELECT ${ ENTRY_FIELDS } FROM changelog_entries e JOIN versions v ON v.id = e.version_id WHERE v.spec_id = ? ORDER BY e.position_no`,
+        [ spec ] );
     const log = new Map( versions.map( ( version ) => [ version.id, { version: version.id, number: version.number, stage: version.stage, entries: [] } ] ) );
     for ( const row of rows ) {
-        log.get( row.version_id ).entries.push( { ...row, dropped: row.dropped === 1, flagged: row.flagged === 1, source: row.source === null ? null : JSON.parse( row.source ) } );
+        log.get( row.version_id ).entries.push( entryOf( row ) );
     }
     return [ ...log.values() ].sort( ( a, b ) => {
         if ( a.number === null || b.number === null ) {

@@ -16,12 +16,12 @@
  */
 
 const { deepFreeze } = require( "@health-dev-portal/spec-model/freeze" );
-const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ERROR_CODE_LIST } = require( "@health-dev-portal/spec-model/links" );
 const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
 const { loadCatalogue } = require( "#files" );
 const { resolveVersion } = require( "#resolution" );
-const { findVersion, loadVersion } = require( "#versions" );
+const { findVersion, loadApprovedContent, loadVersion } = require( "#versions" );
 
 // The rules are one spec, under this ID, as resolution names it.
 const RULES = "rules";
@@ -33,12 +33,20 @@ const frozen = new Map();
 // A frozen version's content never changes (design record §7.7), so it is read once and kept, least recently used first
 // out. `loadVersion` reads the row before the items, so content read under `frozen` is already final. It is frozen in the
 // cache too: every caller shares the one object.
-const contentOf = async ( db, versionId ) => {
+const contentOf = async ( db, versionId, release = null ) => {
     if ( frozen.has( versionId ) ) {
         const content = frozen.get( versionId );
         frozen.delete( versionId );
         frozen.set( versionId, content );
         return content;
+    }
+    // A version in implementation is read as approved: a module never checks against a list's unapproved entries (plan
+    // 6b, decision 4). One in the reader's own release is read with its pending changes, which go to review in the same
+    // round as the reader's: read as approved, a change spanning a release's list and module was refused as blocking
+    // (final review of plan 6b, I6).
+    const where = await db.get( "SELECT stage, approved_hash, release_id FROM versions WHERE id = ?", [ versionId ] );
+    if ( where && where.stage === STAGE.IMPLEMENTATION && where.approved_hash !== null && ( release === null || where.release_id !== release ) ) {
+        return loadApprovedContent( db, versionId );
     }
     const version = await loadVersion( db, versionId );
     if ( version && version.frozen && version.content ) {
@@ -51,9 +59,51 @@ const contentOf = async ( db, versionId ) => {
 };
 
 /**
+ * A version's content as others read it (design record §4.8): a version in implementation as approved, any other as
+ * stored, a frozen one from the cache.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @returns {Promise<import( "#definitions" ).VersionContent|null>}
+ * @public
+ */
+module.exports.readContent = ( db, versionId ) => contentOf( db, versionId );
+
+/**
+ * The lists and the rules that resolutions name, with their content as others read it. A list or the rules with no
+ * content is left out, and linking reports it.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {import( "#resolution" ).Resolution[]} resolutions
+ * @param {string|null} [release] The reader's release: a version in implementation in it is read with its pending
+ *     changes, which are reviewed with the reader's.
+ * @returns {Promise<{codeLists: Object[], rules: Object|null}>}
+ * @public
+ */
+module.exports.targetsFrom = async ( db, resolutions, release = null ) => {
+    const codeLists = [];
+    let rules = null;
+    for ( const resolution of resolutions ) {
+        const content = await contentOf( db, resolution.version, release );
+        if ( !content ) {
+            continue;
+        }
+        if ( resolution.spec === RULES ) {
+            rules = content;
+        } else {
+            codeLists.push( content.list );
+        }
+    }
+    return { codeLists: codeLists, rules: rules };
+};
+
+/**
  * What a version's content is checked against on every edit (design record §5.4).
  * - For a module, the lists and the rules it reads (design record §4.8), and the stored blueprint catalogue. A list or
- *   the rules found in no stage is left out, and linking reports it.
+ *   the rules found in no stage is left out, and linking reports it. One in implementation is read as approved, unless
+ *   it is in the module's own release, whose changes are reviewed together (§7.3, §7.4).
  * - For the rules, CL999 as found from the rules' own stage onwards, which their error codes are checked against.
  * - For a code list, nothing: its checks concern only itself.
  *
@@ -66,25 +116,12 @@ const contentOf = async ( db, versionId ) => {
  * @public
  */
 module.exports.loadTargets = async ( db, store, versionId ) => {
-    const row = await db.get( "SELECT v.stage, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
+    const row = await db.get( "SELECT v.stage, v.release_id, s.kind FROM versions v JOIN specs s ON s.id = v.spec_id WHERE v.id = ?", [ versionId ] );
     if ( !row ) {
         throw new RangeError( `There is no version ${ versionId }.` );
     }
     if ( row.kind === SPEC_KIND.MODULE ) {
-        const codeLists = [];
-        let rules = null;
-        for ( const resolution of await resolveVersion( db, versionId ) ) {
-            const content = await contentOf( db, resolution.version );
-            if ( !content ) {
-                continue;
-            }
-            if ( resolution.spec === RULES ) {
-                rules = content;
-            } else {
-                codeLists.push( content.list );
-            }
-        }
-        return { codeLists: codeLists, rules: rules, catalogue: await loadCatalogue( db, store ) };
+        return { ...await module.exports.targetsFrom( db, await resolveVersion( db, versionId ), row.release_id ), catalogue: await loadCatalogue( db, store ) };
     }
     if ( row.kind === SPEC_KIND.RULES ) {
         for ( const stage of resolutionOrder( row.stage ) ) {

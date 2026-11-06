@@ -15,7 +15,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  */
 
-const { CHANGE_ORIGIN, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { CHANGE_ORIGIN, RELEASE_EVENT, RELEASE_STATUS, ROUND_DECISION, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 
 // The SQL subset of design record §3.2: TEXT and INTEGER only, booleans as 0/1, no word either database reserves.
 const oneOf = ( column, values ) => `CHECK ( ${ column } IN ( ${ Object.values( values ).map( ( value ) => `'${ value }'` ).join( ", " ) } ) )`;
@@ -134,9 +134,91 @@ const EDITING = [
         CONSTRAINT edit_guard CHECK ( reason IS NULL OR reason <> 'edit' ) )`
 ];
 
+// Plan 6b: review rounds and their history (design record §7.4), the approved content of a version in implementation
+// beside its pending changes, what happened to each release and who edited what (§7.3, §10.1).
+const REVIEW = [
+    // A release written before this migration is one plan 5 made for a migrated testing version, and accepted.
+    `ALTER TABLE releases ADD COLUMN status TEXT NOT NULL DEFAULT '${ RELEASE_STATUS.ACCEPTED }' ${ oneOf( "status", RELEASE_STATUS ) }`,
+    "ALTER TABLE versions ADD COLUMN approved_hash TEXT",
+    "ALTER TABLE versions ADD COLUMN replaces_id TEXT REFERENCES versions ( id )",
+    // The approved content of a version in implementation; its items are the pending content (plan 6b, decision 4).
+    `CREATE TABLE approved_items (
+        version_id TEXT NOT NULL REFERENCES versions ( id ),
+        item_no INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        identity TEXT,
+        parent_no INTEGER,
+        position_no INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        hash TEXT NOT NULL,
+        PRIMARY KEY ( version_id, item_no )
+    )`,
+    `CREATE TABLE rounds (
+        id TEXT PRIMARY KEY,
+        release_id TEXT NOT NULL REFERENCES releases ( id ),
+        round_no INTEGER NOT NULL,
+        submitted_by TEXT NOT NULL,
+        submitted_at TEXT NOT NULL,
+        decision TEXT CHECK ( decision IS NULL OR decision IN ( ${ Object.values( ROUND_DECISION ).map( ( value ) => `'${ value }'` ).join( ", " ) } ) ),
+        decided_by TEXT,
+        decided_at TEXT
+    )`,
+    // A round is one submission: two at once for one release would make two first rounds.
+    "CREATE UNIQUE INDEX rounds_number ON rounds ( release_id, round_no )",
+    `CREATE TABLE round_versions (
+        round_id TEXT NOT NULL REFERENCES rounds ( id ),
+        version_id TEXT NOT NULL REFERENCES versions ( id ),
+        content_hash TEXT,
+        changelog TEXT NOT NULL,
+        PRIMARY KEY ( round_id, version_id )
+    )`,
+    `CREATE TABLE comments (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES rounds ( id ),
+        comment_no INTEGER NOT NULL,
+        version_id TEXT REFERENCES versions ( id ),
+        target TEXT,
+        text TEXT NOT NULL,
+        author TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )`,
+    "CREATE INDEX comments_round ON comments ( round_id, comment_no )",
+    // An event names a release, a version, or both: a migrated production version that a promotion moves to previous
+    // production belongs to no release. The number orders them; it is not unique, since a tie costs an order, and a
+    // refused number would cost a whole approval.
+    `CREATE TABLE release_events (
+        id TEXT PRIMARY KEY,
+        event_no INTEGER NOT NULL,
+        release_id TEXT REFERENCES releases ( id ),
+        version_id TEXT REFERENCES versions ( id ),
+        event TEXT NOT NULL ${ oneOf( "event", RELEASE_EVENT ) },
+        actor TEXT NOT NULL,
+        at TEXT NOT NULL,
+        details TEXT NOT NULL
+    )`,
+    "CREATE INDEX release_events_release ON release_events ( release_id, event_no )",
+    `CREATE TABLE edit_log (
+        id TEXT PRIMARY KEY,
+        version_id TEXT NOT NULL REFERENCES versions ( id ),
+        edit_no INTEGER NOT NULL,
+        actor TEXT NOT NULL,
+        at TEXT NOT NULL,
+        edits TEXT NOT NULL
+    )`,
+    "CREATE INDEX edit_log_version ON edit_log ( version_id, edit_no )",
+    // Made again with a fourth check, as 0002 made it with the third: SQLite cannot add a constraint to a table.
+    "DROP TABLE write_guards",
+    `CREATE TABLE write_guards ( reason TEXT,
+        CONSTRAINT write_guard CHECK ( reason IS NULL OR reason <> 'frozen' ),
+        CONSTRAINT stale_guard CHECK ( reason IS NULL OR reason <> 'stale' ),
+        CONSTRAINT edit_guard CHECK ( reason IS NULL OR reason <> 'edit' ),
+        CONSTRAINT review_guard CHECK ( reason IS NULL OR reason <> 'review' ) )`
+];
+
 const MIGRATIONS = Object.freeze( [
     Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ),
-    Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } )
+    Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } ),
+    Object.freeze( { id: "0003-review", statements: Object.freeze( REVIEW ) } )
 ] );
 
 /**
@@ -146,8 +228,8 @@ const MIGRATIONS = Object.freeze( [
  * @type {string[]}
  * @public
  */
-module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "anomalies", "changelog_entries", "resolutions", "conflicts",
-    "files", "settings" ] );
+module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "approved_items", "anomalies", "changelog_entries",
+    "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "settings" ] );
 
 /**
  * The statement that makes a batch fail when its version is frozen (design record §7.7). It inserts into
@@ -178,6 +260,30 @@ module.exports.guardStatements = ( versionId ) => [
     { sql: LOCK_SQL, params: [ versionId ] },
     { sql: module.exports.GUARD_SQL, params: [ versionId ] }
 ];
+
+/**
+ * The lock alone, for a write that moves a frozen version on — to production, previous production or retirement — and
+ * so changes its stage, never its content (design record §7.7).
+ *
+ * @method
+ * @param {string} versionId
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.lockStatement = ( versionId ) => ( { sql: LOCK_SQL, params: [ versionId ] } );
+
+/**
+ * The statement that makes a batch stale when a version is no longer in the stage it was read in: two promotions at once
+ * both find it there, and only the first may move it.
+ *
+ * @method
+ * @param {string} versionId
+ * @param {string} stage
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.stageStatement = ( versionId, stage ) => ( { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND stage <> ?",
+    params: [ versionId, stage ] } );
 
 /**
  * The statement that makes a batch fail when its version's content is no longer the content the batch was computed
@@ -219,6 +325,22 @@ module.exports.staleStatement = ( versionId, contentHash, nextItem ) => {
 module.exports.editStatement = ( versionId, item, revision ) => ( {
     sql: "INSERT INTO write_guards ( reason ) SELECT 'edit' FROM items WHERE version_id = ? AND item_no = ? AND revision <> ?",
     params: [ versionId, item, revision ]
+} );
+
+/**
+ * The statement that makes a batch fail when its version's release is under review, and so read-only (design record
+ * §7.4): it inserts into `write_guards`, whose `review_guard` check refuses the row. It goes after `guardStatements`,
+ * under their lock, which a submission takes too, so an edit computed before a submission and sent after it is refused.
+ *
+ * @method
+ * @param {string} versionId
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.reviewStatement = ( versionId ) => ( {
+    sql: `INSERT INTO write_guards ( reason ) SELECT 'review' FROM versions v JOIN releases r ON r.id = v.release_id WHERE v.id = ? AND r.status = '${
+        RELEASE_STATUS.REVIEW }'`,
+    params: [ versionId ]
 } );
 
 /**
