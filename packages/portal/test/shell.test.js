@@ -51,7 +51,7 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
         assert.deepEqual( [ root.status, root.headers.get( "location" ) ], [ 301, "/bg/" ] );
         for ( const path of [ "/bg/nope", "/en/specs/%3Cscript%3E/production", "/app", "/app/x", "/not-found",
             "/bg/specs/e-prescription/1.5.1/P001/elements/..%2F..%2Fx", "/en/specs/e-prescription/development", "/bg/specs/CL007/production",
-            "/downloads/nomenclatures/CL007/development.json", "/bg/nomenclatures?q=%3Cscript%3E" ] ) {
+            "/downloads/nomenclatures/CL007/development.json" ] ) {
             const response = await get( path );
             assertPublic( response, "public, max-age=60" );
             assert.equal( response.status, 404, path );

@@ -15,6 +15,7 @@
         "#assets": "./site/assets.js",
         "#copy-fonts": "./scripts/copy-fonts.js",
         "#definitions": "./site/definitions.types.js",
+        "#fold": "./site/fold.js",
         "#format": "./site/format.js",
         "#labels": "./site/labels.js",
         "#layout": "./site/layout.js",

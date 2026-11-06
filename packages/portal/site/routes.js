@@ -26,6 +26,7 @@ const { home, parseAddress } = require( "#paths" );
 const { CACHE, failed, notFound, redirect } = require( "#responses" );
 const { homePage } = require( "#pages/home" );
 const { messagePage } = require( "#pages/message" );
+const { downloadFile, listPage, listsPage } = require( "#pages/nomenclatures" );
 const { conditionsPage, dictionaryPage, specPage, specsIndexPage } = require( "#pages/specs" );
 
 // Each kind of page `parseAddress` gives, and the function that answers it,
@@ -38,7 +39,10 @@ const PAGES = Object.freeze( {
     spec: specPage,
     conditions: conditionsPage,
     dictionary: dictionaryPage,
-    message: messagePage
+    message: messagePage,
+    lists: listsPage,
+    list: listPage,
+    download: downloadFile
 } );
 
 /**
