@@ -18,6 +18,7 @@
         "#format": "./site/format.js",
         "#labels": "./site/labels.js",
         "#layout": "./site/layout.js",
+        "#pages/*": "./site/pages/*.js",
         "#paths": "./site/paths.js",
         "#portal-server": "./bin/portal-server.js",
         "#responses": "./site/responses.js",

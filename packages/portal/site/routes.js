@@ -24,12 +24,17 @@
 const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
 const { home, parseAddress } = require( "#paths" );
 const { CACHE, failed, notFound, redirect } = require( "#responses" );
+const { homePage } = require( "#pages/home" );
+const { specsIndexPage } = require( "#pages/specs" );
 
 // Each kind of page `parseAddress` gives, and the function that answers it,
 // `( context: PageContext, parts: Address ) => Promise<void>` (#definitions), which sends its own response through
 // responses.js. A kind with no function yet is a 404, so an address the site will have is never answered by anything
 // else meanwhile.
-const PAGES = Object.freeze( {} );
+const PAGES = Object.freeze( {
+    home: homePage,
+    specs: specsIndexPage
+} );
 
 /**
  * Answers `/` with a permanent redirect to the Bulgarian home page (design record §8.1).

@@ -580,6 +580,28 @@ button.copy {
     cursor: pointer;
 }
 
+/* The home page: the legend under the versions table, and the right column's lists of releases. */
+.legend {
+    margin: 0.6rem 0 0;
+    font-size: 0.85rem;
+}
+
+.releases {
+    margin: 0 0 1.25rem;
+    padding: 0;
+    list-style: none;
+}
+
+.releases > li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.releases ul {
+    margin: 0.25rem 0 0;
+    padding-left: 1rem;
+}
+
 .foot {
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--line);
