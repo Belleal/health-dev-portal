@@ -87,9 +87,9 @@ Each step is one implementation plan in `docs/superpowers/plans/`.
 | 3 | Conditions language | Done |
 | 4 | Blueprints and generated XSDs | Done |
 | 5 | Data layer and migration: one SQL subset on SQLite and PostgreSQL (§3.2), the stored model with one spec per code list (§4.6), files by content hash (§3.3), loading today's published workbooks, and copying a database from one driver to the other (§7.11) | Done |
-| 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | 6a (editing) done; 6b (review, promotion) next |
+| 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | Done |
 | 7 | ti-engine SQL and file gateways (§13) | — |
-| 8 | Public site (§8) | — |
+| 8 | Public site (§8) | 8a (the reference pages) next; 8b (schemas, guides, FAQ, environment status) after |
 | 9 | Staff area: sign-in, roles, the review queue, review and promotion screens | — |
 | 10 | Editing screens, after their own design session | — |
 | 11 | Message tester and the XSD-equivalence corpus (§8.6) | — |
@@ -500,7 +500,11 @@ against (§4.8), so any kept version's XSDs can be generated again.
   XSD.
   - Order is the workbook's row order. For objects today's XSDs build by extension, such as the practitioner and the
     diagnosis, that is not today's order: there a derived type's own fields follow all of its base's.
-  - Which order NHIS reads is for the spec team to say (HEL-26) before generated XSDs are published.
+  - NHIS finds a field by its name and path, not its place; order matters only to the XSD validation at the API
+    Gateway's entry (Boris, 2026-11-06, HEL-26). So whatever order the generated XSDs hold is the order the gateway
+    enforces once it validates against them. Whether e-Dental's D001 and D006 and e-Hospitalization's H005 keep the
+    workbook's order, a change on the wire released with its notice, or the workbook takes today's, is still open
+    (HEL-26).
 - **Code lists are not enumerated.**
   - Lists change with time, and they are large: messages use 121 lists with 55,090 keys, 39,005 of them in CL011.
   - An enumeration would tie every message to one version of each list.
@@ -544,11 +548,13 @@ against (§4.8), so any kept version's XSDs can be generated again.
     - `an` is `alphanumericString`'s `[a-zA-Z0-9\- ]+`;
     - `a` is `alphaString`'s `[a-zа-яA-ZА-Я\- ]+`.
 
-    `ans` has no definition there and adds no pattern.
-  - A number gets no bounds.
-    - The workbooks' `max=` on a number reads as a digit count: sick-leave `days max=2`, `daysAfter max=3`.
-    - The import takes it as a value, and as `maxInclusive` it refused a 14-day sick leave.
-    - Today's XSDs bound none of these fields. Which reading is meant is for the spec team (HEL-26).
+    `ans` has no definition there and adds no pattern. The shared header's `senderISName` may be Cyrillic (Boris,
+    2026-11-06, HEL-26), so its `chars=an` is a defect of the sources, which drop it; `an` itself keeps its meaning.
+  - A number gets no bounds, for now.
+    - `max=` on a number is a digit count (Boris, 2026-11-06, HEL-26): sick-leave `days max=2`, `daysAfter max=3`.
+    - The import still takes it as a value, and as `maxInclusive` it refused a 14-day sick leave. Reading it as digits
+      and writing `xs:totalDigits` is HEL-34, which changes this point with it.
+    - Today's XSDs bound none of these fields.
   - A constraint the importer could not read adds nothing, since the import has already reported it.
 
   Today's XSDs already enforce these classes on most fields. In e-Dental 1.0.5, 93 of the 101 fields with a class
@@ -716,8 +722,8 @@ Measured on 2026-11-03:
   | e-Dental 1.0.5 | 53 | 23 |
   | e-Hospitalization 1.0.6 | 54 | 21 |
 
-  - Two of them change what a vendor may send, and are questions for the spec team (HEL-26): field order in extended
-    types, and a Latin-only `senderISName`.
+  - Two of them change what a vendor may send (HEL-26): field order in extended types, and a Latin-only
+    `senderISName`. Both are answered (§4.10).
   - One shows today's XSDs to be wrong. Their `messageType` pattern, `([RPCIXH][0-9]{3})`, leaves out D and L, so
     they refuse every e-Dental message.
 - **Across versions** the counts per cause are pinned as a baseline. There an unexplained entry is also a change no
@@ -1336,7 +1342,7 @@ Every address starts with `/bg/` or `/en/`; `/` goes to `/bg/`.
 | Errors | CL999 errors and CL998 warnings, explained |
 | Schemas | XSD sets per stage and version; `/api/v1/` obsolete notice |
 | Changes | Changelogs, comparison, feeds |
-| Guides | Getting started, environments, authentication, signing, NRN generation, 2D barcode, secure network, dosage parser, error handling — written fresh from the obsolete PDFs, drafted with AI assistance, marked as such, reviewed by the solution architect |
+| Guides | Getting started, environments, authentication, signing, NRN generation, 2D barcode, secure network, dosage parser, error handling — written fresh from the obsolete PDFs, drafted with AI assistance, marked as such, reviewed by the solution architect, who owns them and may delegate the writing to a business analyst (Boris, 2026-11-06) |
 | FAQ | The 11 questions migrated as they are (review later), categorised, searchable |
 | Tools | Message tester (§8.6) |
 
@@ -1366,8 +1372,10 @@ translated" marker.
 ### 8.5 Rendering
 
 Server-rendered and readable without JavaScript; one small plain script adds collapsing, search and the tester (the
-arrangement `web-content` uses). From `web-content`: HTML escaping, document head and `hreflang`, Markdown. The staff
-area uses the framework's application shell. Accessibility target WCAG 2.1 AA (EN 301 549).
+arrangement `web-content` uses). From `web-content`: HTML escaping and Markdown. The document head and its `hreflang`
+are the portal's own *(design call, plan 8a)*: `web-content`'s `composeHead` is shaped for articles — it always writes
+Open Graph and Twitter tags and an article's JSON-LD, and points `x-default` at English, where `/` here goes to `/bg/`.
+The staff area uses the framework's application shell. Accessibility target WCAG 2.1 AA (EN 301 549).
 
 ### 8.6 Message tester
 
@@ -1446,8 +1454,10 @@ per-organisation monitoring and contact data start there.
 
 ### 10.3 Caching
 
-Fixed addresses and generated files: cached forever. Stage addresses: briefly. Status and feeds: one minute. Staff
-pages: never.
+Generated files, and the portal's own assets addressed by their content: cached forever. Pages at fixed addresses: a
+day *(design call, plan 8a)* — what they show never changes, but their markup follows the portal's releases, and a
+page promised `immutable` would keep a fixed layout defect in every browser that had it (the lesson of ti-engine's
+web-framework 1.19.0). Stage addresses: briefly. Status and feeds: one minute. Staff pages: never.
 
 ### 10.4 Deployment
 
@@ -1531,6 +1541,10 @@ analytics; forum migration (a side task — "Project Space" may not be migratabl
 | Dead sample-message links on the specifications page (HEL-22) | his.bg |
 | One field of one business object constrained differently between messages (HEL-24) | Spec team |
 | I006's `senderId` names CL018 and is fixed to `NHIS`, which is no key of it (HEL-25) | Spec team |
-| Before generated XSDs are published: field order in extended types, a Latin-only `senderISName`, `max=` on numbers, where `patientSignature` goes (HEL-26) | Spec team |
+| Before generated XSDs are published (HEL-26, answered 2026-11-06, §4.10): whether D001, D006 and H005 keep the workbook's field order or the workbook takes today's | Boris |
+| `senderISName`'s `chars=an` dropped from the module sources (HEL-26) | Spec team |
+| e-Dental 1.0.7's change note puts `patientSignature` in `dentalTreatment`; it goes beside `contents`, where the rows have it (HEL-26) | Spec team |
+| `max=` on a number read as a digit count and written as `xs:totalDigits` (HEL-34) | Portal |
+| Writing the guides (§8.1) | Solution architect, who may delegate to a business analyst |
 | Today's message XSDs reference `ds:Signature` without importing xmldsig, and their `messageType` pattern leaves out D and L (HEL-27) | his.bg |
 | Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |
