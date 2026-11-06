@@ -22,9 +22,11 @@
 
 const crypto = require( "node:crypto" );
 const { after, before, describe } = require( "node:test" );
+const pg = require( "pg" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 
 const POSTGRES = process.env.HDP_TEST_POSTGRES_URL;
+const schemas = new WeakMap();
 
 // In CI a missing PostgreSQL is a failure, never a skip: a suite that did not run looks exactly like one that passed.
 if ( !POSTGRES && process.env.CI ) {
@@ -39,9 +41,37 @@ if ( POSTGRES ) {
         // A schema per suite: test files run in parallel against one server, and each drops what it made.
         const schema = `test_${ crypto.randomBytes( 6 ).toString( "hex" ) }`;
         const db = await openDatabase( POSTGRES, { schema: schema } );
+        schemas.set( db, schema );
         return { db: db, dispose: async () => db.run( `DROP SCHEMA ${ schema } CASCADE` ) };
     } } );
 }
+
+/**
+ * Holds a row lock from a second PostgreSQL connection until the returned function is called, so that two writes really
+ * run at once: both start, and both wait on the lock. `interleaved()` runs the other write before a batch, one after the
+ * other, and SQLite serialises writers, so neither reaches a race that only concurrent transactions have (final review
+ * of plan 6b). `null` on SQLite.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} sql An UPDATE that locks the row, with `$1` placeholders.
+ * @param {Array} params
+ * @returns {Promise<(function(): Promise<void>)|null>} Releases the lock.
+ * @public
+ */
+module.exports.holding = async ( db, sql, params ) => {
+    if ( !schemas.has( db ) ) {
+        return null;
+    }
+    const holder = new pg.Client( { connectionString: POSTGRES, options: `-c search_path=${ schemas.get( db ) }` } );
+    await holder.connect();
+    await holder.query( "BEGIN" );
+    await holder.query( sql, params );
+    return async () => {
+        await holder.query( "COMMIT" );
+        await holder.end();
+    };
+};
 
 /**
  * The names of the databases eachDatabase runs on, in order.

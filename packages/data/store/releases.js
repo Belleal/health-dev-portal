@@ -23,7 +23,7 @@ const { loadEntries, refreshChangelog } = require( "#changelog" );
 const { ConstraintError } = require( "#database" );
 const { authorOf } = require( "#editing" );
 const { guardStatements, lockStatement, stageStatement, staleStatement } = require( "#schema" );
-const { findVersion, loadAnomalies, loadApprovedContent, loadVersion } = require( "#versions" );
+const { UnderReviewError, findVersion, loadAnomalies, loadApprovedContent, loadVersion } = require( "#versions" );
 
 // Another write in between makes a submission stale; it is checked again, this many times at most.
 const ATTEMPTS = 3;
@@ -104,16 +104,41 @@ const refusalsOf = async ( db, entering, round, held ) => {
     return reasons;
 };
 
-// The round's statements: each version locked and checked unchanged since its changelog was taken, the round, and each
-// version's changelog as submitted (§7.4).
+/**
+ * The statement that locks a release's row until the batch ends: every change of a release's status takes it first, then
+ * checks the status it read. On PostgreSQL a status checked before any lock let an approval and a return made at once
+ * both commit, the return writing over the approval (final review of plan 6b, I1).
+ *
+ * @method
+ * @param {string} releaseId
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.lockRelease = ( releaseId ) => ( { sql: "UPDATE releases SET status = status WHERE id = ?", params: [ releaseId ] } );
+
+/**
+ * The statement that makes a batch stale when a release's status is no longer the one it was read in. It goes after
+ * `lockRelease`, under the lock.
+ *
+ * @method
+ * @param {string} releaseId
+ * @param {string} status
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.releaseIs = ( releaseId, status ) => ( { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM releases WHERE id = ? AND status <> ?",
+    params: [ releaseId, status ] } );
+
+// Each version of a round locked, then checked unchanged since its changelog was taken (§7.4); a version entering the
+// release is checked, under its lock, to be in no release yet.
+const lockedRound = ( round, entering ) => round.flatMap( ( row ) => [ ...guardStatements( row.id ), staleStatement( row.id, row.content_hash ),
+    ...( entering.includes( row ) ? [ unreleased( row.id ) ] : [] ) ] );
+
+// The round and each version's changelog as submitted (§7.4).
 const roundStatements = async ( db, releaseId, roundNo, round, author ) => {
     const roundId = crypto.randomUUID();
-    const statements = [];
-    for ( const row of round ) {
-        statements.push( ...guardStatements( row.id ), staleStatement( row.id, row.content_hash ) );
-    }
-    statements.push( { sql: "INSERT INTO rounds ( id, release_id, round_no, submitted_by, submitted_at ) VALUES ( ?, ?, ?, ?, ? )",
-        params: [ roundId, releaseId, roundNo, author.actor, author.now.toISOString() ] } );
+    const statements = [ { sql: "INSERT INTO rounds ( id, release_id, round_no, submitted_by, submitted_at ) VALUES ( ?, ?, ?, ?, ? )",
+        params: [ roundId, releaseId, roundNo, author.actor, author.now.toISOString() ] } ];
     for ( const row of round ) {
         statements.push( { sql: "INSERT INTO round_versions ( round_id, version_id, content_hash, changelog ) VALUES ( ?, ?, ?, ? )",
             params: [ roundId, row.id, row.content_hash, JSON.stringify( await loadEntries( db, row.id ) ) ] } );
@@ -121,7 +146,8 @@ const roundStatements = async ( db, releaseId, roundNo, round, author ) => {
     return statements;
 };
 
-// A version not yet in a release, checked under its lock: two submissions at once both pass the first look.
+// A version not yet in a release, checked under its lock, which comes first in the batch: two submissions at once both pass
+// the first look, and on PostgreSQL both committed while the check ran before the lock (final review of plan 6b, I1).
 const unreleased = ( versionId ) => ( { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND release_id IS NOT NULL",
     params: [ versionId ] } );
 
@@ -173,15 +199,15 @@ module.exports.submitRelease = async ( db, input ) => {
             throw new SubmissionRefusedError( reasons );
         }
         const releaseId = crypto.randomUUID();
+        // Locks and checks first; then the release row, before the versions' references to it.
         const statements = [
+            ...lockedRound( rows, rows ),
             { sql: "INSERT INTO releases ( id, status, summary_bg, summary_en, created_at ) VALUES ( ?, ?, ?, ?, ? )",
                 params: [ releaseId, RELEASE_STATUS.REVIEW, summary.bg || null, summary.en || null, author.now.toISOString() ] },
-            ...rows.map( ( row ) => unreleased( row.id ) ),
             ...rows.map( ( row ) => ( { sql: "UPDATE versions SET release_id = ? WHERE id = ?", params: [ releaseId, row.id ] } ) ),
             ...await roundStatements( db, releaseId, 1, rows, author ),
             module.exports.eventStatement( { release: releaseId, event: RELEASE_EVENT.SUBMITTED, author: author, details: { round: 1 } } )
         ];
-        // The release row comes first, so the versions' references to it hold in the batch.
         return { statements: statements, result: releaseId };
     } );
 };
@@ -229,6 +255,13 @@ module.exports.submitRound = async ( db, releaseId, input ) => {
             throw new SubmissionRefusedError( [ { version: null, rule: "nothing", message: "Nothing in the release is new: no pending change, no version added." } ] );
         }
         const reasons = await refusalsOf( db, added, round, members );
+        // A version joins a release only while it is in implementation (§7.3): joining one in testing, it went on to
+        // production under the release's date, with no notice period of its own (final review of plan 6b, I3).
+        const past = members.filter( ( row ) => row.stage !== STAGE.DEVELOPMENT && row.stage !== STAGE.IMPLEMENTATION && row.stage !== STAGE.RETIRED );
+        if ( added.length && past.length ) {
+            reasons.push( ...added.map( ( row ) => ( { version: row.id, rule: "past",
+                message: `The release has gone past implementation (${ past[ 0 ].spec_id } is in ${ past[ 0 ].stage }); a version joins only a release in implementation (§7.3).` } ) ) );
+        }
         if ( reasons.length ) {
             throw new SubmissionRefusedError( reasons );
         }
@@ -236,8 +269,9 @@ module.exports.submitRound = async ( db, releaseId, input ) => {
         const roundNo = ( last.n || 0 ) + 1;
         const statements = [
             // The release is as it was read: a decision or another round in between makes this one stale.
-            { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM releases WHERE id = ? AND status <> ?", params: [ releaseId, release.status ] },
-            ...added.map( ( row ) => unreleased( row.id ) ),
+            module.exports.lockRelease( releaseId ),
+            module.exports.releaseIs( releaseId, release.status ),
+            ...lockedRound( round, added ),
             { sql: "UPDATE releases SET status = ? WHERE id = ?", params: [ RELEASE_STATUS.REVIEW, releaseId ] },
             ...added.map( ( row ) => ( { sql: "UPDATE versions SET release_id = ? WHERE id = ?", params: [ releaseId, row.id ] } ) ),
             ...await roundStatements( db, releaseId, roundNo, round, author ),
@@ -360,7 +394,7 @@ module.exports.abandonRelease = async ( db, store, releaseId, input ) => {
         if ( !leaving.length ) {
             throw new TypeError( `Release ${ releaseId } has nothing in implementation or testing to abandon; return it instead.` );
         }
-        const statements = [ { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM releases WHERE id = ? AND status <> ?", params: [ releaseId, release.status ] } ];
+        const statements = [ module.exports.lockRelease( releaseId ), module.exports.releaseIs( releaseId, release.status ) ];
         for ( const member of leaving ) {
             statements.push( lockStatement( member.id ), stageStatement( member.id, member.stage ),
                 { sql: "UPDATE versions SET stage = ?, frozen = 1 WHERE id = ?", params: [ STAGE.RETIRED, member.id ] },
@@ -390,4 +424,44 @@ module.exports.abandonRelease = async ( db, store, releaseId, input ) => {
         await db.batch( [ ...guardStatements( development.id ), { sql: "UPDATE versions SET base_id = ? WHERE id = ?", params: [ base, development.id ] } ] );
         await refreshChangelog( db, development.id );
     }
+};
+
+/**
+ * Takes a development version out of its release (final review of plan 6b, I4): one added by a round the approver
+ * returned, or one of a release returned before its first approval. Otherwise nothing took it out, and it held its
+ * release short of testing for good. A release left with no version is abandoned. The version is free to be submitted
+ * again, alone or in another release.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @param {{actor: string, now: Date}} input
+ * @returns {Promise<void>}
+ * @throws {import( "#versions" ).UnderReviewError} While its release is under review.
+ * @throws {TypeError} For a version not in development or in no release, or no author.
+ * @throws {RangeError} For a version that is none.
+ * @public
+ */
+module.exports.withdrawVersion = async ( db, versionId, input ) => {
+    const author = authorOf( input );
+    await retrying( db, async () => {
+        const row = await rowOf( db, versionId );
+        if ( row.stage !== STAGE.DEVELOPMENT || row.release_id === null ) {
+            throw new TypeError( `Version ${ versionId } is not a development version in a release.` );
+        }
+        const release = await db.get( "SELECT id, status FROM releases WHERE id = ?", [ row.release_id ] );
+        if ( release.status === RELEASE_STATUS.REVIEW ) {
+            throw new UnderReviewError( versionId );
+        }
+        const left = await db.get( `SELECT COUNT(*) AS n FROM versions WHERE release_id = ? AND id <> ? AND stage <> '${ STAGE.RETIRED }'`, [ release.id, versionId ] );
+        return { statements: [
+            module.exports.lockRelease( release.id ),
+            module.exports.releaseIs( release.id, release.status ),
+            ...guardStatements( versionId ),
+            { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND ( release_id IS NULL OR release_id <> ? )", params: [ versionId, release.id ] },
+            { sql: "UPDATE versions SET release_id = NULL WHERE id = ?", params: [ versionId ] },
+            ...( left.n === 0 ? [ { sql: "UPDATE releases SET status = ? WHERE id = ?", params: [ RELEASE_STATUS.ABANDONED, release.id ] } ] : [] ),
+            module.exports.eventStatement( { release: release.id, version: versionId, event: RELEASE_EVENT.WITHDRAWN, author: author } )
+        ], result: undefined };
+    } );
 };

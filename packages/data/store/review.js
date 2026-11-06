@@ -25,7 +25,7 @@ const { authorOf } = require( "#editing" );
 const { readSetting } = require( "#files" );
 const { keyRows } = require( "#item-diff" );
 const { PromotionRefusedError, checkMove } = require( "#moves" );
-const { eventStatement } = require( "#releases" );
+const { eventStatement, lockRelease, releaseIs } = require( "#releases" );
 const { resolutionStatements, resolveAt } = require( "#resolution" );
 const { guardStatements, staleStatement } = require( "#schema" );
 const { approvedStatements, findVersion, loadApprovedContent, loadItems, loadVersion } = require( "#versions" );
@@ -67,9 +67,9 @@ const openRound = async ( db, releaseId ) => {
     return db.get( "SELECT id, round_no, submitted_by FROM rounds WHERE release_id = ? AND decision IS NULL ORDER BY round_no DESC LIMIT 1", [ releaseId ] );
 };
 
-// Under review still, as it was read: a decision in between makes this one stale.
-const stillUnderReview = ( releaseId ) => ( { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM releases WHERE id = ? AND status <> ?",
-    params: [ releaseId, RELEASE_STATUS.REVIEW ] } );
+// The release locked, then still under review as it was read: a decision in between makes this one stale. Checked before
+// the lock, an approval and a return made at once both committed on PostgreSQL (final review of plan 6b, I1).
+const stillUnderReview = ( releaseId ) => [ lockRelease( releaseId ), releaseIs( releaseId, RELEASE_STATUS.REVIEW ) ];
 
 const decided = ( round, decision, author ) => ( { sql: "UPDATE rounds SET decision = ?, decided_by = ?, decided_at = ? WHERE id = ?",
     params: [ decision, author.actor, author.now.toISOString(), round.id ] } );
@@ -144,7 +144,7 @@ module.exports.approveRelease = async ( db, store, releaseId, input ) => {
         }
         // What each entering module reads in implementation, counting the others entering with it, under their new numbers.
         const placed = new Map( entering.map( ( version ) => [ version.spec, new Map( [ [ STAGE.DEVELOPMENT, null ], [ STAGE.IMPLEMENTATION, version.id ] ] ) ] ) );
-        const statements = [ stillUnderReview( releaseId ) ];
+        const statements = [ ...stillUnderReview( releaseId ) ];
         for ( const version of versions ) {
             statements.push( ...guardStatements( version.id ), staleStatement( version.id, version.contentHash ) );
         }
@@ -243,7 +243,7 @@ module.exports.returnRelease = async ( db, releaseId, input ) => {
             }
         }
         const statements = [
-            stillUnderReview( releaseId ),
+            ...stillUnderReview( releaseId ),
             decided( round, ROUND_DECISION.RETURNED, author ),
             { sql: "UPDATE releases SET status = ? WHERE id = ?", params: [ RELEASE_STATUS.RETURNED, releaseId ] },
             ...comments.map( ( comment, index ) => ( {

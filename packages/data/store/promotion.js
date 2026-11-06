@@ -20,7 +20,7 @@ const { RELEASE_EVENT, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/sp
 const { ConstraintError } = require( "#database" );
 const { authorOf } = require( "#editing" );
 const { PromotionRefusedError, checkMove } = require( "#moves" );
-const { eventStatement } = require( "#releases" );
+const { eventStatement, lockRelease, releaseIs } = require( "#releases" );
 const { resolutionStatements, resolveAt } = require( "#resolution" );
 const { guardStatements, lockStatement, stageStatement, staleStatement } = require( "#schema" );
 const { findVersion } = require( "#versions" );
@@ -80,6 +80,12 @@ const toTesting = async ( db, releases, input, author ) => {
                 refusals.push( { version: member.id, spec: member.spec_id, rule: "pending", message: `${ member.spec_id } has changes not yet approved.` } );
             }
         }
+        // A version added to the release and not yet approved would be left in development behind it, and hold it at
+        // production for good (final review of plan 6b, I4): it is approved, or withdrawn, first.
+        for ( const member of release.members.filter( ( candidate ) => candidate.stage === STAGE.DEVELOPMENT ) ) {
+            refusals.push( { version: member.id, spec: member.spec_id, rule: "waiting",
+                message: `${ member.spec_id } joined the release and is not approved yet: approve it, or withdraw it from the release.` } );
+        }
         if ( release.planned_on === null && !( Number.isInteger( input.noticeDays ) && input.noticeDays >= 0 ) ) {
             throw new TypeError( `Release ${ release.id } goes to testing with a notice period in days (§7.6).` );
         }
@@ -93,7 +99,7 @@ const toTesting = async ( db, releases, input, author ) => {
     }
     const placed = new Map( releases.flatMap( ( release ) => release.moving ).map( ( member ) => [ member.spec_id,
         new Map( [ [ STAGE.IMPLEMENTATION, null ], [ STAGE.TESTING, member.id ] ] ) ] ) );
-    const statements = [];
+    const statements = releases.flatMap( ( release ) => [ lockRelease( release.id ), releaseIs( release.id, release.status ) ] );
     for ( const release of releases ) {
         for ( const member of release.moving ) {
             statements.push( ...guardStatements( member.id ), stageStatement( member.id, STAGE.IMPLEMENTATION ), staleStatement( member.id, member.content_hash ) );
@@ -153,7 +159,7 @@ const toProduction = async ( db, releases, input, author ) => {
     if ( refusals.length ) {
         throw new PromotionRefusedError( refusals );
     }
-    const statements = [];
+    const statements = releases.flatMap( ( release ) => [ lockRelease( release.id ), releaseIs( release.id, release.status ) ] );
     for ( const release of releases ) {
         for ( const member of release.moving ) {
             statements.push( lockStatement( member.id ), stageStatement( member.id, STAGE.TESTING ) );

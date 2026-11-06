@@ -1142,6 +1142,11 @@ Per spec:
 - A release is formed when an editor submits development versions for review together (§7.4); a version belongs to one
   release. A version can also join a release in implementation, through a review round of that release, when its spec
   allows it under §7.1 *(design call)*.
+- **Leaving a release** *(design call)*. An editor may withdraw a development version from its release while the
+  release is not under review: one that a returned round added, or one of a release returned before its first approval.
+  The version is then free to be submitted again, alone or in another release, and a release left with no version is
+  abandoned. A release is not promoted to testing while it holds a version still in development: that version is
+  approved first, or withdrawn, since left behind it would hold the release short of production for good.
 - **A list may go ahead instead** *(design call)*. The code-list versions a module needs may travel in its release, or
   go ahead in a release of their own (§4.8). A list inside a module's release is held by the module's whole
   integration period, and with it the list's next update, since its line is busy (§7.1). Going ahead with a short
@@ -1414,7 +1419,7 @@ each; the rest is labelled example data.
   | Role | May |
   |---|---|
   | **reader** | Read development and implementation versions, their changelogs and reviews — the NHIS backend team *(design call)* |
-  | **editor** | What a reader may, and edit and submit development versions and changes in implementation; optionally limited to named specs, and then sees only those (CL009 for the drug agency) |
+  | **editor** | What a reader may, and edit, submit and withdraw (§7.3) development versions, and edit and submit changes in implementation; optionally limited to named specs, and then sees only those (CL009 for the drug agency) |
   | **approver** | Review, approve, return, promote, extend a notice period, abandon (§7) |
   | **admin** | Roles, settings, environment status |
 

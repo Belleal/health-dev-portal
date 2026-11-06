@@ -28,8 +28,8 @@ const { ensureSpec, findVersion, loadItems, loadVersion, storeVersion } = requir
 const { memoryStore } = require( "#files" );
 const { applyEdits, recheckVersion } = require( "#editing" );
 const { startDevelopment } = require( "#development" );
-const { loadRelease, submitRelease } = require( "#releases" );
-const { approveRelease } = require( "#review" );
+const { loadRelease, submitRelease, submitRound, withdrawVersion } = require( "#releases" );
+const { approveRelease, returnRelease } = require( "#review" );
 const { promoteReleases, retirePreviousProduction, setPlannedDate } = require( "#promotion" );
 const { eachDatabase } = require( "./support/databases" );
 const { ACTOR, APPROVER, BY_EDITOR, NOW, cleanModule } = require( "./support/lifecycle" );
@@ -130,6 +130,44 @@ eachDatabase( "Promotion", ( db ) => {
         await retirePreviousProduction( db(), versions.version, BY_APPROVER );
         assert.equal( ( await loadVersion( db(), versions.version ) ).stage, "retired" );
         await assert.rejects( retirePreviousProduction( db(), next.version, BY_APPROVER ), { name: "TypeError" } );
+    } );
+
+    // Joining a release in testing, a version went to production under the release's date, with no notice period of its
+    // own (final review of plan 6b, I3).
+    it( "refuses a version joining a release that has gone past implementation", async () => {
+        await production( "e-host", "1.0.0" );
+        const host = await approved( "e-host" );
+        await promoteReleases( db(), store, [ host.release ], { to: "testing", noticeDays: 30, ...BY_APPROVER } );
+        await production( "e-late", "1.0.0" );
+        const late = await startDevelopment( db(), store, "e-late" );
+        await assert.rejects( submitRound( db(), host.release, { add: [ late ], ...BY_EDITOR } ),
+            ( error ) => error.name === "SubmissionRefusedError" && assert.deepEqual( error.reasons.map( ( reason ) => [ reason.version, reason.rule ] ), [ [ late, "past" ] ] ) === undefined );
+    } );
+
+    // A version added by a round that was returned held its release for good: nothing took it out (final review, I4).
+    it( "holds a release whose added version is not approved, until the version is withdrawn", async () => {
+        await production( "e-held", "1.0.0" );
+        await production( "e-added", "1.0.0" );
+        const { release } = await approved( "e-held" );
+        const added = await startDevelopment( db(), store, "e-added" );
+        await submitRound( db(), release, { add: [ added ], ...BY_EDITOR } );
+        await returnRelease( db(), release, { comments: [ { text: "Не сега." } ], ...BY_APPROVER } );
+        await assert.rejects( promoteReleases( db(), store, [ release ], { to: "testing", noticeDays: 30, ...BY_APPROVER } ), refused( [ "waiting" ] ) );
+        await withdrawVersion( db(), added, BY_EDITOR );
+        assert.equal( ( await loadVersion( db(), added ) ).release, null );
+        await promoteReleases( db(), store, [ release ], { to: "testing", noticeDays: 30, ...BY_APPROVER } );
+        // Free again, the version goes into a release of its own.
+        await submitRelease( db(), { versions: [ added ], summary: SUMMARY, actor: ACTOR, now: NOW } );
+    } );
+
+    it( "abandons a release whose only versions were withdrawn", async () => {
+        await production( "e-alone", "1.0.0" );
+        const alone = await startDevelopment( db(), store, "e-alone" );
+        const release = await submitRelease( db(), { versions: [ alone ], summary: SUMMARY, actor: ACTOR, now: NOW } );
+        await assert.rejects( withdrawVersion( db(), alone, BY_EDITOR ), { name: "UnderReviewError" } );
+        await returnRelease( db(), release, { comments: [ { text: "Не." } ], ...BY_APPROVER } );
+        await withdrawVersion( db(), alone, BY_EDITOR );
+        assert.equal( ( await loadRelease( db(), release ) ).status, "abandoned" );
     } );
 
     it( "promotes on the planned date in Sofia, whatever the UTC date", async () => {

@@ -213,5 +213,6 @@ module.exports.RELEASE_EVENT = Object.freeze( {
     DATE_SET: "date-set",
     FIX_CREATED: "fix-created",
     ABANDONED: "abandoned",
-    PREVIOUS_RETIRED: "previous-retired"
+    PREVIOUS_RETIRED: "previous-retired",
+    WITHDRAWN: "withdrawn"
 } );
