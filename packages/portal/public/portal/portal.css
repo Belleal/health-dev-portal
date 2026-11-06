@@ -1,0 +1,585 @@
+/*
+ * health-dev-portal — the developer portal of the Bulgarian National Health Information System (НЗИС).
+ * Copyright © 2026 the health-dev-portal contributors
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission – subsequent
+ * versions of the EUPL (the "Licence"); you may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ *     https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed
+ * on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * SPDX-License-Identifier: EUPL-1.2
+ */
+
+/*
+ * The portal's one stylesheet (plan 8a, decision 6; design record §9, direction C): НЗИС identity where it orients —
+ * the dark green top bar, the mint band — and documentation conventions where people work: a sidebar and dense tables.
+ * Red is the logo's, and is kept for changes and warnings alone, so that it means something wherever it appears.
+ *
+ * The text colours were computed for WCAG 2.1 AA (4.5:1) on white: green 7.0, red 5.4, amber 5.9, and a muted grey of
+ * #5B6663 (6.0), where the mockup's #778 gives 4.4. On the mint band the muted grey falls to 4.4, so the band keeps to
+ * ink (14.2) and green (5.2); white on the dark green top bar is 8.5, and its section links 7.0.
+ */
+
+/* Sofia Sans for text, Sofia Sans Extra Condensed for display headings: self-hosted, from @fontsource 5.3.0, served as
+   immutable under /static/fonts/. The unicode ranges are fontsource's own, so a page in one script loads one subset. */
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-cyrillic-400-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-latin-400-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-cyrillic-600-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-latin-600-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-cyrillic-700-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Sofia Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-latin-700-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Sofia Sans Extra Condensed";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-extra-condensed-cyrillic-700-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Sofia Sans Extra Condensed";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/static/fonts/sofia-sans-5.3.0/sofia-sans-extra-condensed-latin-700-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* §9's palette, from his.bg's live stylesheets. */
+:root {
+    --green: #00664D;
+    --green-dark: #005842;
+    --green-bright: #009B75;
+    --mint: #BFE6DC;
+    --mint-tint: #EEF8F5;
+    --ink: #00130F;
+    --red: #D0201F;
+    /* Lighter than the mockup's #FFE3E3, under which the red badge text gives 4.4:1; this gives 4.6. */
+    --red-tint: #FFE9E9;
+    --amber: #8A5A00;
+    --muted: #5B6663;
+    --line: #E3E8E6;
+    --panel: #FBFDFC;
+    --code: #F5F8F7;
+
+    --font-text: "Sofia Sans", Arial, sans-serif;
+    --font-display: "Sofia Sans Extra Condensed", "Sofia Sans", Arial, sans-serif;
+    /* No font is shipped for code: the system's own monospace is close at hand on every platform. */
+    --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    color: var(--ink);
+    background: #FFFFFF;
+    font-family: var(--font-text);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+a {
+    color: var(--green);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+:focus-visible {
+    outline: 3px solid var(--green-bright);
+    outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    color: var(--green-dark);
+    margin: 0 0 0.5em;
+}
+
+h1 {
+    font-size: 1.9rem;
+}
+
+h2 {
+    font-size: 1.4rem;
+    margin-top: 1.2em;
+}
+
+h3 {
+    font-size: 1.15rem;
+    margin-top: 1em;
+}
+
+code,
+kbd,
+pre,
+.mono {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+}
+
+pre,
+.code {
+    background: var(--code);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.5rem 0.65rem;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* Visible only to the keyboard, as the first thing on every page. */
+.skip {
+    position: absolute;
+    left: 0.5rem;
+    top: -3rem;
+    z-index: 10;
+    padding: 0.4rem 0.75rem;
+    background: #FFFFFF;
+    border-radius: 4px;
+}
+
+.skip:focus {
+    top: 0.5rem;
+}
+
+/* The top bar: dark green, the condensed capital wordmark, the sections, the other language. */
+.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.5rem;
+    padding: 0.6rem 1.25rem;
+    background: var(--green-dark);
+    color: #FFFFFF;
+}
+
+.top a {
+    color: #FFFFFF;
+}
+
+.wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* A placeholder mark until Information Services supplies the brand assets (design record §9). */
+.mark {
+    display: inline-grid;
+    grid-template-columns: 8px 8px;
+    gap: 2px;
+    padding: 2px;
+    background: #FFFFFF;
+    border-radius: 2px;
+}
+
+.mark i {
+    display: block;
+    width: 8px;
+    height: 8px;
+    background: var(--green);
+}
+
+.mark i:nth-child(2) {
+    background: var(--red);
+}
+
+.mark i:nth-child(3) {
+    background: var(--green-bright);
+}
+
+.sections ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sections a {
+    display: inline-block;
+    padding: 0.15rem 0;
+    color: #D8EFE8;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+}
+
+.sections a[aria-current] {
+    color: #FFFFFF;
+    border-bottom-color: #FFFFFF;
+}
+
+.language {
+    margin-left: auto;
+}
+
+/* The mint band: the stage switcher on a specification's pages, the environments' status on the home page. */
+.band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    padding: 0.45rem 1.25rem;
+    background: var(--mint);
+}
+
+.band a[aria-current] {
+    padding: 0.1rem 0.6rem;
+    border-radius: 3px;
+    background: #FFFFFF;
+    color: var(--green-dark);
+}
+
+/* Sidebar, content and detail panel; one column on a narrow screen. */
+.layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.layout.with-sidebar {
+    grid-template-columns: 15rem minmax(0, 1fr);
+}
+
+.layout.with-panel {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+}
+
+.layout.with-sidebar.with-panel {
+    grid-template-columns: 15rem minmax(0, 1fr) 21rem;
+}
+
+main {
+    padding: 1rem 1.25rem 2rem;
+    min-width: 0;
+}
+
+.sidebar {
+    padding: 1rem 0.9rem;
+    border-right: 1px solid var(--line);
+    font-size: 0.9rem;
+    line-height: 1.9;
+}
+
+.sidebar ul {
+    margin: 0 0 0.75rem;
+    padding: 0;
+    list-style: none;
+}
+
+.sidebar a[aria-current] {
+    margin-left: -0.55rem;
+    padding-left: 0.4rem;
+    border-left: 3px solid var(--green);
+    color: var(--green);
+    font-weight: 700;
+}
+
+.panel {
+    padding: 1rem;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 0.92rem;
+}
+
+@media (max-width: 64rem) {
+    .layout.with-panel,
+    .layout.with-sidebar.with-panel {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .layout.with-sidebar {
+        grid-template-columns: 13rem minmax(0, 1fr);
+    }
+
+    .panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+}
+
+@media (max-width: 40rem) {
+    .layout.with-sidebar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+}
+
+/* Dense tables for reference content: a data table is `table.rows`, its rows in its tbody. */
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table.rows {
+    font-size: 0.9rem;
+}
+
+table.rows th {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 2px solid var(--line);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+}
+
+table.rows td {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+table.rows tr[aria-current] td,
+table.rows tr.selected td {
+    background: var(--mint-tint);
+}
+
+/* The tree: each row's first cell is indented by its element's depth. */
+table.rows tr[data-depth="1"] > :first-child { padding-left: 1.55rem; }
+table.rows tr[data-depth="2"] > :first-child { padding-left: 2.65rem; }
+table.rows tr[data-depth="3"] > :first-child { padding-left: 3.75rem; }
+table.rows tr[data-depth="4"] > :first-child { padding-left: 4.85rem; }
+table.rows tr[data-depth="5"] > :first-child { padding-left: 5.95rem; }
+table.rows tr[data-depth="6"] > :first-child { padding-left: 7.05rem; }
+table.rows tr[data-depth="7"] > :first-child { padding-left: 8.15rem; }
+table.rows tr[data-depth="8"] > :first-child { padding-left: 9.25rem; }
+table.rows tr[data-depth="9"] > :first-child { padding-left: 10.35rem; }
+table.rows tr[data-depth="10"] > :first-child { padding-left: 11.45rem; }
+table.rows tr[data-depth="11"] > :first-child { padding-left: 12.55rem; }
+table.rows tr[data-depth="12"] > :first-child { padding-left: 13.65rem; }
+
+/* The script's collapse toggle: hidden without it, as it could do nothing. */
+.twisty {
+    width: 1.1rem;
+    margin: 0 0.2rem 0 -1.3rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.twisty[aria-expanded="true"]::before {
+    content: "▾";
+}
+
+.twisty[aria-expanded="false"]::before {
+    content: "▸";
+}
+
+/* Required, conditional, optional. */
+.R {
+    color: var(--green-dark);
+    font-weight: 700;
+}
+
+.C {
+    color: var(--amber);
+    font-weight: 700;
+}
+
+.O {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+/* A text shown in the other language, marked (design record §8.4). */
+.untranslated {
+    color: var(--muted);
+    font-size: 0.85em;
+    font-style: italic;
+}
+
+/* Changes and warnings: the only red on the site. */
+.badge {
+    display: inline-block;
+    padding: 0 0.45rem;
+    border-radius: 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    vertical-align: 0.1em;
+}
+
+.badge.new {
+    background: var(--red);
+    color: #FFFFFF;
+}
+
+.badge.changed,
+.badge.removed {
+    background: var(--red-tint);
+    color: var(--red);
+}
+
+table.rows tr.removed td {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+.ahead,
+.warning {
+    color: var(--red);
+    font-weight: 700;
+}
+
+/* Tabs of a message: links, the current one marked. */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin: 0.75rem 0 0.6rem;
+    padding: 0;
+    border-bottom: 1px solid var(--line);
+    list-style: none;
+}
+
+.tabs a {
+    display: inline-block;
+    padding: 0.3rem 0;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.tabs a[aria-current] {
+    border-bottom: 2px solid var(--green);
+    color: var(--green-dark);
+    font-weight: 700;
+}
+
+/* A form that filters: plain GET forms, which work without the script. */
+.filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0.9rem;
+}
+
+input,
+select,
+button {
+    font: inherit;
+}
+
+input[type="search"],
+input[type="text"],
+select {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #8C9995;
+    border-radius: 4px;
+}
+
+.button,
+button.copy {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border: 1px solid var(--green);
+    border-radius: 4px;
+    background: #FFFFFF;
+    color: var(--green);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.foot {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.foot p {
+    margin: 0;
+}

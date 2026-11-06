@@ -21,4 +21,15 @@ export default defineConfig( [ {
     rules: {
         "no-unused-vars": [ "warn", { "args": "after-used" } ]
     },
+}, {
+    // The portal's one script runs in the browser, as a classic deferred script, not as a CommonJS module.
+    files: [ "packages/portal/public/**/*.js" ],
+
+    languageOptions: {
+        globals: {
+            ...globals.browser,
+        },
+
+        sourceType: "script",
+    },
 } ] );
