@@ -262,6 +262,30 @@ module.exports.guardStatements = ( versionId ) => [
 ];
 
 /**
+ * The lock alone, for a write that moves a frozen version on — to production, previous production or retirement — and
+ * so changes its stage, never its content (design record §7.7).
+ *
+ * @method
+ * @param {string} versionId
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.lockStatement = ( versionId ) => ( { sql: LOCK_SQL, params: [ versionId ] } );
+
+/**
+ * The statement that makes a batch stale when a version is no longer in the stage it was read in: two promotions at once
+ * both find it there, and only the first may move it.
+ *
+ * @method
+ * @param {string} versionId
+ * @param {string} stage
+ * @returns {import( "#definitions" ).Statement}
+ * @public
+ */
+module.exports.stageStatement = ( versionId, stage ) => ( { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM versions WHERE id = ? AND stage <> ?",
+    params: [ versionId, stage ] } );
+
+/**
  * The statement that makes a batch fail when its version's content is no longer the content the batch was computed
  * from: it inserts into `write_guards`, whose `stale_guard` check refuses the row, when the content hash differs. It goes
  * after `guardStatements`, under their lock, so the content cannot change between the check and the write.
