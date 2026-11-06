@@ -58,6 +58,28 @@ module.exports.imported = ( spec, number ) => ( { ...checkContent( "module", mod
     spec: spec } );
 
 /**
+ * A module with no blocking anomaly, which a submission lets through: every element named, the second
+ * `contents/note@value` (HEL-19) gone, and no list or rule named, since none is stored. The model, which keeps those
+ * defects on purpose, would be refused.
+ *
+ * @param {string} spec
+ * @param {string|null} number
+ * @returns {Object}
+ */
+module.exports.cleanModule = ( spec, number ) => {
+    const content = { ...moduleVersion( number ), spec: spec };
+    const tidy = ( node ) => {
+        node.name = { bg: node.name.bg || "Поле", en: node.name.en || node.tag || "Field" };
+        node.codeList = null;
+        node.rules = [];
+        node.children.forEach( tidy );
+    };
+    content.messages.forEach( ( message ) => message.elements.forEach( tidy ) );
+    content.messages[ 0 ].elements[ 0 ].children.pop();
+    return checkContent( "module", content, { codeLists: [], rules: null, catalogue: null } ).content;
+};
+
+/**
  * A version in implementation, as an approval leaves it: numbered, with its approved copy taken. Plan 6b's approval
  * makes such a version through review; the tests of what comes before it make one directly.
  *

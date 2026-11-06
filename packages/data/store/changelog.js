@@ -329,6 +329,22 @@ module.exports.storeHistory = async ( db, spec, kind, history, attach ) => {
     return { retired: retired, entries: entries };
 };
 
+const ENTRY_FIELDS = `e.id, e.version_id, e.position_no, e.category, e.origin, e.target_kind, e.target_identity, e.before_value, e.after_value, e.text_bg,
+    e.text_en, e.dropped, e.flagged, e.difference_key, e.source`;
+const entryOf = ( row ) => ( { ...row, dropped: row.dropped === 1, flagged: row.flagged === 1, source: row.source === null ? null : JSON.parse( row.source ) } );
+
+/**
+ * One version's changelog entries in order, as `loadChangelog` gives them: what a round keeps as submitted (§7.4).
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @returns {Promise<Object[]>}
+ * @public
+ */
+module.exports.loadEntries = async ( db, versionId ) => ( await db.all( `SELECT ${ ENTRY_FIELDS } FROM changelog_entries e WHERE e.version_id = ? ORDER BY e.position_no`,
+    [ versionId ] ) ).map( entryOf );
+
 /**
  * A spec's changelog, newest first: a development version, then the numbered versions in descending order, each with
  * its entries in order (design record §7.10).
@@ -343,12 +359,11 @@ module.exports.storeHistory = async ( db, spec, kind, history, attach ) => {
  */
 module.exports.loadChangelog = async ( db, spec ) => {
     const versions = await db.all( "SELECT id, number, stage FROM versions WHERE spec_id = ?", [ spec ] );
-    const rows = await db.all( `SELECT e.id, e.version_id, e.position_no, e.category, e.origin, e.target_kind, e.target_identity, e.before_value, e.after_value, e.text_bg,
-        e.text_en, e.dropped, e.flagged, e.difference_key, e.source FROM changelog_entries e JOIN versions v ON v.id = e.version_id WHERE v.spec_id = ?
-        ORDER BY e.position_no`, [ spec ] );
+    const rows = await db.all( `SELECT ${ ENTRY_FIELDS } FROM changelog_entries e JOIN versions v ON v.id = e.version_id WHERE v.spec_id = ? ORDER BY e.position_no`,
+        [ spec ] );
     const log = new Map( versions.map( ( version ) => [ version.id, { version: version.id, number: version.number, stage: version.stage, entries: [] } ] ) );
     for ( const row of rows ) {
-        log.get( row.version_id ).entries.push( { ...row, dropped: row.dropped === 1, flagged: row.flagged === 1, source: row.source === null ? null : JSON.parse( row.source ) } );
+        log.get( row.version_id ).entries.push( entryOf( row ) );
     }
     return [ ...log.values() ].sort( ( a, b ) => {
         if ( a.number === null || b.number === null ) {

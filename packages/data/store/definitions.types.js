@@ -114,6 +114,47 @@
  */
 
 /**
+ * @typedef {Object} Round One submission of a release and its decision (design record §7.4).
+ * @property {string} id
+ * @property {number} number From 1.
+ * @property {string} submittedBy
+ * @property {string} submittedAt ISO time.
+ * @property {string|null} decision `approved` or `returned`; `null` while under review.
+ * @property {string|null} decidedBy
+ * @property {string|null} decidedAt
+ * @property {Array<{version: string, contentHash: string|null, changelog: Object[]}>} versions Each version's changelog
+ *     as submitted.
+ * @property {Array<{id: string, number: number, version: string|null, target: string|null, text: string, author: string,
+ *     at: string}>} comments `version` and `target` are `null` for the release as a whole; `target` is an item key or
+ *     `changelog:<entry id>`.
+ */
+
+/**
+ * @typedef {Object} Release A package of spec versions that move through the stages together (design record §7.3).
+ * @property {string} id
+ * @property {string} status `review`, `returned`, `accepted` or `abandoned`.
+ * @property {{bg: string|null, en: string|null}} summary
+ * @property {number|null} noticeDays
+ * @property {string|null} plannedOn The planned production date, `yyyy-mm-dd` in Sofia.
+ * @property {string} createdAt
+ * @property {Array<{id: string, spec: string, kind: string, number: string|null, stage: string, frozen: boolean,
+ *     base: string|null, anomalies: Object[], pending: Object[]|null}>} versions `pending` is the difference from a version
+ *     in implementation's approved content to its current one, which a round there is reviewed by; `null` elsewhere.
+ * @property {Round[]} rounds
+ * @property {Array<{number: number, event: string, actor: string, at: string, version: string|null, details: Object}>} events
+ */
+
+/**
+ * @typedef {Object} ReleaseSummary A release in a queue (design record §7.4).
+ * @property {string} id
+ * @property {string} status
+ * @property {{bg: string|null, en: string|null}} summary
+ * @property {string|null} plannedOn
+ * @property {{number: number, submittedBy: string, submittedAt: string, decision: string|null}|null} round The last.
+ * @property {Array<{id: string, spec: string, number: string|null, stage: string}>} versions
+ */
+
+/**
  * @typedef {Object} Move A version moving to its next stage (design record §7.1).
  * @property {string} version The version's ID.
  * @property {string} to The stage it moves to.
