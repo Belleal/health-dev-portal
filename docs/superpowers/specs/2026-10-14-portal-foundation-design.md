@@ -86,8 +86,8 @@ Each step is one implementation plan in `docs/superpowers/plans/`.
 | 2 | Nomenclatures and business rules | Done |
 | 3 | Conditions language | Done |
 | 4 | Blueprints and generated XSDs | Done |
-| 5 | Data layer and migration: one SQL subset on SQLite and PostgreSQL (§3.2), the stored model with one spec per code list (§4.6), files by content hash (§3.3), loading today's published workbooks, and copying a database from one driver to the other (§7.11) | Next |
-| 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | — |
+| 5 | Data layer and migration: one SQL subset on SQLite and PostgreSQL (§3.2), the stored model with one spec per code list (§4.6), files by content hash (§3.3), loading today's published workbooks, and copying a database from one driver to the other (§7.11) | Done |
+| 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | 6a (editing) done; 6b (review, promotion) next |
 | 7 | ti-engine SQL and file gateways (§13) | — |
 | 8 | Public site (§8) | — |
 | 9 | Staff area: sign-in, roles, the review queue, review and promotion screens | — |
