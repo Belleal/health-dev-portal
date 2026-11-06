@@ -215,10 +215,23 @@ const REVIEW = [
         CONSTRAINT review_guard CHECK ( reason IS NULL OR reason <> 'review' ) )`
 ];
 
+const FILES = [
+    // The files made once for a published version and never changed (plan 8a, decision 8). The bytes are in the file
+    // store by hash; a second writer of the same name keeps the first's row.
+    `CREATE TABLE fixed_files (
+        version_id TEXT NOT NULL REFERENCES versions ( id ),
+        name TEXT NOT NULL,
+        hash TEXT NOT NULL REFERENCES files ( hash ),
+        created_at TEXT NOT NULL,
+        PRIMARY KEY ( version_id, name )
+    )`
+];
+
 const MIGRATIONS = Object.freeze( [
     Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ),
     Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } ),
-    Object.freeze( { id: "0003-review", statements: Object.freeze( REVIEW ) } )
+    Object.freeze( { id: "0003-review", statements: Object.freeze( REVIEW ) } ),
+    Object.freeze( { id: "0004-files", statements: Object.freeze( FILES ) } )
 ] );
 
 /**
@@ -229,7 +242,7 @@ const MIGRATIONS = Object.freeze( [
  * @public
  */
 module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "approved_items", "anomalies", "changelog_entries",
-    "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "settings" ] );
+    "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "fixed_files", "settings" ] );
 
 /**
  * The statement that makes a batch fail when its version is frozen (design record §7.7). It inserts into

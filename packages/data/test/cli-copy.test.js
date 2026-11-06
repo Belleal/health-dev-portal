@@ -64,7 +64,7 @@ describe( "hdp-copy", () => {
         const { from, to, files } = await seeded();
         const first = run( [ "--from", from, "--to", to, ...files ] );
         assert.equal( first.status, 0, first.stdout + first.stderr );
-        assert.match( first.stdout, /^Copied \d+ rows in 17 tables; 1 files\.$/m );
+        assert.match( first.stdout, /^Copied \d+ rows in 18 tables; 1 files\.$/m );
         const second = run( [ "--from", from, "--to", to, ...files ] );
         assert.equal( second.status, 1 );
         assert.match( second.stderr, /already holds/ );
