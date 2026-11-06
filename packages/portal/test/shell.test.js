@@ -62,6 +62,34 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
         assert.match( ( await get( "/app/x" ) ).text, /<html lang="bg">/ );
     } );
 
+    it( "answers every unknown address with its own 404, outside the languages too, never a redirect to /", async () => {
+        for ( const path of [ "/nope", "/robots.txt", "/favicon.ico", "/sitemap.xml", "/x/y/z" ] ) {
+            const response = await get( path );
+            assertPublic( response, "public, max-age=60" );
+            assert.equal( response.status, 404, path );
+        }
+    } );
+
+    it( "mints no session: the framework's sign-in and session routes are the portal's 404 until plan 9", async () => {
+        // GET /csrf-token minted a token into a new session, saved and cookied, which every later page then re-sent.
+        for ( const path of [ "/csrf-token", "/me", "/login/local", "/login/openid-google", "/login/google-callback" ] ) {
+            const response = await get( path );
+            assertPublic( response, "public, max-age=60" );
+            assert.equal( response.status, 404, path );
+        }
+        // A form post without a token is refused by the framework's CSRF check before any route, and sets nothing either.
+        for ( const path of [ "/logout", "/login/local" ] ) {
+            const response = await fetch( `${ portal.url }${ path }`, { method: "POST", redirect: "manual", headers: { accept: "text/html" } } );
+            assert.equal( response.headers.get( "set-cookie" ), null, path );
+            assert.equal( response.status, 403, path );
+        }
+    } );
+
+    it( "keeps the framework's /admin protected, and sets no cookie there either", async () => {
+        const response = await get( "/admin/config/editors" );
+        assert.deepEqual( [ response.status, response.headers.get( "location" ), response.headers.get( "set-cookie" ) ], [ 303, "/", null ] );
+    } );
+
     it( "puts the response's nonce on its one script, and serves both assets as immutable at their hashed address", async () => {
         const response = await get( "/bg/nope" );
         const nonce = /script-src [^;]*'nonce-([^']+)'/.exec( response.headers.get( "content-security-policy" ) )[ 1 ];

@@ -93,9 +93,11 @@ class PortalServer extends TiWebServer {
     }
 
     /**
-     * The framework's unprotected routes, and the portal's: `/` (the framework's already), each language's pages, the
-     * downloads, and `/app/…`, which the portal answers with its own 404 until plan 9. Measured: without that last one an
-     * anonymous `GET /app/x` is answered 303 to `/` by the framework's protection before any route is reached.
+     * Everything is public but the framework's `/admin`: web-content's own pattern for a public site, written out here
+     * since the portal takes only `/html` and `/transliterate` from web-content. Any narrower list left the rest to the
+     * framework's protection, which answers an anonymous `/nope`, `/robots.txt` or `/favicon.ico` 303 to `/` (401 for
+     * anything but HTML) before the portal's 404 is reached (review of task 3, I2). The framework's routes that are not
+     * public pages are taken by the portal's own 404 instead (`defineWebApplicationRoutes`).
      *
      * @method
      * @override
@@ -103,16 +105,23 @@ class PortalServer extends TiWebServer {
      */
     defineUnprotectedRoutes() {
         super.defineUnprotectedRoutes();
-        this.addUnprotectedRoute( /^\/(bg|en)(\/.*)?$/ );
-        this.addUnprotectedRoute( /^\/downloads\// );
-        this.addUnprotectedRoute( /^\/app\// );
+        this.addUnprotectedRoute( /^\/(?!admin(?:\/|$)).*$/ );
     }
 
     /**
-     * The portal's routes around the framework's. Before them, `/` and the framework's application routes: its handlers
-     * for `/`, `/not-found`, `/app` and `/app/:view` read the web application manager the portal does not have, and
-     * throw. After them, every other GET goes to the pages, whose own 404 answers what is none: the framework's would
-     * redirect an HTML GET to `/`.
+     * The portal's routes around the framework's.
+     * - **Before them**, `/`, and the portal's 404 for the framework's application and session routes:
+     *   - its handlers for `/`, `/not-found`, `/app`, `/app/:view` and `POST /app/:service` read the web application
+     *     manager the portal does not have, and throw (measured: 500, logged as an error, for a POST holding a CSRF
+     *     token);
+     *   - `GET /csrf-token` minted a token into a new session for anyone, saved and cookied (`ti-xsrf-token` and
+     *     `connect.sid`), after which every page re-sent both cookies beside its public caching (review of task 3, I1);
+     *     `/me`, `/login/:method` and `/logout` serve a sign-in the portal does not have until plan 9.
+     * - **After them**, every other GET goes to the pages, whose own 404 answers what is none: the framework's would
+     *   redirect an HTML GET to `/`.
+     *
+     * A generic gap, for a CA card in ti-engine: a `TiWebServer` with no sign-in method enabled still mounts the routes
+     * that mint and serve sessions, and an application can only shadow them, one by one, as this does.
      *
      * @method
      * @override
@@ -120,13 +129,12 @@ class PortalServer extends TiWebServer {
      */
     defineWebApplicationRoutes() {
         this.registerRoute( "get", "/", rootRedirect );
-        for ( const route of [ "/not-found", "/app", "/app/*splat" ] ) {
+        for ( const route of [ "/not-found", "/app", "/app/*splat", "/csrf-token", "/me", "/login/:method" ] ) {
             this.registerRoute( "get", route, notFound );
         }
-        // The framework's `POST /app/:service` reads the manager too: now that /app/… is unprotected, a request holding a
-        // CSRF token reaches it. Measured with a session in Redis: 500, logged as an error, for /app/x and
-        // /app/send-feedback alike; with this handler, 404.
-        this.registerRoute( "post", "/app/*splat", notFound );
+        for ( const route of [ "/app/*splat", "/login/:method", "/logout" ] ) {
+            this.registerRoute( "post", route, notFound );
+        }
         super.defineWebApplicationRoutes();
         this.registerRoute( "get", "*splat", pageHandler( () => ( { db: this.#db, store: this.#store } ) ) );
     }

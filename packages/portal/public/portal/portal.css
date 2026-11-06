@@ -128,6 +128,13 @@
     box-sizing: border-box;
 }
 
+/* A control the script has not shown stays hidden, whatever display its class gives it: `button.copy` below is
+   `inline-block`, which beat the browser's own `[hidden] { display: none }`, so the copy button showed without the
+   script and did nothing (review of task 3, I3). */
+[hidden] {
+    display: none !important;
+}
+
 html {
     color: var(--ink);
     background: #FFFFFF;

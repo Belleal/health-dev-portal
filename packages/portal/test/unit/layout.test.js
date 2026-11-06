@@ -72,6 +72,13 @@ describe( "The document", () => {
         assert.match( text, /<aside class="panel"[^>]*>\s*<p>панел<\/p>/ );
     } );
 
+    it( "keeps a control the script has not shown hidden, whatever display a class gives it", () => {
+        // `.button, button.copy { display: inline-block }` beat the browser's own `[hidden] { display: none }`, so the
+        // copy button showed without the script, and did nothing (review of task 3, I3).
+        const css = fs.readFileSync( path.join( PUBLIC, "portal/portal.css" ), "utf8" );
+        assert.match( css, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/ );
+    } );
+
     it( "leaves out what a page does not have: no canonical for a page not found, no band, sidebar or panel", () => {
         const text = page( { lang: "en", title: "Page not found", path: "/app/x", main: html`<h1>x</h1>`, nonce: "n" } );
         assert.match( text, /<html lang="en">/ );
