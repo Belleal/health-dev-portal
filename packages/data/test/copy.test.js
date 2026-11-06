@@ -47,6 +47,15 @@ const seeded = async () => {
     await migrateSchema( source );
     await migrateImported( source, memoryStore(), stageImports() );
     await storeFile( source, memoryStore(), Buffer.from( "x" ), "text/plain" );
+    // A fix whose ID sorts before the version it replaces, with more versions between than one insert holds: copied in ID
+    // order, it reached the target before what it names, and the copy failed on the foreign key (final review of plan 6b).
+    const version = ( id, number, replaces ) => source.run( `INSERT INTO versions ( id, spec_id, number, stage, frozen, replaces_id, created_at )
+        VALUES ( ?, 'e-prescription', ?, 'retired', 1, ?, '2026-11-06' )`, [ id, number, replaces ] );
+    await version( "z-fixed", "9.9.0", null );
+    await version( "0-fix", "9.9.1", "z-fixed" );
+    for ( let index = 0; index < 8; index++ ) {
+        await version( `f${ index }`, `9.8.${ index }`, null );
+    }
     return source;
 };
 
@@ -61,6 +70,7 @@ eachDatabase( "Copy", ( target ) => {
         }
         assert.ok( counts.items > 0 );
         assert.equal( ( await target().get( "SELECT COUNT(*) AS n FROM versions WHERE base_id IS NOT NULL" ) ).n, 1 );
+        assert.deepEqual( await target().get( "SELECT replaces_id FROM versions WHERE id = '0-fix'" ), { replaces_id: "z-fixed" } );
         await source.close();
     } );
 
