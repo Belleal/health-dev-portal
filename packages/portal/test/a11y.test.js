@@ -37,13 +37,13 @@ const IN_CI = Boolean( process.env.CI ) && process.env.CI !== "false";
  *
  * @method
  * @param {string} element The address of one element of P001, selected.
- * @returns {string[]}
+ * @returns {Array<[string, number]>} Each address with the status it should answer.
  * @private
  */
 function pagesToCheck( element ) {
     const addresses = [];
     for ( const lang of [ "bg", "en" ] ) {
-        addresses.push(
+        addresses.push( ...[
             paths.home( lang ),
             paths.specs( lang ),
             paths.spec( lang, SPEC, "production" ),
@@ -57,15 +57,18 @@ function pagesToCheck( element ) {
             paths.lists( lang ),
             paths.list( lang, SEED.cl007.spec, "production" ),
             paths.errors( lang ),
-            paths.errors( lang, true ),
             paths.changes( lang ),
             paths.changes( lang, SPEC ),
-            paths.compare( lang, SPEC, SEED.ePrescription.production, SEED.ePrescription.testing ),
-            `/${ lang }/no-such-page`,
-            paths.spec( lang, SPEC, SEED.history )
+            paths.compare( lang, SPEC, SEED.ePrescription.production, SEED.ePrescription.testing )
+        ].map( ( address ) => [ address, 200 ] ) );
+        // Nothing is in testing as far as errors go, so that address is the 404 page in its language.
+        addresses.push(
+            [ paths.errors( lang, true ), 404 ],
+            [ `/${ lang }/no-such-page`, 404 ],
+            [ paths.spec( lang, SPEC, SEED.history ), 410 ]
         );
     }
-    addresses.push( element, element.replace( "/bg/", "/en/" ) );
+    addresses.push( [ element, 200 ], [ element.replace( "/bg/", "/en/" ), 200 ] );
     return addresses;
 }
 
@@ -112,8 +115,14 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
         assert.ok( selected, "P001's tree links to its elements" );
 
         const found = [];
-        for ( const address of pagesToCheck( selected[ 1 ] ) ) {
-            await page.goto( `${ portal.url }${ address }` );
+        for ( const [ address, status ] of pagesToCheck( selected[ 1 ] ) ) {
+            const requested = new URL( address, portal.url ).href;
+            const response = await page.goto( requested );
+            // Without this a mistyped builder, a redirect or a 500 page would be analysed as the page meant, and pass.
+            if ( response.status() !== status || response.url() !== requested ) {
+                found.push( `${ address } answered ${ response.status() } at ${ response.url() }, expected ${ status } at ${ requested }` );
+                continue;
+            }
             const result = await new AxeBuilder( { page } ).withTags( TAGS ).analyze();
             for ( const one of result.violations ) {
                 found.push( `${ address } ${ one.id }: ${ one.nodes.map( ( node ) => node.target.join( " " ) ).join( " | " ) }` );
