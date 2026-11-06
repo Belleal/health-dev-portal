@@ -38,4 +38,13 @@ describe( "dates", () => {
         assert.equal( addDays( "2028-02-28", 1 ), "2028-02-29" );
         assert.equal( addDays( "2026-03-28", 1 ), "2026-03-29" );
     } );
+
+    // V8 rolls a day past the month's end into the next month, so 2026-02-30 passed as 2026-03-02, and the callers that
+    // use addDays as a check stored the impossible date as given (review of PR 18).
+    it( "refuses a day its month does not have", () => {
+        for ( const date of [ "2026-02-30", "2026-02-29", "2026-04-31" ] ) {
+            assert.throws( () => addDays( date, 0 ), RangeError, date );
+        }
+        assert.equal( addDays( "2028-02-29", 0 ), "2028-02-29" );
+    } );
 } );
