@@ -1178,7 +1178,9 @@ Per spec:
 - **Changes in implementation.** An editor edits a version in implementation as in development, but the changes are
   **kept apart from the approved content** until the approver approves them. The backend team works from the approved
   content; staff see the pending changes beside it. Pending changes are submitted and reviewed as a round of the same
-  release, and the number stays (Boris, 2026-11-03).
+  release, and the number stays (Boris, 2026-11-03). A module's change is checked against the code lists it reads as
+  approved, except a list in its own release, whose pending changes go to review in the same round: a change spanning
+  both is checked as one *(design call)*.
 - **History.** Every round is kept: who submitted and when, the changelog as submitted, the comments, the decision, who
   took it and when (Boris, 2026-11-03).
 - **Queues** (Boris, 2026-11-03). The approver sees every release awaiting review; an editor sees every release returned to

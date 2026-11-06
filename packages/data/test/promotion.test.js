@@ -24,7 +24,7 @@ const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { checkContent } = require( "@health-dev-portal/importer/check" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, findVersion, loadItems, loadVersion, storeVersion } = require( "#versions" );
+const { ensureSpec, findVersion, loadItems, loadVersion, storeContent, storeVersion } = require( "#versions" );
 const { memoryStore } = require( "#files" );
 const { applyEdits, recheckVersion } = require( "#editing" );
 const { startDevelopment } = require( "#development" );
@@ -107,6 +107,43 @@ eachDatabase( "Promotion", ( db ) => {
         await assert.rejects( promoteReleases( db(), store, [ moduleRelease ], { to: "testing", noticeDays: 30, ...BY_APPROVER } ), refused( [ "link" ] ) );
         await promoteReleases( db(), store, [ moduleRelease, listRelease ], { to: "testing", noticeDays: 30, ...BY_APPROVER } );
         assert.deepEqual( [ ( await loadVersion( db(), module ) ).stage, ( await loadVersion( db(), list ) ).stage ], [ "testing", "testing" ] );
+    } );
+
+    it( "takes a change across a list and a module of one release in one round, and promotes them together", async () => {
+        // CL071 and e-Cochange are in implementation in one release; one minor change gives CL071 key 3 and has e-Cochange
+        // compare with it. Read as approved, the list had no key 3, and the module's own change was blocking (final
+        // review of plan 6b, I6): the list's pending change goes to review in the same round, so the module reads it.
+        await ensureSpec( db(), "CL071", "code-list" );
+        await storeVersion( db(), { spec: "CL071", kind: "code-list", number: "1.0.0", stage: "production", content: codeListVersion( "CL071", [ "1", "2" ], "1.0.0" ) } );
+        await production( "e-cochange", "1.0.0", needing( "e-cochange", "1.0.0", "CL071", "1" ) );
+        const list = await startDevelopment( db(), store, "CL071" );
+        const module = await startDevelopment( db(), store, "e-cochange" );
+        const release = await submitRelease( db(), { versions: [ list, module ], summary: SUMMARY, actor: ACTOR, now: NOW } );
+        await approveRelease( db(), store, release, BY_APPROVER );
+        await storeContent( db(), list, codeListVersion( "CL071", [ "1", "2", "3" ], ( await loadVersion( db(), list ) ).number ), [], BY_EDITOR );
+        await recheckVersion( db(), store, list );
+        await storeContent( db(), module, needing( "e-cochange", ( await loadVersion( db(), module ) ).number, "CL071", "3" ), [], BY_EDITOR );
+        const anomalies = await recheckVersion( db(), store, module );
+        assert.deepEqual( anomalies.filter( ( anomaly ) => anomaly.level === "blocking" ).map( ( anomaly ) => anomaly.type ), [] );
+        assert.equal( await submitRound( db(), release, BY_EDITOR ), 2 );
+        await approveRelease( db(), store, release, BY_APPROVER );
+        await promoteReleases( db(), store, [ release ], { to: "testing", noticeDays: 30, ...BY_APPROVER } );
+        assert.deepEqual( [ ( await loadVersion( db(), list ) ).stage, ( await loadVersion( db(), module ) ).stage ], [ "testing", "testing" ] );
+    } );
+
+    it( "checks a module against a list of another release as approved, not its pending changes", async () => {
+        await ensureSpec( db(), "CL072", "code-list" );
+        await storeVersion( db(), { spec: "CL072", kind: "code-list", number: "1.0.0", stage: "production", content: codeListVersion( "CL072", [ "1", "2" ], "1.0.0" ) } );
+        await production( "e-apart", "1.0.0", needing( "e-apart", "1.0.0", "CL072", "1" ) );
+        const list = await startDevelopment( db(), store, "CL072" );
+        const module = await startDevelopment( db(), store, "e-apart" );
+        for ( const version of [ list, module ] ) {
+            await approveRelease( db(), store, await submitRelease( db(), { versions: [ version ], summary: SUMMARY, actor: ACTOR, now: NOW } ), BY_APPROVER );
+        }
+        await storeContent( db(), list, codeListVersion( "CL072", [ "1", "2", "3" ], ( await loadVersion( db(), list ) ).number ), [], BY_EDITOR );
+        await storeContent( db(), module, needing( "e-apart", ( await loadVersion( db(), module ) ).number, "CL072", "3" ), [], BY_EDITOR );
+        const anomalies = await recheckVersion( db(), store, module );
+        assert.ok( anomalies.some( ( anomaly ) => anomaly.level === "blocking" ), JSON.stringify( anomalies.map( ( anomaly ) => anomaly.type ) ) );
     } );
 
     it( "refuses production before the planned date, and after a moved date allows it, keeping the replaced version as previous production", async () => {
