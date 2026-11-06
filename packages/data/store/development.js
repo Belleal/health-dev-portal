@@ -17,7 +17,7 @@
 
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
-const { recheckVersion } = require( "#editing" );
+const { authorOf, recheckVersion } = require( "#editing" );
 const { ensureSpec, findVersion, loadAnomalies, loadVersion, storeContent, storeVersion } = require( "#versions" );
 
 // What a development version starts from, the most advanced first (design record §7.1).
@@ -88,12 +88,15 @@ module.exports.startDevelopment = async ( db, store, spec ) => {
  * @param {import( "#definitions" ).FileStore} store
  * @param {string} spec
  * @param {Object} version A module, code-list or rules version as the importer gives it; its change notes are not kept.
+ * @param {{actor: string, now: Date}} options Who loads it, and when: an upload is recorded like an edit (§10.1).
  * @returns {Promise<{anomalies: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]}>} The development
  *     version's anomalies now.
- * @throws {TypeError} When the spec is of another kind.
+ * @throws {TypeError} For no author, or a spec of another kind.
+ * @throws {import( "#versions" ).UnderReviewError} When the development version is under review; nothing is written.
  * @public
  */
-module.exports.loadIntoDevelopment = async ( db, store, spec, version ) => {
+module.exports.loadIntoDevelopment = async ( db, store, spec, version, options ) => {
+    const author = authorOf( options );
     const content = Object.fromEntries( Object.entries( version ).filter( ( [ field ] ) => field !== "changeNotes" ) );
     await ensureSpec( db, spec, content.kind );
     const found = await developing( db, spec );
@@ -105,6 +108,6 @@ module.exports.loadIntoDevelopment = async ( db, store, spec, version ) => {
     } else {
         id = await storeDevelopment( db, { spec: spec, kind: content.kind, content: { ...content, version: null }, base: null } );
     }
-    await storeContent( db, id, { ...content, version: null }, [] );
+    await storeContent( db, id, { ...content, version: null }, [], author );
     return { anomalies: await recheckVersion( db, store, id ) };
 };

@@ -32,6 +32,7 @@ const { applyEdits } = require( "#editing" );
 const { startDevelopment } = require( "#development" );
 const { carryChange, listConflicts, resolveConflict } = require( "#carry" );
 const { eachDatabase } = require( "./support/databases" );
+const { BY_EDITOR } = require( "./support/lifecycle" );
 const { moduleVersion } = require( "./support/models" );
 
 const imported = ( number ) => checkContent( "module", moduleVersion( number ), { codeLists: [], rules: null, catalogue: null } ).content;
@@ -53,7 +54,7 @@ eachDatabase( "Carry", ( db ) => {
         // Development edits contents/lrn's description.
         const lrn = ( await loadItems( db(), development ) ).find( ( row ) => row.identity === "contents/lrn" );
         await applyEdits( db(), store, development, [ { op: "update", item: lrn.item_no, revision: lrn.revision,
-            data: { ...JSON.parse( lrn.data ), description: { bg: "редактирано", en: null } } } ] );
+            data: { ...JSON.parse( lrn.data ), description: { bg: "редактирано", en: null } } } ], BY_EDITOR );
         // The approved change in implementation: contents/lrn's maxLength, and contents/dose's name.
         beforeChange = ( await loadVersion( db(), implementation ) ).content;
         afterChange = structuredClone( beforeChange );
@@ -101,15 +102,15 @@ eachDatabase( "Carry", ( db ) => {
         const lrn = ( await loadItems( db(), development ) ).find( ( row ) => row.identity === "contents/lrn" );
         assert.equal( conflict.revision, lrn.revision );
         await applyEdits( db(), store, development, [ { op: "update", item: lrn.item_no, revision: lrn.revision,
-            data: { ...JSON.parse( lrn.data ), description: { bg: "още едно", en: null } } } ] );
-        await assert.rejects( resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision } ), { name: "EditConflictError" } );
+            data: { ...JSON.parse( lrn.data ), description: { bg: "още едно", en: null } } } ], BY_EDITOR );
+        await assert.rejects( resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision, ...BY_EDITOR } ), { name: "EditConflictError" } );
         assert.equal( ( await developmentContent() ).messages[ 0 ].elements[ 0 ].children[ 0 ].description.bg, "още едно" );
         assert.equal( ( await listConflicts( db(), development ) ).length, 1 );
     } );
 
     it( "resolves a conflict by the editor's choice", async () => {
         const [ conflict ] = await listConflicts( db(), development );
-        await resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision } );
+        await resolveConflict( db(), store, conflict.id, { choose: "upstream", revision: conflict.revision, ...BY_EDITOR } );
         assert.equal( ( await developmentContent() ).messages[ 0 ].elements[ 0 ].children[ 0 ].constraint.maxLength, 60 );
         assert.deepEqual( await listConflicts( db(), development ), [] );
     } );
@@ -124,7 +125,7 @@ eachDatabase( "Carry", ( db ) => {
         const contents = ( await loadItems( db(), own ) ).find( ( row ) => row.identity === "contents" );
         const field = ( identity ) => ( { ...afterChange.messages[ 0 ].elements[ 0 ].children[ 2 ], identity: identity, source: null, children: undefined } );
         await applyEdits( db(), store, own, [ { op: "insert", kind: "element", parent: contents.item_no, position: 0, data: field( "contents/x@value" ) },
-            { op: "insert", kind: "element", parent: contents.item_no, position: 1, data: field( "contents/y@value" ) } ] );
+            { op: "insert", kind: "element", parent: contents.item_no, position: 1, data: field( "contents/y@value" ) } ], BY_EDITOR );
         const was = ( await loadVersion( db(), upstream ) ).content;
         const now = structuredClone( was );
         now.messages[ 0 ].elements[ 0 ].children.splice( 1, 0, { ...field( "contents/new@value" ), children: [] } );

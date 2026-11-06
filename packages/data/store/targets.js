@@ -16,12 +16,12 @@
  */
 
 const { deepFreeze } = require( "@health-dev-portal/spec-model/freeze" );
-const { SPEC_KIND } = require( "@health-dev-portal/spec-model/kinds" );
+const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ERROR_CODE_LIST } = require( "@health-dev-portal/spec-model/links" );
 const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
 const { loadCatalogue } = require( "#files" );
 const { resolveVersion } = require( "#resolution" );
-const { findVersion, loadVersion } = require( "#versions" );
+const { findVersion, loadApprovedContent, loadVersion } = require( "#versions" );
 
 // The rules are one spec, under this ID, as resolution names it.
 const RULES = "rules";
@@ -39,6 +39,12 @@ const contentOf = async ( db, versionId ) => {
         frozen.delete( versionId );
         frozen.set( versionId, content );
         return content;
+    }
+    // A version in implementation is read as approved: a module never checks against a list's unapproved entries (plan
+    // 6b, decision 4).
+    const where = await db.get( "SELECT stage, approved_hash FROM versions WHERE id = ?", [ versionId ] );
+    if ( where && where.stage === STAGE.IMPLEMENTATION && where.approved_hash !== null ) {
+        return loadApprovedContent( db, versionId );
     }
     const version = await loadVersion( db, versionId );
     if ( version && version.frozen && version.content ) {

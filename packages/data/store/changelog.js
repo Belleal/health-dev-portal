@@ -17,10 +17,10 @@
 
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
-const { guardStatements, staleStatement } = require( "#schema" );
-const { FrozenVersionError, findVersion, loadVersion, storeVersion } = require( "#versions" );
+const { guardStatements, reviewStatement, staleStatement } = require( "#schema" );
+const { FrozenVersionError, UnderReviewError, findVersion, loadVersion, storeVersion } = require( "#versions" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
-const { CHANGE_CATEGORY, CHANGE_ORIGIN, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { CHANGE_CATEGORY, CHANGE_ORIGIN, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 
 const ENTRY_COLUMNS = [ "id", "version_id", "position_no", "category", "origin", "text_bg", "text_en", "source" ];
@@ -52,13 +52,23 @@ const categoryOf = ( category ) => {
     return category;
 };
 
-// Runs a changelog write behind the version's lock and frozen guard.
-const guarded = async ( db, versionId, statements ) => {
+// Runs a changelog write behind the version's lock and frozen guard. An editor's write is refused under review too, as
+// the approver reviews the changelog as submitted (design record §7.4); the portal's own refresh is not.
+const guarded = async ( db, versionId, statements, byEditor = false ) => {
+    if ( byEditor ) {
+        const release = await db.get( "SELECT r.status FROM versions v JOIN releases r ON r.id = v.release_id WHERE v.id = ?", [ versionId ] );
+        if ( release && release.status === RELEASE_STATUS.REVIEW ) {
+            throw new UnderReviewError( versionId );
+        }
+    }
     try {
-        return await db.batch( [ ...guardStatements( versionId ), ...statements ] );
+        return await db.batch( [ ...guardStatements( versionId ), ...( byEditor ? [ reviewStatement( versionId ) ] : [] ), ...statements ] );
     } catch ( error ) {
         if ( error instanceof ConstraintError && error.constraint === "write_guard" ) {
             throw new FrozenVersionError( versionId );
+        }
+        if ( error instanceof ConstraintError && error.constraint === "review_guard" ) {
+            throw new UnderReviewError( versionId );
         }
         throw error;
     }
@@ -70,7 +80,7 @@ const entryWrite = async ( db, entryId, set, params ) => {
     if ( !entry ) {
         throw new RangeError( `There is no changelog entry ${ entryId }.` );
     }
-    const results = await guarded( db, entry.version_id, [ { sql: `UPDATE changelog_entries SET ${ set } WHERE id = ?`, params: [ ...params, entryId ] } ] );
+    const results = await guarded( db, entry.version_id, [ { sql: `UPDATE changelog_entries SET ${ set } WHERE id = ?`, params: [ ...params, entryId ] } ], true );
     if ( results[ results.length - 1 ].changes === 0 ) {
         throw new RangeError( `There is no changelog entry ${ entryId }.` );
     }
@@ -174,6 +184,7 @@ module.exports.refreshChangelog = async ( db, versionId ) => {
  * @param {{category?: string, textBg?: string|null, textEn?: string|null}} changes Only what is given changes.
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @throws {TypeError} For a category that is none.
  * @public
@@ -198,6 +209,7 @@ module.exports.editChangelogEntry = async ( db, entryId, changes ) => {
  * @param {string} entryId
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @public
  */
@@ -211,6 +223,7 @@ module.exports.dropChangelogEntry = async ( db, entryId ) => entryWrite( db, ent
  * @param {string} entryId
  * @returns {Promise<void>}
  * @throws {FrozenVersionError} When the entry's version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such entry.
  * @public
  */
@@ -225,6 +238,7 @@ module.exports.restoreChangelogEntry = async ( db, entryId ) => entryWrite( db, 
  * @param {{category: string, textBg: string|null, textEn: string|null, target?: string, identity?: string}} entry
  * @returns {Promise<string>} The new entry's ID.
  * @throws {FrozenVersionError} When the version is frozen.
+ * @throws {UnderReviewError} When its release is under review.
  * @throws {RangeError} When there is no such version.
  * @throws {TypeError} For a category that is none.
  * @public
@@ -237,7 +251,7 @@ module.exports.addChangelogEntry = async ( db, versionId, entry ) => {
     const id = crypto.randomUUID();
     await guarded( db, versionId, [ insertEntry( versionId, { id: id, category: category, origin: CHANGE_ORIGIN.EDITOR, target: entry.target || null,
         identity: entry.identity || null, before: null, after: null, textBg: entry.textBg === undefined ? null : entry.textBg,
-        textEn: entry.textEn === undefined ? null : entry.textEn, key: null } ) ] );
+        textEn: entry.textEn === undefined ? null : entry.textEn, key: null } ) ], true );
     return id;
 };
 

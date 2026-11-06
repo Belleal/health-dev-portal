@@ -19,7 +19,7 @@ const crypto = require( "node:crypto" );
 const { compareContents, itemKeys } = require( "@health-dev-portal/spec-model/differences" );
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
-const { EditConflictError, applyEdits, recheckVersion } = require( "#editing" );
+const { EditConflictError, applyEdits, authorOf, recheckVersion } = require( "#editing" );
 const { decodeContent, encodeContent } = require( "#items" );
 const { diffRows, keyRows, nextAfter } = require( "#item-diff" );
 const { guardStatements, staleStatement } = require( "#schema" );
@@ -273,9 +273,10 @@ const editFor = async ( db, conflict, rows, chosen, seen ) => {
  * @param {import( "#definitions" ).Database} db
  * @param {import( "#definitions" ).FileStore} store
  * @param {string} conflictId
- * @param {{choose: string, data?: Object, revision?: number|null}} choice `choose` is `upstream`, `current` or
- *     `combined`; `data` is the combined item's own fields; `revision` is the one `listConflicts` showed, `null` for an
- *     item development did not have, and is needed for all but `current`.
+ * @param {{choose: string, data?: Object, revision?: number|null, actor: string, now: Date}} choice `choose` is
+ *     `upstream`, `current` or `combined`; `data` is the combined item's own fields; `revision` is the one `listConflicts`
+ *     showed, `null` for an item development did not have, and is needed for all but `current`; `actor` and `now` say
+ *     who chose and when, as for any edit (design record §10.1).
  * @returns {Promise<void>}
  * @throws {RangeError} When there is no such conflict.
  * @throws {TypeError} For a choice that is none, combined data that is not an object, no revision, or an item with
@@ -284,6 +285,7 @@ const editFor = async ( db, conflict, rows, chosen, seen ) => {
  * @public
  */
 module.exports.resolveConflict = async ( db, store, conflictId, choice ) => {
+    const author = authorOf( choice );
     const conflict = await db.get( `SELECT c.version_id, c.item_key, c.upstream_data, v.base_id, s.kind FROM conflicts c JOIN versions v ON v.id = c.version_id
         JOIN specs s ON s.id = v.spec_id WHERE c.id = ?`, [ conflictId ] );
     if ( !conflict ) {
@@ -306,7 +308,7 @@ module.exports.resolveConflict = async ( db, store, conflictId, choice ) => {
         }
         const edit = await editFor( db, conflict, await loadItems( db, conflict.version_id ), chosen, choice.revision );
         if ( edit ) {
-            await applyEdits( db, store, conflict.version_id, [ edit ] );
+            await applyEdits( db, store, conflict.version_id, [ edit ], author );
         }
     }
     try {
