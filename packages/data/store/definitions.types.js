@@ -114,6 +114,33 @@
  */
 
 /**
+ * @typedef {Object} Move A version moving to its next stage (design record §7.1).
+ * @property {string} version The version's ID.
+ * @property {string} to The stage it moves to.
+ * @property {string} [replaces] For a fix moving to testing, the testing version it replaces, which retires.
+ */
+
+/**
+ * @typedef {Object} Refusal Why a move is refused (design record §7.3: the refusal says which version and which rule).
+ * @property {string} version The version's ID.
+ * @property {string} spec
+ * @property {string} rule `skip`, `one-per-stage`, `one-line`, `link` or `key-type` from the move check; `number`,
+ *     `pending`, `waiting`, `date` or `previous` from an approval or a promotion.
+ * @property {string} message
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).Anomaly[]} [anomalies] For `link`, those the move
+ *     would introduce.
+ */
+
+/**
+ * @typedef {Object} Warning A module that will read a moving list and names something the list no longer has (design
+ *     record §4.8); it is shown and does not refuse.
+ * @property {string} version The moving list version's ID.
+ * @property {string} spec The list.
+ * @property {string} reader The module version's ID.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).Anomaly} anomaly
+ */
+
+/**
  * @typedef {Object} EditResult What a batch of edits did.
  * @property {Object<number, number>} revisions Each kept item whose revision went up, by number: those edited, and those
  *     whose derived fields the check changed.

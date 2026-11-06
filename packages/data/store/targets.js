@@ -57,6 +57,45 @@ const contentOf = async ( db, versionId ) => {
 };
 
 /**
+ * A version's content as others read it (design record §4.8): a version in implementation as approved, any other as
+ * stored, a frozen one from the cache.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {string} versionId
+ * @returns {Promise<import( "#definitions" ).VersionContent|null>}
+ * @public
+ */
+module.exports.readContent = ( db, versionId ) => contentOf( db, versionId );
+
+/**
+ * The lists and the rules that resolutions name, with their content as others read it. A list or the rules with no
+ * content is left out, and linking reports it.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {import( "#resolution" ).Resolution[]} resolutions
+ * @returns {Promise<{codeLists: Object[], rules: Object|null}>}
+ * @public
+ */
+module.exports.targetsFrom = async ( db, resolutions ) => {
+    const codeLists = [];
+    let rules = null;
+    for ( const resolution of resolutions ) {
+        const content = await contentOf( db, resolution.version );
+        if ( !content ) {
+            continue;
+        }
+        if ( resolution.spec === RULES ) {
+            rules = content;
+        } else {
+            codeLists.push( content.list );
+        }
+    }
+    return { codeLists: codeLists, rules: rules };
+};
+
+/**
  * What a version's content is checked against on every edit (design record §5.4).
  * - For a module, the lists and the rules it reads (design record §4.8), and the stored blueprint catalogue. A list or
  *   the rules found in no stage is left out, and linking reports it.
@@ -77,20 +116,7 @@ module.exports.loadTargets = async ( db, store, versionId ) => {
         throw new RangeError( `There is no version ${ versionId }.` );
     }
     if ( row.kind === SPEC_KIND.MODULE ) {
-        const codeLists = [];
-        let rules = null;
-        for ( const resolution of await resolveVersion( db, versionId ) ) {
-            const content = await contentOf( db, resolution.version );
-            if ( !content ) {
-                continue;
-            }
-            if ( resolution.spec === RULES ) {
-                rules = content;
-            } else {
-                codeLists.push( content.list );
-            }
-        }
-        return { codeLists: codeLists, rules: rules, catalogue: await loadCatalogue( db, store ) };
+        return { ...await module.exports.targetsFrom( db, await resolveVersion( db, versionId ) ), catalogue: await loadCatalogue( db, store ) };
     }
     if ( row.kind === SPEC_KIND.RULES ) {
         for ( const stage of resolutionOrder( row.stage ) ) {
