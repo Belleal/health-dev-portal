@@ -73,9 +73,18 @@ const conditionsTab = ( lang, { spec, at, message, content } ) => {
     } ) ) );
 };
 
-// A value a difference names, as a reader reads it. An added or removed element is the row itself, and a move names its
-// parents' internal keys, so neither shows a value.
-const shownValue = ( lang, difference, value ) => {
+/**
+ * A value a difference or a changelog entry names, as a reader reads it. An added or removed element is the row itself,
+ * and a move names its parents' internal keys, so neither shows a value; a changelog entry has no aspect and shows any value.
+ *
+ * @method
+ * @param {string} lang
+ * @param {{aspect?: string|null}} difference
+ * @param {*} value
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString}
+ * @public
+ */
+const shownValue = module.exports.shownValue = ( lang, difference, value ) => {
     if ( value === null || value === undefined || [ "added", "removed", "moved" ].includes( difference.aspect ) ) {
         return html`—`;
     }
@@ -100,6 +109,20 @@ const ASPECTS = Object.freeze( {
     moved: ( lang ) => label( lang, "markerMoved" )
 } );
 
+/**
+ * One structural difference as a table row: what it touches, what changed, before, after, and its category. The Changes tab
+ * here and the comparison page (changes.js) show differences alike.
+ *
+ * @method
+ * @param {string} lang
+ * @param {{identity: string|null, aspect: string, before: *, after: *, category: string}} difference
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString}
+ * @public
+ */
+module.exports.differenceRow = ( lang, difference ) => html`<tr><td><code>${ difference.identity || "—" }</code></td><td>${ Object.hasOwn( ASPECTS, difference.aspect )
+    ? ASPECTS[ difference.aspect ]( lang ) : html`<code>${ difference.aspect }</code>` }</td><td>${ shownValue( lang, difference, difference.before ) }</td><td>${ shownValue( lang, difference, difference.after ) }</td><td>${ difference.category === CHANGE_CATEGORY.BREAKING
+    ? html`<strong>${ label( lang, "categoryBreaking" ) }</strong>` : label( lang, "categoryNonBreaking" ) }</td></tr>\n`;
+
 // The Changes tab (decision 7): on a version in testing, how the message differs from production's, item by item,
 // with the comparison of the two versions and the changelog a link away. Any other version says where its changes are.
 const changesTab = ( lang, { spec, version, production, markers } ) => {
@@ -109,9 +132,7 @@ const changesTab = ( lang, { spec, version, production, markers } ) => {
 ${ changelog }`;
     }
     const compare = production ? html`<p><a href="${ paths.compare( lang, spec, production.number, version.number ) }">${ label( lang, "compareWithProduction" ) }</a></p>\n` : null;
-    const rows = markers.differences.map( ( difference ) => html`<tr><td><code>${ difference.identity || "—" }</code></td><td>${ Object.hasOwn( ASPECTS, difference.aspect )
-        ? ASPECTS[ difference.aspect ]( lang ) : html`<code>${ difference.aspect }</code>` }</td><td>${ shownValue( lang, difference, difference.before ) }</td><td>${ shownValue( lang, difference, difference.after ) }</td><td>${ difference.category === CHANGE_CATEGORY.BREAKING
-        ? html`<strong>${ label( lang, "categoryBreaking" ) }</strong>` : label( lang, "categoryNonBreaking" ) }</td></tr>\n` );
+    const rows = markers.differences.map( ( difference ) => module.exports.differenceRow( lang, difference ) );
     return html`<h2>${ label( lang, "changesAgainst", { number: production ? production.number : "—" } ) }</h2>
 ${ compare }${ rows.length === 0 ? html`<p>${ label( lang, "changesNone" ) }</p>` : html`<table class="rows">
 <thead><tr><th scope="col">${ label( lang, "columnElement" ) }</th><th scope="col">${ label( lang, "columnChange" ) }</th><th scope="col">${ label( lang, "columnBefore" ) }</th><th scope="col">${ label( lang, "columnAfter" ) }</th><th scope="col">${ label( lang, "columnCategory" ) }</th></tr></thead>

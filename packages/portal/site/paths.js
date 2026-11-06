@@ -77,7 +77,6 @@ const query = ( parameters ) => {
 // A filter's text: trimmed, since a space around it is never what the reader means, and none at all when it is blank. Builders
 // and parser alike, so that an address a builder writes is read back as it was given.
 const filterText = ( value ) => value === null || value === undefined || String( value ).trim() === "" ? null : String( value ).trim();
-const text = ( value ) => value === null || value === undefined || value === "" ? null : String( value );
 
 /**
  * Reads the `{at}` of an address: a stage slug the public may see, or a version number. A staff-only stage —
