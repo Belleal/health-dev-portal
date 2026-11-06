@@ -26,6 +26,7 @@
         "./moves": "./store/moves.js",
         "./releases": "./store/releases.js",
         "./resolution": "./store/resolution.js",
+        "./review": "./store/review.js",
         "./schema": "./store/schema.js",
         "./targets": "./store/targets.js",
         "./versions": "./store/versions.js"
@@ -48,6 +49,7 @@
         "#postgres-driver": "./db/postgres-driver.js",
         "#releases": "./store/releases.js",
         "#resolution": "./store/resolution.js",
+        "#review": "./store/review.js",
         "#schema": "./store/schema.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
         "#targets": "./store/targets.js",
