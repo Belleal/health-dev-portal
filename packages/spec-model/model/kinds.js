@@ -170,3 +170,48 @@ module.exports.CODE_LIST_STATUS = Object.freeze( {
     IN_DEVELOPMENT: "in-development",
     INCOMPLETE: "incomplete"
 } );
+
+/**
+ * Where a release is in its review (design record §7.3–§7.4): submitted and awaiting a decision, returned to its
+ * editors, accepted — from its first approval on, when its stage is its versions' — or abandoned (§7.1).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.RELEASE_STATUS = Object.freeze( {
+    REVIEW: "review",
+    RETURNED: "returned",
+    ACCEPTED: "accepted",
+    ABANDONED: "abandoned"
+} );
+
+/**
+ * What the approver decided on a review round (design record §7.4).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.ROUND_DECISION = Object.freeze( {
+    APPROVED: "approved",
+    RETURNED: "returned"
+} );
+
+/**
+ * What happened to a release, recorded with who and when (design record §7.3, §10.1).
+ *
+ * @readonly
+ * @enum {string}
+ * @public
+ */
+module.exports.RELEASE_EVENT = Object.freeze( {
+    SUBMITTED: "submitted",
+    APPROVED: "approved",
+    RETURNED: "returned",
+    PROMOTED: "promoted",
+    DATE_SET: "date-set",
+    FIX_CREATED: "fix-created",
+    ABANDONED: "abandoned",
+    PREVIOUS_RETIRED: "previous-retired"
+} );

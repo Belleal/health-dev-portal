@@ -21,6 +21,7 @@ const { guardStatements, staleStatement } = require( "#schema" );
 const { FrozenVersionError, findVersion, loadVersion, storeVersion } = require( "#versions" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
 const { CHANGE_CATEGORY, CHANGE_ORIGIN, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 
 const ENTRY_COLUMNS = [ "id", "version_id", "position_no", "category", "origin", "text_bg", "text_en", "source" ];
 
@@ -241,7 +242,8 @@ module.exports.addChangelogEntry = async ( db, versionId, entry ) => {
 };
 
 /**
- * Compares two dotted version numbers part by part as whole numbers, so 1.5.10 comes after 1.5.9 and 1.5 before 1.5.1.
+ * Compares two dotted version numbers part by part as whole numbers. It lives in the model now, beside the numbers'
+ * other rules (design record §7.2); the changelog and the migration keep reading it here.
  *
  * @method
  * @param {string} a
@@ -249,23 +251,7 @@ module.exports.addChangelogEntry = async ( db, versionId, entry ) => {
  * @returns {number} Negative, zero or positive, as for `Array.prototype.sort`.
  * @public
  */
-module.exports.compareNumbers = ( a, b ) => {
-    const left = a.split( "." );
-    const right = b.split( "." );
-    for ( let index = 0; index < Math.max( left.length, right.length ); index += 1 ) {
-        if ( left[ index ] === undefined || right[ index ] === undefined ) {
-            return left.length - right.length;
-        }
-        const difference = Number( left[ index ] ) - Number( right[ index ] );
-        if ( Number.isNaN( difference ) ) {
-            return left[ index ] < right[ index ] ? -1 : left[ index ] > right[ index ] ? 1 : 0;
-        }
-        if ( difference !== 0 ) {
-            return difference;
-        }
-    }
-    return 0;
-};
+module.exports.compareNumbers = compareNumbers;
 
 // One block per number, its notes in order. Nomenclatures 1.5.33 heads 1.3.12 twice; storing the blocks one by one
 // would keep the first and drop the second as already imported.
