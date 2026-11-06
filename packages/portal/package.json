@@ -41,5 +41,9 @@
         "pretest": "node test/support/build-seed.js",
         "test": "node --test \"test/**/*.test.js\"",
         "start": "node -e \"require( '@ti-engine/core' )\""
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "4.14.0",
+        "playwright": "1.64.1"
     }
 }

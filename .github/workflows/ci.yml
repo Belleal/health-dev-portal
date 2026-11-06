@@ -48,5 +48,8 @@ jobs:
       # The regression test reads the published e-Prescription workbook; in CI a missing fixture fails the run.
       - name: Fetch public fixtures
         run: npm run fixtures:fetch
+      # The portal's accessibility test drives real Chromium; in CI a missing browser fails the run rather than skipping.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
       - name: Unit tests
         run: npm test
