@@ -111,6 +111,34 @@ module.exports.interleaved = ( db, meanwhile ) => {
 };
 
 /**
+ * A database that runs `meanwhile` on the real one right after the first batch `matches` picks out has committed:
+ * another writer's change landing between one operation's batches, as between an approval and its carry. Later batches
+ * go straight through.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {function( import( "#definitions" ).Statement[] ): boolean} matches
+ * @param {function(): Promise<void>} meanwhile
+ * @returns {import( "#definitions" ).Database}
+ * @public
+ */
+module.exports.followedBy = ( db, matches, meanwhile ) => {
+    let pending = meanwhile;
+    return {
+        ...module.exports.interleaved( db, null ),
+        batch: async ( statements ) => {
+            const result = await db.batch( statements );
+            if ( pending && matches( statements ) ) {
+                const now = pending;
+                pending = null;
+                await now();
+            }
+            return result;
+        }
+    };
+};
+
+/**
  * Runs `body` once per database, each in its own `describe`, with a database opened before the suite and closed —
  * for PostgreSQL, its schema dropped — after it.
  *

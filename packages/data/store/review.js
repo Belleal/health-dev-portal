@@ -170,10 +170,12 @@ module.exports.approveRelease = async ( db, store, releaseId, input ) => {
         return { statements: statements, result: { pending: changed, warnings: check.warnings } };
     } );
 
-    // Approved changes reach development (§7.8), after the approval is written: the carry has its own batch and guards.
+    // Approved changes reach development (§7.8), after the approval is written: the carry has its own batch and guards. It
+    // carries the approved copy: the version as stored also holds any edit made since the approval (final review of plan
+    // 6b, I2).
     const carried = [];
     for ( const version of pending ) {
-        const result = await carryChange( db, store, version.spec, before.get( version.id ), ( await loadVersion( db, version.id ) ).content, version.id );
+        const result = await carryChange( db, store, version.spec, before.get( version.id ), await loadApprovedContent( db, version.id ), version.id );
         carried.push( { version: version.id, applied: result.applied, conflicts: result.conflicts } );
         if ( result.conflicts > 0 ) {
             await returnConflicted( db, version, author );

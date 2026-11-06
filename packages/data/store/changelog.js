@@ -18,6 +18,7 @@
 const crypto = require( "node:crypto" );
 const { ConstraintError, insertStatements } = require( "#database" );
 const { guardStatements, reviewStatement, staleStatement } = require( "#schema" );
+const { readContent } = require( "#targets" );
 const { FrozenVersionError, UnderReviewError, findVersion, loadVersion, storeVersion } = require( "#versions" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
 const { CHANGE_CATEGORY, CHANGE_ORIGIN, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
@@ -156,8 +157,10 @@ module.exports.refreshChangelog = async ( db, versionId ) => {
         if ( version.content === null ) {
             return { added: 0, updated: 0, removed: 0, flagged: 0 };
         }
-        const base = version.base ? await loadVersion( db, version.base ) : null;
-        const differences = compareContents( version.kind, base ? base.content : null, version.content );
+        // A base in implementation is compared as approved: as stored, its pending changes showed in this version's
+        // changelog as changes the editor never made (final review of plan 6b, I2).
+        const base = version.base ? await readContent( db, version.base ) : null;
+        const differences = compareContents( version.kind, base, version.content );
         const entries = await db.all( `SELECT id, category, origin, target_kind, target_identity, before_value, after_value, flagged, difference_key FROM changelog_entries
             WHERE version_id = ? AND difference_key IS NOT NULL`, [ versionId ] );
         const { statements, counts } = reconcile( versionId, differences, entries );

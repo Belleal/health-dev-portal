@@ -29,9 +29,10 @@ const { memoryStore, writeSetting } = require( "#files" );
 const { applyEdits, recheckVersion } = require( "#editing" );
 const { startDevelopment } = require( "#development" );
 const { listConflicts } = require( "#carry" );
+const { loadEntries } = require( "#changelog" );
 const { loadRelease, submitRelease, submitRound } = require( "#releases" );
 const { approveRelease, returnRelease } = require( "#review" );
-const { eachDatabase } = require( "./support/databases" );
+const { eachDatabase, followedBy } = require( "./support/databases" );
 const { ACTOR, APPROVER, BY_EDITOR, NOW, cleanModule } = require( "./support/lifecycle" );
 
 const SUMMARY = Object.freeze( { bg: "Версия", en: null } );
@@ -112,6 +113,49 @@ eachDatabase( "Review", ( db ) => {
         assert.deepEqual( loaded.rounds[ 0 ].comments.map( ( comment ) => [ comment.number, comment.version, comment.target, comment.author ] ),
             [ [ 1, null, null, APPROVER ], [ 2, version, "element:P001:contents/lrn#1", APPROVER ] ] );
         await editLrn( version, ( data ) => ( { ...data, description: { bg: "Ясно", en: null } } ) );
+    } );
+
+    // Pending changes in implementation stay apart from the approved content until approved (§7.4, §7.8): a development
+    // version starts from, compares against and is carried only the approved content (final review of plan 6b, I2).
+    const approvedInImplementation = async ( spec ) => {
+        await ensureSpec( db(), spec, "module" );
+        await storeVersion( db(), { spec: spec, kind: "module", number: "1.0.0", stage: "production", content: cleanModule( spec, "1.0.0" ) } );
+        const version = await startDevelopment( db(), store, spec );
+        const release = await submitRelease( db(), { versions: [ version ], summary: SUMMARY, actor: ACTOR, now: NOW } );
+        await approveRelease( db(), store, release, BY_APPROVER );
+        return { version: version, release: release };
+    };
+    const UNAPPROVED = Object.freeze( { bg: "НЕОДОБРЕНО", en: null } );
+
+    it( "starts the next development version from the approved content, not the pending changes", async () => {
+        const { version } = await approvedInImplementation( "e-start" );
+        const approved = lrnOf( await loadApprovedContent( db(), version ) ).description;
+        await editLrn( version, ( data ) => ( { ...data, description: UNAPPROVED } ) );
+        const next = await startDevelopment( db(), store, "e-start" );
+        assert.deepEqual( lrnOf( ( await loadVersion( db(), next ) ).content ).description, approved );
+    } );
+
+    it( "writes a development version's changelog against its base's approved content", async () => {
+        const { version } = await approvedInImplementation( "e-base" );
+        const next = await startDevelopment( db(), store, "e-base" );
+        await editLrn( version, ( data ) => ( { ...data, description: UNAPPROVED } ) );
+        const contents = ( await loadItems( db(), next ) ).find( ( row ) => row.identity === "contents" );
+        await applyEdits( db(), store, next, [ { op: "update", item: contents.item_no, revision: contents.revision,
+            data: { ...JSON.parse( contents.data ), description: { bg: "развитие", en: null } } } ], BY_EDITOR );
+        assert.deepEqual( ( await loadEntries( db(), next ) ).map( ( entry ) => entry.target_identity ), [ "contents" ] );
+    } );
+
+    it( "carries the approved content to development, not an edit made after the approval", async () => {
+        const { version, release } = await approvedInImplementation( "e-carry" );
+        const next = await startDevelopment( db(), store, "e-carry" );
+        const approved = Object.freeze( { bg: "одобрено", en: null } );
+        await editLrn( version, ( data ) => ( { ...data, description: approved } ) );
+        await submitRound( db(), release, BY_EDITOR );
+        // The editor's next edit lands after the approval's batch and before its carry.
+        const deciding = ( statements ) => statements.some( ( statement ) => statement.sql.startsWith( "UPDATE rounds SET decision" ) );
+        await approveRelease( followedBy( db(), deciding, () => editLrn( version, ( data ) => ( { ...data, description: UNAPPROVED } ) ) ), store, release, BY_APPROVER );
+        assert.deepEqual( lrnOf( await loadApprovedContent( db(), version ) ).description, approved );
+        assert.deepEqual( lrnOf( ( await loadVersion( db(), next ) ).content ).description, approved );
     } );
 
     it( "refuses self-approval only when two people are required", async () => {

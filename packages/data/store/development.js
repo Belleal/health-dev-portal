@@ -18,7 +18,8 @@
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
 const { authorOf, recheckVersion } = require( "#editing" );
-const { ensureSpec, findVersion, loadAnomalies, loadVersion, storeContent, storeVersion } = require( "#versions" );
+const { readContent } = require( "#targets" );
+const { ensureSpec, findVersion, loadAnomalies, storeContent, storeVersion } = require( "#versions" );
 
 // What a development version starts from, the most advanced first (design record §7.1).
 const SOURCES = Object.freeze( [ STAGE.IMPLEMENTATION, STAGE.TESTING, STAGE.PRODUCTION ] );
@@ -51,7 +52,8 @@ const storeDevelopment = async ( db, input ) => {
 /**
  * Starts a spec's next development version from its most advanced one — in implementation, else testing, else
  * production — with no number, that version as its base, and its content and anomalies copied, defects included
- * (design record §7.11). The copy is then checked as an edit is, which also writes its changelog.
+ * (design record §7.11): the content as others read it, so one in implementation without its pending changes (§7.4). The
+ * copy is then checked as an edit is, which also writes its changelog.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
@@ -67,11 +69,13 @@ module.exports.startDevelopment = async ( db, store, spec ) => {
         throw new TypeError( `The spec ${ spec } already has a development version.` );
     }
     const source = await sourceOf( db, spec );
-    const loaded = source ? await loadVersion( db, source.id ) : null;
-    if ( !loaded || !loaded.content ) {
+    // A version in implementation is copied as approved: copied as stored, its pending changes reached development before
+    // anyone approved them (final review of plan 6b, I2). They arrive with their approval instead (§7.8).
+    const content = source ? await readContent( db, source.id ) : null;
+    if ( !content ) {
         throw new RangeError( `The spec ${ spec } has no version with content to start from.` );
     }
-    const id = await storeDevelopment( db, { spec: spec, kind: loaded.kind, content: { ...loaded.content, version: null }, anomalies: await loadAnomalies( db, source.id ),
+    const id = await storeDevelopment( db, { spec: spec, kind: source.kind, content: { ...content, version: null }, anomalies: await loadAnomalies( db, source.id ),
         base: source.id } );
     await recheckVersion( db, store, id );
     return id;
