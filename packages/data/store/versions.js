@@ -207,8 +207,10 @@ module.exports.ensureSpec = async ( db, id, kind ) => {
  * @param {import( "#definitions" ).Database} db
  * @param {{spec: string, kind: string, number: string|null, stage: string, content?: import( "#definitions" ).VersionContent,
  *     anomalies?: import( "@health-dev-portal/spec-model/definitions" ).Anomaly[], release?: string, base?: string,
- *     stages?: Array<{stage: string, enteredOn: string|null}>, frozen?: boolean}} input The current stage is recorded even
- *     when `stages` leaves it out.
+ *     stages?: Array<{stage: string, enteredOn: string|null}>, frozen?: boolean, replaces?: string, approved?: boolean,
+ *     also?: function( string ): import( "#definitions" ).Statement[]}} input The current stage is recorded even when
+ *     `stages` leaves it out. A fix names the testing version it `replaces` and is stored `approved`, its content its
+ *     approved copy (plan 6b); `also` adds statements that name the new version to the same batch.
  * @returns {Promise<string>} The new version's ID.
  * @public
  */
@@ -220,12 +222,14 @@ module.exports.storeVersion = async ( db, input ) => {
     }
     const { hash, next, statements } = contentStatements( id, input.kind, input.content || null, input.anomalies || [] );
     await db.batch( [
-        { sql: `INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, content_hash, next_item_no, created_at )
-            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-        params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), hash, next,
-            new Date().toISOString() ] },
+        { sql: `INSERT INTO versions ( id, spec_id, number, stage, frozen, base_id, release_id, replaces_id, content_hash, next_item_no, created_at )
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
+        params: [ id, input.spec, orNull( input.number ), input.stage, input.frozen ? 1 : 0, orNull( input.base ), orNull( input.release ), orNull( input.replaces ),
+            hash, next, new Date().toISOString() ] },
         ...insertStatements( "version_stages", STAGE_COLUMNS, stages.map( ( entry ) => [ id, entry.stage, orNull( entry.enteredOn ) ] ) ),
-        ...statements
+        ...statements,
+        ...( input.approved ? module.exports.approvedStatements( id ) : [] ),
+        ...( input.also ? input.also( id ) : [] )
     ] );
     return id;
 };

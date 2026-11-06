@@ -18,11 +18,12 @@
 const crypto = require( "node:crypto" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
 const { ANOMALY_LEVEL, RELEASE_EVENT, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
-const { loadEntries } = require( "#changelog" );
+const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
+const { loadEntries, refreshChangelog } = require( "#changelog" );
 const { ConstraintError } = require( "#database" );
 const { authorOf } = require( "#editing" );
-const { guardStatements, staleStatement } = require( "#schema" );
-const { loadAnomalies, loadApprovedContent, loadVersion } = require( "#versions" );
+const { guardStatements, lockStatement, stageStatement, staleStatement } = require( "#schema" );
+const { findVersion, loadAnomalies, loadApprovedContent, loadVersion } = require( "#versions" );
 
 // Another write in between makes a submission stale; it is checked again, this many times at most.
 const ATTEMPTS = 3;
@@ -125,7 +126,7 @@ const unreleased = ( versionId ) => ( { sql: "INSERT INTO write_guards ( reason 
     params: [ versionId ] } );
 
 // Runs a submission's batch, again from the start when a write came in between.
-const submitting = async ( db, attempt ) => {
+const retrying = async ( db, attempt ) => {
     for ( let tries = 1; tries <= ATTEMPTS; tries += 1 ) {
         const { statements, result } = await attempt();
         try {
@@ -138,7 +139,7 @@ const submitting = async ( db, attempt ) => {
             }
         }
     }
-    throw new Error( `The versions changed while they were submitted, ${ ATTEMPTS } times over.` );
+    throw new Error( `The release changed while it was written, ${ ATTEMPTS } times over.` );
 };
 
 /**
@@ -162,7 +163,7 @@ module.exports.submitRelease = async ( db, input ) => {
         throw new TypeError( "A release holds one version or more." );
     }
     const summary = input.summary || {};
-    return submitting( db, async () => {
+    return retrying( db, async () => {
         const rows = [];
         for ( const versionId of input.versions ) {
             rows.push( await rowOf( db, versionId ) );
@@ -204,7 +205,7 @@ module.exports.submitRelease = async ( db, input ) => {
  */
 module.exports.submitRound = async ( db, releaseId, input ) => {
     const author = authorOf( input );
-    return submitting( db, async () => {
+    return retrying( db, async () => {
         const release = await db.get( "SELECT id, status FROM releases WHERE id = ?", [ releaseId ] );
         if ( !release ) {
             throw new RangeError( `There is no release ${ releaseId }.` );
@@ -319,4 +320,74 @@ module.exports.loadRelease = async ( db, releaseId ) => {
         createdAt: row.created_at, versions: versions, rounds: rounds,
         events: events.map( ( event ) => ( { number: event.event_no, event: event.event, actor: event.actor, at: event.at, version: event.version_id,
             details: JSON.parse( event.details ) } ) ) };
+};
+
+// What a development version starts from once the version it started from is gone: the most advanced left (§7.5).
+const SOURCES = Object.freeze( [ STAGE.IMPLEMENTATION, STAGE.TESTING, STAGE.PRODUCTION ] );
+
+/**
+ * Abandons a release in implementation or testing (design record §7.1): its versions there retire and freeze, with
+ * their changelogs, and their numbers stay taken; a development version it held leaves it, to be submitted again. A
+ * development version whose base was one of the retired moves its base to the spec's most advanced version left, or to
+ * none, and its changelog is refreshed, so the abandoned changes show in it and its editor decides whether to keep them.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @param {import( "#definitions" ).FileStore} store
+ * @param {string} releaseId
+ * @param {{actor: string, now: Date}} input
+ * @returns {Promise<void>}
+ * @throws {TypeError} For a release abandoned already, one with a version in production or previous production, one
+ *     with nothing in implementation or testing, or no author.
+ * @throws {RangeError} For a release that is none.
+ * @public
+ */
+module.exports.abandonRelease = async ( db, store, releaseId, input ) => {
+    const author = authorOf( input );
+    const retired = await retrying( db, async () => {
+        const release = await db.get( "SELECT id, status FROM releases WHERE id = ?", [ releaseId ] );
+        if ( !release ) {
+            throw new RangeError( `There is no release ${ releaseId }.` );
+        }
+        if ( release.status === RELEASE_STATUS.ABANDONED ) {
+            throw new TypeError( `Release ${ releaseId } was abandoned already.` );
+        }
+        const members = await db.all( "SELECT id, spec_id, stage FROM versions WHERE release_id = ?", [ releaseId ] );
+        if ( members.some( ( member ) => member.stage === STAGE.PRODUCTION || member.stage === STAGE.PREVIOUS_PRODUCTION ) ) {
+            throw new TypeError( `Release ${ releaseId } has reached production, and is not abandoned.` );
+        }
+        const leaving = members.filter( ( member ) => member.stage === STAGE.IMPLEMENTATION || member.stage === STAGE.TESTING );
+        if ( !leaving.length ) {
+            throw new TypeError( `Release ${ releaseId } has nothing in implementation or testing to abandon; return it instead.` );
+        }
+        const statements = [ { sql: "INSERT INTO write_guards ( reason ) SELECT 'stale' FROM releases WHERE id = ? AND status <> ?", params: [ releaseId, release.status ] } ];
+        for ( const member of leaving ) {
+            statements.push( lockStatement( member.id ), stageStatement( member.id, member.stage ),
+                { sql: "UPDATE versions SET stage = ?, frozen = 1 WHERE id = ?", params: [ STAGE.RETIRED, member.id ] },
+                { sql: "DELETE FROM approved_items WHERE version_id = ?", params: [ member.id ] },
+                { sql: "INSERT INTO version_stages ( version_id, stage, entered_on ) VALUES ( ?, ?, ? )", params: [ member.id, STAGE.RETIRED, sofiaDate( author.now ) ] } );
+        }
+        for ( const member of members.filter( ( candidate ) => candidate.stage === STAGE.DEVELOPMENT ) ) {
+            statements.push( { sql: "UPDATE versions SET release_id = NULL WHERE id = ?", params: [ member.id ] } );
+        }
+        statements.push( { sql: "UPDATE releases SET status = ? WHERE id = ?", params: [ RELEASE_STATUS.ABANDONED, releaseId ] },
+            module.exports.eventStatement( { release: releaseId, event: RELEASE_EVENT.ABANDONED, author: author, details: { versions: leaving.map( ( member ) => member.id ) } } ) );
+        return { statements: statements, result: leaving };
+    } );
+    for ( const spec of new Set( retired.map( ( member ) => member.spec_id ) ) ) {
+        const development = await findVersion( db, spec, { stage: STAGE.DEVELOPMENT } );
+        if ( !development || !retired.some( ( member ) => member.id === development.base ) ) {
+            continue;
+        }
+        let base = null;
+        for ( const stage of SOURCES ) {
+            const found = await findVersion( db, spec, { stage: stage } );
+            if ( found ) {
+                base = found.id;
+                break;
+            }
+        }
+        await db.batch( [ ...guardStatements( development.id ), { sql: "UPDATE versions SET base_id = ? WHERE id = ?", params: [ base, development.id ] } ] );
+        await refreshChangelog( db, development.id );
+    }
 };
