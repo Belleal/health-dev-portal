@@ -39,6 +39,14 @@ const FORMATS = Object.freeze( { "date": "YYYY-MM-DD", "date-time": "ISO 8601", 
 
 const bound = ( value ) => typeof value === "number" && Number.isFinite( value );
 const formatName = ( format ) => Object.hasOwn( FORMATS, format ) ? FORMATS[ format ] : format;
+
+// The workbook's own text of a constraint the importer split into no part — `YYYY-MM-DDThh:mm`, `Base64Encoded`,
+// `max-length=2` — else `null`. Such a constraint showed as none at all: 203 elements of the eight published workbooks
+// carry one (final review I1, measured). Where any part was split, the parts say it, and the raw text is not repeated.
+const unsplit = ( constraint ) => {
+    const split = [ constraint.minLength, constraint.maxLength, constraint.minValue, constraint.maxValue ].some( bound ) || Boolean( constraint.charset ) || Boolean( constraint.format );
+    return !split && typeof constraint.raw === "string" && constraint.raw.trim() !== "" ? constraint.raw.trim() : null;
+};
 const characters = ( lang, count ) => count === 1 ? label( lang, "lengthOne" ) : label( lang, "lengthCount", { count: count } );
 const digits = ( lang, count ) => count === 1 ? label( lang, "digitsOne" ) : label( lang, "digitsCount", { count: count } );
 
@@ -65,7 +73,8 @@ module.exports.charsetMeaning = ( charset, lang ) => typeof charset === "string"
  * An element's constraints as the tree table shows them (decision 7): a string's length (`≤ 36`, `≥ 2`, `2–36`, `= 36`),
  * its character class with its meaning in a `title`, and its format (`YYMMDD`, `base64`). On a number, `max=` counts
  * digits, as HEL-26 settled (Boris, 2026-11-06), so it reads "до 2 цифри": the model still keeps it as `maxValue`, which
- * HEL-34 renames, and a reader shown "≤ 2" would take it for a value.
+ * HEL-34 renames, and a reader shown "≤ 2" would take it for a value. A constraint the importer split into no part is
+ * shown as the workbook writes it, in `<code>`.
  *
  * @method
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} element
@@ -77,6 +86,10 @@ module.exports.describeConstraint = ( element, lang ) => {
     const constraint = element && element.constraint;
     if ( !constraint ) {
         return html``;
+    }
+    const raw = unsplit( constraint );
+    if ( raw !== null ) {
+        return html`<code>${ raw }</code>`;
     }
     const parts = [];
     const { minLength, maxLength, minValue, maxValue } = constraint;
@@ -102,7 +115,8 @@ module.exports.describeConstraint = ( element, lang ) => {
 
 /**
  * An element's constraints in words, for the detail panel (decision 7): "до 36 знака", "знаци an: латински букви…",
- * "формат YYMMDD".
+ * "формат YYMMDD". A constraint the importer split into no part is given as the workbook writes it, and says so, since
+ * the portal cannot put it in words of its own.
  *
  * @method
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} element
@@ -114,6 +128,10 @@ module.exports.spellConstraint = ( element, lang ) => {
     const constraint = element && element.constraint;
     if ( !constraint ) {
         return [];
+    }
+    const raw = unsplit( constraint );
+    if ( raw !== null ) {
+        return [ label( lang, "constraintAsWritten", { raw: raw } ) ];
     }
     const words = [];
     if ( bound( constraint.minLength ) || bound( constraint.maxLength ) ) {

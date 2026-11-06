@@ -101,18 +101,24 @@ module.exports.createPortal = ( environment = {} ) => {
  * Starts the portal on a copy of the seed, its database and its files, so a test may change both.
  *
  * @method
- * @returns {Promise<{url: string, stop: function(): Promise<void>}>} `stop` stops the server and removes the copy.
+ * @returns {Promise<{url: string, database: string, files: string, stop: function(): Promise<void>}>} `database` is the
+ *     copy's SQLite file and `files` its file store, for a test that moves a spec on through the data layer, as staff
+ *     would; `stop` stops the server and removes the copy.
  * @public
  */
 module.exports.startPortal = async () => {
     const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-portal-" ) );
-    fs.copyFileSync( SEED_DATABASE, path.join( directory, "seed.sqlite" ) );
-    fs.cpSync( SEED_FILES, path.join( directory, "files" ), { recursive: true } );
-    const server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ path.join( directory, "seed.sqlite" ) }`, HDP_FILES_DIR: path.join( directory, "files" ) } );
+    const database = path.join( directory, "seed.sqlite" );
+    const files = path.join( directory, "files" );
+    fs.copyFileSync( SEED_DATABASE, database );
+    fs.cpSync( SEED_FILES, files, { recursive: true } );
+    const server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files } );
     await server.start();
     address = server.serverUrl;
     return {
         url: server.serverUrl,
+        database: database,
+        files: files,
         stop: async () => {
             await server.stop();
             address = null;

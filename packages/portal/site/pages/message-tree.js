@@ -133,9 +133,9 @@ module.exports.typeOf = ( node, lang ) => {
 };
 
 /**
- * Each link of an element (decision 7): its code list at the number this version reads, each business rule at the
- * rules' number it reads, and each condition at its anchor on the message's Conditions tab. A list or the rules this
- * version reads none of is named without a link.
+ * Each link of an element (decision 7, as ruling F2 corrects it): its code list and each business rule at the fixed
+ * address of the version in the stage the page shows (design record §4.8), and each condition at its anchor on the
+ * message's Conditions tab. A list or the rules with no version there is named without a link.
  *
  * @method
  * @param {string} lang
@@ -144,17 +144,17 @@ module.exports.typeOf = ( node, lang ) => {
  * @param {string} parts.at
  * @param {string} parts.code
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} parts.node
- * @param {Map<string, string>} parts.resolved The number read of each spec, `version.resolvedNumbers`.
+ * @param {Map<string, string>} parts.linked The number to link of each spec, `version.linkedNumbers`.
  * @returns {import( "@ti-engine/web-content/html" ).SafeString[]}
  * @public
  */
-module.exports.elementLinks = ( lang, { spec, at, code, node, resolved } ) => {
+module.exports.elementLinks = ( lang, { spec, at, code, node, linked } ) => {
     const links = [];
     if ( node.codeList ) {
-        links.push( resolved.has( node.codeList ) ? html`<a href="${ paths.list( lang, node.codeList, resolved.get( node.codeList ) ) }">${ node.codeList }</a>` : html`${ node.codeList }` );
+        links.push( linked.has( node.codeList ) ? html`<a href="${ paths.list( lang, node.codeList, linked.get( node.codeList ) ) }">${ node.codeList }</a>` : html`${ node.codeList }` );
     }
     for ( const rule of node.rules ) {
-        links.push( resolved.has( "rules" ) ? html`<a href="${ paths.spec( lang, "rules", resolved.get( "rules" ) ) }#${ rule }">${ rule }</a>` : html`${ rule }` );
+        links.push( linked.has( "rules" ) ? html`<a href="${ paths.spec( lang, "rules", linked.get( "rules" ) ) }#${ rule }">${ rule }</a>` : html`${ rule }` );
     }
     for ( const condition of node.conditions ) {
         links.push( html`<a href="${ paths.message( lang, spec, at, code, "conditions" ) }#${ condition }">${ condition }</a>` );
@@ -181,11 +181,11 @@ const joined = ( parts ) => parts.map( ( part, index ) => index === 0 ? part : h
  * @param {import( "@health-dev-portal/spec-model/definitions" ).Message} parts.message
  * @param {import( "#definitions" ).ElementMarkers|null} parts.markers `null` on a page that is not marked: any but testing's.
  * @param {Object|null} parts.selected The element selected, its row marked `aria-current`.
- * @param {Map<string, string>} parts.resolved
+ * @param {Map<string, string>} parts.linked
  * @returns {import( "@ti-engine/web-content/html" ).SafeString}
  * @public
  */
-module.exports.treeTable = ( { lang, spec, at, message, markers, selected, resolved } ) => {
+module.exports.treeTable = ( { lang, spec, at, message, markers, selected, linked } ) => {
     const slugs = paths.elementSlugs( message );
     const rows = [];
     // Hidden: without the script it could do nothing, and the tree is whole (decision 6).
@@ -213,7 +213,7 @@ module.exports.treeTable = ( { lang, spec, at, message, markers, selected, resol
         const nested = node.children.length > 0 || ( markers !== null && markers.removed.has( markers.keys.get( node ) ) );
         const marker = markers !== null && markers.marks.has( node ) ? badge( lang, markers.marks.get( node ) ) : null;
         const current = node === selected ? html` aria-current="true"` : null;
-        const links = module.exports.elementLinks( lang, { spec: spec, at: at, code: message.code, node: node, resolved: resolved } );
+        const links = module.exports.elementLinks( lang, { spec: spec, at: at, code: message.code, node: node, linked: linked } );
         rows.push( html`<tr${ current } data-depth="${ depth }" data-path="${ node.path || "" }"><td>${ toggle( node, nested ) }${ name }${ marker }</td>${ facts( node ) }<td>${ joined( links ) }</td></tr>\n` );
         node.children.forEach( ( child ) => row( child, depth + 1 ) );
         // After the parent's current children, what was removed from under it (§8.3).

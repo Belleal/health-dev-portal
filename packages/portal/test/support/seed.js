@@ -96,8 +96,17 @@ module.exports.SEED = Object.freeze( {
 
 const SEED = module.exports.SEED;
 
-// A spec's production content, deep-cloned: what readContent gives is shared and deep-frozen.
-const productionContent = async ( db, spec ) => structuredClone( await readContent( db, ( await findVersion( db, spec, { stage: STAGE.PRODUCTION } ) ).id ) );
+/**
+ * A spec's production content, deep-cloned, to change into a new version: what readContent gives is shared and
+ * deep-frozen.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/data/definitions" ).Database} db
+ * @param {string} spec
+ * @returns {Promise<import( "@health-dev-portal/data/definitions" ).VersionContent>}
+ * @public
+ */
+const productionContent = module.exports.productionContent = async ( db, spec ) => structuredClone( await readContent( db, ( await findVersion( db, spec, { stage: STAGE.PRODUCTION } ) ).id ) );
 
 const walk = ( nodes, out = [] ) => {
     for ( const node of nodes ) {
@@ -115,9 +124,20 @@ const elementAt = ( message, path, kind = "field" ) => {
     return found;
 };
 
-// A version through review into implementation, by the workbook route into development: submitted by the editor,
-// approved by the approver as `number`.
-const implemented = async ( db, store, spec, content, number ) => {
+/**
+ * A version through review into implementation, by the workbook route into development: submitted by the editor,
+ * approved by the approver as `number`. A test that moves a spec on from the seed starts here, as the seed does.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/data/definitions" ).Database} db
+ * @param {import( "@health-dev-portal/data/definitions" ).FileStore} store
+ * @param {string} spec
+ * @param {import( "@health-dev-portal/data/definitions" ).VersionContent} content
+ * @param {string} number
+ * @returns {Promise<string>} The release's ID.
+ * @public
+ */
+const implemented = module.exports.implemented = async ( db, store, spec, content, number ) => {
     await loadIntoDevelopment( db, store, spec, content, BY_EDITOR );
     const development = await findVersion( db, spec, { stage: STAGE.DEVELOPMENT } );
     const release = await submitRelease( db, { versions: [ development.id ], summary: SUMMARY, ...BY_EDITOR } );

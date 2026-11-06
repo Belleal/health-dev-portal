@@ -119,14 +119,26 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         // The version's own page keeps the same T4 as expired in a version that does not yet expire it.
         assert.match( ( await get( `/bg/nomenclatures/CL007/${ SEED.cl007.previous }` ) ).text, new RegExp( `>${ SEED.cl007.expired }<` ) );
 
-        // Ruling P2: CL007 1.5.34 is read by e-Prescription 1.5.2, at each element that names it, at its own address.
-        const message = ( await seedContent( "e-prescription", SEED.ePrescription.testing ) ).messages.find( ( one ) => one.code === "P001" );
-        const slugs = paths.elementSlugs( message );
-        const category = [ ...slugs ].find( ( [ node ] ) => node.path === "contents/prescription/category" && node.codeList === "CL007" );
-        assert.ok( category );
-        const link = paths.element( "bg", "e-prescription", SEED.ePrescription.testing, "P001", category[ 1 ] );
-        assert.match( link, /\/bg\/specs\/e-prescription\/1\.5\.2\/P001\/elements\/.*category$/ );
-        assert.ok( page.includes( `href="${ link }"` ), "links the element that reads the list" );
+        // Ruling F2 (design record §4.8): the production page names the module versions in production that name the
+        // list, e-Prescription 1.5.1, at each element that names it, at its own address; not 1.5.2 in testing, which the
+        // frozen resolution records named as CL007 1.5.34's reader.
+        const used = /<h2>Използва се в<\/h2>\s*<ul>([\s\S]*?)<\/ul>/.exec( page )[ 1 ];
+        const linkTo = async ( number ) => {
+            const message = ( await seedContent( "e-prescription", number ) ).messages.find( ( one ) => one.code === "P001" );
+            const category = [ ...paths.elementSlugs( message ) ].find( ( [ node ] ) => node.path === "contents/prescription/category" && node.codeList === "CL007" );
+            assert.ok( category );
+            return paths.element( "bg", "e-prescription", number, "P001", category[ 1 ] );
+        };
+        const link = await linkTo( SEED.ePrescription.production );
+        assert.match( link, /\/bg\/specs\/e-prescription\/1\.5\.1\/P001\/elements\/.*category$/ );
+        assert.ok( used.includes( `href="${ link }"` ), "links the element that reads the list" );
+        assert.equal( used.includes( `/e-prescription/${ SEED.ePrescription.testing }/` ), false, "no module version of another stage" );
+        assert.ok( [ ...used.matchAll( /<li><a href="([^"]+)"/g ) ].every( ( match ) => match[ 1 ].startsWith( "/bg/specs/e-prescription/1.5.1/" ) ) );
+        // The fixed address of the version in production is the same page, and names the same readers.
+        assert.ok( ( await get( `/bg/nomenclatures/CL007/${ SEED.cl007.production }` ) ).text.includes( `href="${ link }"` ) );
+        // Previous production has no module version of its own here: it says no module of the stage uses it.
+        const previous = ( await get( "/bg/nomenclatures/CL007/previous-production" ) ).text;
+        assert.match( previous, /<h2>Използва се в<\/h2>\s*<p>Не се използва от публикуван модул в тази среда\.<\/p>/ );
         // The list's own changelog, and its two downloads.
         assert.match( page, /href="\/bg\/changes\/CL007"/ );
         assert.match( page, /href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.json"/ );

@@ -34,7 +34,7 @@ const { specName } = require( "#spec-names" );
 const { localText } = require( "#text" );
 const { elementPanel, messageKind, messagePanel } = require( "./message-panel" );
 const { elementMarkers, elementName, treeTable } = require( "./message-tree" );
-const { conditionsTable, findShown, moduleSidebar, plannedOn, resolvedNumbers, stageBand, stageVersions } = require( "./version" );
+const { conditionsTable, findShown, linkedNumbers, moduleSidebar, plannedOn, stageBand, stageVersions } = require( "./version" );
 
 const TABS = Object.freeze( [
     { tab: "elements", name: ( lang ) => label( lang, "tabElements" ) },
@@ -186,7 +186,8 @@ module.exports.messagePage = async ( context, parts ) => {
     // makes every element new (§8.3).
     const markers = version.stage === STAGE.TESTING
         ? elementMarkers( production ? production.version.content.messages.find( ( one ) => one.code === code ) || null : null, message ) : null;
-    const resolved = await resolvedNumbers( db, version );
+    // The lists and the rules as they are in the stage shown (design record §4.8), not as this version's record froze them.
+    const linked = await linkedNumbers( db, version.stage );
 
     const here = ( where ) => node === null ? paths.message( lang, spec, where, code, tab ) : paths.element( lang, spec, where, code, slug );
     // The same page at another stage: the same element or tab where that version has them, else the message, else the
@@ -210,7 +211,7 @@ module.exports.messagePage = async ( context, parts ) => {
     } else if ( tab === "changes" ) {
         body = changesTab( lang, { spec: spec, version: version, production: production ? production.version : null, markers: markers } );
     } else {
-        body = treeTable( { lang: lang, spec: spec, at: at, message: message, markers: markers, selected: node, resolved: resolved } );
+        body = treeTable( { lang: lang, spec: spec, at: at, message: message, markers: markers, selected: node, linked: linked } );
     }
     const kind = messageKind( lang, { spec: spec, at: at, message: message, messages: content.messages } );
     const main = html`<h1>${ message.code } · ${ localText( message.title, lang ) }</h1>
@@ -219,7 +220,7 @@ module.exports.messagePage = async ( context, parts ) => {
 ${ body }`;
     const panel = node === null
         ? messagePanel( lang, { spec: spec, at: at, number: version.number, tab: tab, message: message, messages: content.messages } )
-        : elementPanel( lang, { spec: spec, at: at, number: version.number, message: message, node: node, slug: slug, messages: content.messages, resolved: resolved } );
+        : elementPanel( lang, { spec: spec, at: at, number: version.number, message: message, node: node, slug: slug, messages: content.messages, linked: linked } );
     const title = `${ node === null ? `${ message.code } · ${ plain( message.title, lang ) }` : `${ elementName( node ) } · ${ message.code }` } · ${ specName( spec, lang ) } ${ version.number }`;
     send( response, { cache: shown.cache, body: page( { lang: lang, title: title, path: here( at ), canonical: here( version.number ), section: "specs", band: band,
         sidebar: moduleSidebar( lang, { spec: spec, at: at, version: version, code: code } ), main: main, panel: panel, nonce: nonce } ) } );

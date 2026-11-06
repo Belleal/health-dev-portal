@@ -26,7 +26,7 @@ const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { SEED, SEEDED, assertPublic, get, rowOf, rowsOf, seedContent, startPortal } = require( "./support/server" );
 const { escapeHtml } = require( "@ti-engine/web-content/html" );
-const { describeConstraint } = require( "#format" );
+const { describeConstraint, spellConstraint } = require( "#format" );
 const { elementMarkers, treeTable } = require( "#pages/message-tree" );
 
 const FIXED = "public, max-age=86400";
@@ -77,6 +77,25 @@ describe( "Constraints as a reader reads them", () => {
         assert.equal( String( describeConstraint( string( { charset: "<b>" } ), "bg" ) ), "&lt;b&gt;" );
         assert.equal( String( describeConstraint( { kind: "group", dataType: null, constraint: null }, "bg" ) ), "" );
     } );
+
+    it( "shows a constraint the importer could not split as the workbook writes it, in the tree and in the panel", () => {
+        // 203 elements of the published workbooks carry only `raw` (measured, final review I1): a date-time's pattern, a
+        // string's `Base64Encoded`, a number's `max-length=2`. They showed as no constraint at all.
+        const dateTime = { kind: "field", dataType: "Date and Time", constraint: { raw: "YYYY-MM-DDThh:mm" } };
+        const encoded = { kind: "field", dataType: "String", constraint: { raw: "Base64Encoded" } };
+        assert.equal( String( describeConstraint( dateTime, "bg" ) ), "<code>YYYY-MM-DDThh:mm</code>" );
+        assert.equal( String( describeConstraint( encoded, "en" ) ), "<code>Base64Encoded</code>" );
+        assert.equal( String( describeConstraint( { kind: "field", dataType: "String", constraint: { raw: "<b>" } }, "en" ) ), "<code>&lt;b&gt;</code>" );
+        assert.deepEqual( spellConstraint( dateTime, "bg" ), [ "както е записано в работната книга: YYYY-MM-DDThh:mm" ] );
+        assert.deepEqual( spellConstraint( encoded, "en" ), [ "as the workbook writes it: Base64Encoded" ] );
+        // A blank raw is no constraint, as before.
+        assert.equal( String( describeConstraint( { kind: "field", dataType: "String", constraint: { raw: " " } }, "bg" ) ), "" );
+        assert.deepEqual( spellConstraint( { kind: "field", dataType: "String", constraint: { raw: "" } }, "bg" ), [] );
+        // Where a part was split, the raw text is not shown beside it: nothing changes.
+        const split = string( { raw: "max=36, an", maxLength: 36, charset: "an" } );
+        assert.equal( String( describeConstraint( split, "en" ) ), "≤ 36, <abbr title=\"Latin letters, digits, hyphen and space\">an</abbr>" );
+        assert.deepEqual( spellConstraint( split, "en" ), [ "up to 36 characters", "characters an: Latin letters, digits, hyphen and space" ] );
+    } );
 } );
 
 describe( "The tree's markers", () => {
@@ -88,7 +107,7 @@ describe( "The tree's markers", () => {
     const message = ( elements ) => ( { code: "X001", title: { bg: null, en: null }, address: null, elements: elements } );
     // `base` null is a testing version with nothing in production; `undefined`, a page that is not marked at all.
     const render = ( base, current ) => rowsOf( String( treeTable( { lang: "bg", spec: "e-test", at: "testing", message: current,
-        markers: base === undefined ? null : elementMarkers( base, current ), selected: null, resolved: new Map() } ) ) );
+        markers: base === undefined ? null : elementMarkers( base, current ), selected: null, linked: new Map() } ) ) );
     const pathOf = ( row ) => / data-path="([^"]*)"/.exec( row )[ 1 ];
 
     it( "puts a removed element under its former parent, after that parent's current children, struck through", () => {
@@ -134,16 +153,24 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         assertPublic( response, "public, max-age=86400" );
         assert.equal( rowsOf( response.text ).length, ( await elementsOf( "P001" ) ).length );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /R[\s\S]*1\.\.1[\s\S]*≤ 36/ );
-        assert.match( rowOf( response.text, "contents/prescription/category" ), /href="\/bg\/nomenclatures\/CL007\/1\.5\.33"/ );
-        // A rule at the rules version the module reads, a condition at its anchor on the Conditions tab.
+        // The list as it is in production today (design record §4.8, ruling F2), not the 1.5.33 that 1.5.1's frozen
+        // resolution record names, which is previous production now and is retired with the next update.
+        assert.match( rowOf( response.text, "contents/prescription/category" ), /href="\/bg\/nomenclatures\/CL007\/1\.5\.34"/ );
+        assert.match( rowOf( ( await get( "/bg/specs/e-prescription/production/P001" ) ).text, "contents/prescription/category" ), /href="\/bg\/nomenclatures\/CL007\/1\.5\.34"/ );
+        // A rule at the rules version of the stage shown, a condition at its anchor on the Conditions tab.
         assert.match( rowOf( response.text, "contents/prescription/authoredOn" ), /href="\/bg\/specs\/rules\/1\.1\.1#RL071">RL071</ );
         assert.match( rowOf( response.text, "contents/prescription/isProtocolBased" ), /href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001\/conditions#CDP01">CDP01</ );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /<td class="R"><abbr title="задължителен">R<\/abbr><\/td>/ );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /<td>String<\/td>/ );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /<abbr title="латински букви, цифри, тире и интервал">an<\/abbr>/ );
         assert.match( rowOf( response.text, "contents/prescription" ), /група/ );
-        // The version in testing reads the newer list (ruling P2).
-        assert.match( rowOf( ( await get( "/bg/specs/e-prescription/1.5.2/P001" ) ).text, "contents/prescription/category" ), /href="\/bg\/nomenclatures\/CL007\/1\.5\.34"/ );
+        // The version in testing reads the list at the nearest stage from testing on: CL007 has nothing in testing, so
+        // production's. So do its rules, which are in production only.
+        for ( const at of [ "1.5.2", "testing" ] ) {
+            const testing = ( await get( `/bg/specs/e-prescription/${ at }/P001` ) ).text;
+            assert.match( rowOf( testing, "contents/prescription/category" ), /href="\/bg\/nomenclatures\/CL007\/1\.5\.34"/, at );
+            assert.match( rowOf( testing, "contents/prescription/authoredOn" ), /href="\/bg\/specs\/rules\/1\.1\.1#RL071">RL071</, at );
+        }
         // The heading, the address line, and the tabs.
         assert.match( response.text, /<h1>P001 · Заявка за създаване на Е-рецепта<\/h1>/ );
         assert.match( response.text, /<code>\/v4\/eprescription\/doctor\/issue<\/code>/ );

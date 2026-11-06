@@ -32,7 +32,7 @@ const { abandonRelease, submitRelease } = require( "#releases" );
 const { approveRelease } = require( "#review" );
 const { promoteReleases } = require( "#promotion" );
 const { createFix } = require( "#fixes" );
-const { findPublished, findPublishedById, listPublished, publications, publishedChangelog, readersOf, upcoming } = require( "#published" );
+const { findPublished, findPublishedById, listPublished, publications, publishedChangelog, upcoming } = require( "#published" );
 const { eachDatabase } = require( "./support/databases" );
 const { ACTOR, APPROVER, NOW, cleanModule } = require( "./support/lifecycle" );
 const { codeListVersion } = require( "./support/models" );
@@ -115,14 +115,9 @@ eachDatabase( "Published", ( db ) => {
         await storeVersion( db(), { spec: "e-history", kind: "module", number: "1.0.0", stage: "retired", frozen: true,
             stages: [ { stage: "testing", enteredOn: "2026-01-10" }, { stage: "production", enteredOn: "2026-02-01" } ] } );
 
-        // CL080 in production, and the modules that read it.
+        // CL080 in production: a code list among the published specs.
         await ensureSpec( db(), "CL080", "code-list" );
-        ids.list = await storeVersion( db(), { spec: "CL080", kind: "code-list", number: "1.0.0", stage: "production", content: codeListVersion( "CL080", [ "1" ], "1.0.0" ) } );
-        for ( const reader of [ ( await published( "e-pub", "1.6.0" ) ).id, ( await published( "e-pub", "1.5.2" ) ).id, ids.hiddenImplemented ] ) {
-            await db().run( "INSERT INTO resolutions ( version_id, spec_id, resolved_id, number, key_type ) VALUES ( ?, ?, ?, ?, ? )", [ reader, "CL080", ids.list, "1.0.0", "string" ] );
-        }
-        await db().run( "INSERT INTO resolutions ( version_id, spec_id, resolved_id, number, key_type ) VALUES ( ?, ?, ?, ?, ? )",
-            [ ids.pubOld, "CL080", ids.list, "1.0.0", "string" ] );
+        await storeVersion( db(), { spec: "CL080", kind: "code-list", number: "1.0.0", stage: "production", content: codeListVersion( "CL080", [ "1" ], "1.0.0" ) } );
     } );
 
     it( "lists each spec's versions in testing, production and previous production, with the expiry and the date each entered its stage", async () => {
@@ -232,11 +227,5 @@ eachDatabase( "Published", ( db ) => {
             [ null, [ { spec: "e-undated", kind: "module", number: "0.9.1", production: "0.9.0" } ], 0 ]
         ] );
         assert.deepEqual( Object.keys( due[ 0 ] ), [ "plannedOn", "versions", "breaking" ] );
-    } );
-
-    it( "names the public module versions that read a list version", async () => {
-        const readers = await readersOf( db(), ids.list );
-        assert.deepEqual( readers.map( ( one ) => [ one.spec, one.number, one.stage ] ), [ [ "e-pub", "1.6.0", "testing" ], [ "e-pub", "1.5.2", "production" ], [ "e-pub", "1.5.1", "previous-production" ] ] );
-        assert.deepEqual( await readersOf( db(), ids.hiddenImplemented ), [] );
     } );
 } );

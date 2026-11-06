@@ -194,22 +194,3 @@ module.exports.upcoming = async ( db ) => {
         return compareText( a.plannedOn, b.plannedOn );
     } );
 };
-
-/**
- * The public module versions that read a version, by what their resolutions name: the readers of a list or the rules.
- * Newest first within a spec. A version that is not public has no readers to show.
- *
- * @method
- * @param {import( "#definitions" ).Database} db
- * @param {string} versionId
- * @returns {Promise<import( "#definitions" ).PublishedVersion[]>}
- * @public
- */
-module.exports.readersOf = async ( db, versionId ) => {
-    if ( !await module.exports.findPublishedById( db, versionId ) ) {
-        return [];
-    }
-    const rows = await db.all( `SELECT ${ COLUMNS } ${ FROM } JOIN resolutions x ON x.version_id = v.id
-        WHERE x.resolved_id = ? AND s.kind = 'module' AND ${ PUBLIC( "v" ) }`, [ versionId ] );
-    return rows.map( versionOf ).sort( ( a, b ) => compareText( a.spec, b.spec ) || compareNumbers( b.number, a.number ) );
-};

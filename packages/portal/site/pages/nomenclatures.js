@@ -23,7 +23,7 @@
 
 const { html } = require( "@ti-engine/web-content/html" );
 const { fixedFile } = require( "@health-dev-portal/data/fixed-files" );
-const { findPublished, findPublishedById, listPublished, readersOf } = require( "@health-dev-portal/data/published" );
+const { findPublished, findPublishedById, listPublished } = require( "@health-dev-portal/data/published" );
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 const { fold, needles } = require( "#fold" );
@@ -36,7 +36,7 @@ const { specName } = require( "#spec-names" );
 const { columnText, localText } = require( "#text" );
 const { elementName } = require( "./message-tree" );
 const { isAhead } = require( "./stages" );
-const { findShown, plannedOn, stageBand, stageVersions } = require( "./version" );
+const { findShown, modulesIn, plannedOn, stageBand, stageVersions } = require( "./version" );
 
 // What a page of a list holds (decision 9): CL011 alone has 39,005 entries.
 const PAGE_SIZE = 500;
@@ -162,14 +162,16 @@ const haystackOf = ( db, version, entries ) => {
 const searchable = ( entry ) => [ entry.key, entry.description && entry.description.bg, entry.description && entry.description.en,
     entry.display && entry.display.bg, entry.display && entry.display.en, ...entry.values ].filter( ( text ) => typeof text === "string" && text !== "" ).join( "\n" );
 
-// The messages that read a list version, element by element: each public module version that resolves it, in
-// `readersOf`'s order, its messages in theirs, its elements in document order. An element with no path has no address,
-// so it is named at its message's.
+// The elements that name a list, in the module versions of the stage its page shows (design record §4.8, ruling F2): a
+// page by number counts as its version's stage. Modules in spec order, their messages in theirs, the elements in
+// document order. Not the module versions whose frozen resolution records name this list version: by those, CL007's
+// production page named e-Prescription 1.5.2 in testing and not 1.5.1 in production, and a list released on its own
+// lost every reader from its first update (final review I2). An element with no path has no address, so it is named at
+// its message's.
 const readingElements = async ( db, lang, listId, version ) => {
     const found = [];
-    for ( const reader of await readersOf( db, version.id ) ) {
-        const readerVersion = await findPublishedById( db, reader.id );
-        for ( const message of readerVersion && readerVersion.content ? readerVersion.content.messages : [] ) {
+    for ( const reader of await modulesIn( db, version.stage ) ) {
+        for ( const message of reader.content ? reader.content.messages : [] ) {
             const nodes = [];
             const visit = ( node ) => {
                 if ( node.codeList === listId ) {
@@ -181,6 +183,7 @@ const readingElements = async ( db, lang, listId, version ) => {
             // The slugs of a message are worked out only for a message that has something to link.
             const slugs = nodes.length ? paths.elementSlugs( message ) : null;
             for ( const node of nodes ) {
+                // The module version's fixed addresses: the element stays where it is when the stages move on.
                 const address = slugs.has( node ) ? paths.element( lang, reader.spec, reader.number, message.code, slugs.get( node ) )
                     : paths.message( lang, reader.spec, reader.number, message.code );
                 found.push( html`<li><a href="${ address }">${ specName( reader.spec, lang ) } ${ reader.number } · ${ message.code } · <code>${ elementName( node ) }</code></a></li>\n` );

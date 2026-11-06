@@ -8,9 +8,10 @@ element by element, the code lists, the errors and the changes, in Bulgarian at 
 - **Server-rendered pages**, readable without JavaScript, built with web-content's escaping `html` template. One
   stylesheet and one small deferred script, each by its content hash; nothing inline.
 - **No cookie on any response**, so every page can be cached (design record §10.1).
-- **The data** is read through `@health-dev-portal/data/published`, which decides what is public, with one more read
-  that a controller ruling allows: `resolveVersion` from `@health-dev-portal/data/resolution`, used only for a module
-  version already found public, to say which code-list versions it reads.
+- **The data** is read through `@health-dev-portal/data/published`, which decides what is public.
+- **Links follow the stage shown** (design record §4.8): a module page links each code list and the rules at their
+  version in the stage it shows, else the nearest stage further on, and a list's "used in" names the module versions of
+  its stage. A version's frozen resolution record is never what a page links by.
 
 ## Running it
 

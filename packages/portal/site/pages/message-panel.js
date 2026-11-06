@@ -87,12 +87,12 @@ const usedAlsoIn = ( lang, { spec, at, message, node, messages } ) => {
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} parts.node
  * @param {string} parts.slug The element's slug.
  * @param {import( "@health-dev-portal/spec-model/definitions" ).Message[]} parts.messages The version's messages.
- * @param {Map<string, string>} parts.resolved
+ * @param {Map<string, string>} parts.linked The number to link of each list and of the rules, `version.linkedNumbers`.
  * @returns {import( "@ti-engine/web-content/html" ).SafeString}
  * @public
  */
-module.exports.elementPanel = ( lang, { spec, at, number, message, node, slug, messages, resolved } ) => {
-    const links = elementLinks( lang, { spec: spec, at: at, code: message.code, node: node, resolved: resolved } );
+module.exports.elementPanel = ( lang, { spec, at, number, message, node, slug, messages, linked } ) => {
+    const links = elementLinks( lang, { spec: spec, at: at, code: message.code, node: node, linked: linked } );
     const lists = node.codeList ? links.slice( 0, 1 ) : [];
     const rules = links.slice( lists.length, lists.length + node.rules.length );
     const conditions = links.slice( lists.length + rules.length );

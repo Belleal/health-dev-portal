@@ -18,14 +18,15 @@
 /*
  * What every page of one spec version shares (plan 8a, decisions 3, 4 and 7): finding the version an address names —
  * or answering 404 or 410 for it — its caching and canonical address, the stage switcher in the mint band, the module's
- * sidebar, and the links to what the version reads. The module, rules, conditions and dictionary pages (specs.js) and
- * the message page (message.js) are built from these.
+ * sidebar, and the versions of the lists and the rules its links name, those of the stage it shows. The module, rules,
+ * conditions and dictionary pages (specs.js), the message page (message.js) and a list's "used in" (nomenclatures.js)
+ * are built from these.
  */
 
 const { html } = require( "@ti-engine/web-content/html" );
-const { findPublished, upcoming } = require( "@health-dev-portal/data/published" );
-const { resolveVersion } = require( "@health-dev-portal/data/resolution" );
-const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { findPublished, findPublishedById, listPublished, upcoming } = require( "@health-dev-portal/data/published" );
+const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { resolutionOrder } = require( "@health-dev-portal/spec-model/stages" );
 const { formatDate } = require( "#format" );
 const { label } = require( "#labels" );
 const paths = require( "#paths" );
@@ -179,18 +180,57 @@ module.exports.stageBand = ( lang, { stages, version, address, planned = null } 
 <ul>${ links }</ul></nav>${ due }`;
 };
 
+// A published spec's version in a public stage, by the field `listPublished` keeps it under.
+const FIELDS = Object.freeze( { [ STAGE.TESTING ]: "testing", [ STAGE.PRODUCTION ]: "production", [ STAGE.PREVIOUS_PRODUCTION ]: "previousProduction" } );
+
+// The stages a page at `stage` looks in for the lists and the rules it links, nearest first (design record §4.8, ruling
+// F2): its own, then each public stage further on, as `resolutionOrder` gives them. Previous production is on no stage's
+// line, and `resolutionOrder` refuses it: a page there reads a list in previous production where the list has a version
+// there, and otherwise the one in production, which has been in force beside it all along.
+const linkOrder = ( stage ) => stage === STAGE.PREVIOUS_PRODUCTION ? [ STAGE.PREVIOUS_PRODUCTION, STAGE.PRODUCTION ]
+    : resolutionOrder( stage ).filter( ( one ) => Object.hasOwn( FIELDS, one ) );
+
 /**
- * What a version reads, by spec: the number of each code list and of the rules (design record §4.8), which every link
- * to a list or a rule names, so it shows what this version is checked against.
+ * The number of each code list and of the rules that a page of a version links to (design record §4.8, "Membership
+ * stays live"): the public version of that spec in the stage the page shows — a page by number counts as the stage its
+ * version is in — else in the nearest stage further on; a page in previous production falls back to production. Never
+ * the versions the module's frozen resolution record names: a production page then linked CL007 1.5.33, previous
+ * production, which is retired with the list's next update and answers 410 from then on (final review I2).
  *
  * @method
  * @param {import( "@health-dev-portal/data/definitions" ).Database} db
- * @param {{id: string}} version A public version, as `findShown` gives it.
- * @returns {Promise<Map<string, string>>} A spec read in development has no number, and no link.
+ * @param {string} stage The stage of the version shown.
+ * @returns {Promise<Map<string, string>>} By spec ID; a spec found in no such stage is absent, and is named without a link.
  * @public
  */
-module.exports.resolvedNumbers = async ( db, version ) => new Map( ( await resolveVersion( db, version.id ) )
-    .filter( ( one ) => one.number !== null ).map( ( one ) => [ one.spec, one.number ] ) );
+module.exports.linkedNumbers = async ( db, stage ) => {
+    const order = linkOrder( stage );
+    const numbers = new Map();
+    // One read of every published spec's stages, rather than a version and its content read for each list a module names.
+    for ( const published of await listPublished( db ) ) {
+        const found = order.map( ( one ) => published[ FIELDS[ one ] ] ).find( ( version ) => version !== null );
+        if ( found ) {
+            numbers.set( published.spec, found.number );
+        }
+    }
+    return numbers;
+};
+
+/**
+ * The public module versions in a stage, each with its content, in spec order: those a list page at that stage names
+ * under "used in" (ruling F2).
+ *
+ * @method
+ * @param {import( "@health-dev-portal/data/definitions" ).Database} db
+ * @param {string} stage A public stage.
+ * @returns {Promise<Object[]>} As `findPublishedById` gives them.
+ * @public
+ */
+module.exports.modulesIn = async ( db, stage ) => {
+    const modules = ( await listPublished( db ) ).filter( ( one ) => one.kind === SPEC_KIND.MODULE && one[ FIELDS[ stage ] ] !== null );
+    // By the ID listed, read once: looked up by stage again, a promotion in between could name another version.
+    return ( await Promise.all( modules.map( ( one ) => findPublishedById( db, one[ FIELDS[ stage ] ].id ) ) ) ).filter( ( one ) => one !== null );
+};
 
 /**
  * The sidebar of a module's pages (decision 7): the version, its messages by endpoint segment, then its conditions,

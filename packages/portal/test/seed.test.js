@@ -26,7 +26,8 @@ const assert = require( "node:assert/strict" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 const { compareContents } = require( "@health-dev-portal/spec-model/differences" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
-const { findPublished, listPublished, publishedChangelog, readersOf, upcoming } = require( "@health-dev-portal/data/published" );
+const { findPublished, listPublished, publishedChangelog, upcoming } = require( "@health-dev-portal/data/published" );
+const { resolveVersion } = require( "@health-dev-portal/data/resolution" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { SEEDED, SEED, seedContent } = require( "./support/server" );
 const { SEED_DATABASE } = require( "./support/seed" );
@@ -83,11 +84,13 @@ describe( "The seed", { skip: !SEEDED && "build the seed first: npm run fixtures
         assert.equal( ( await seedContent( SEED.cl007.spec, SEED.cl007.previous ) ).list.entries.some( ( entry ) => entry.key === SEED.cl007.added ), false );
     } );
 
-    it( "has e-Prescription 1.5.2 read CL007 1.5.34, and 1.5.1 still read 1.5.33 (ruling P2)", async () => {
-        const readers = async ( number ) => ( await readersOf( db, ( await findPublished( db, SEED.cl007.spec, { number: number } ) ).id ) )
-            .map( ( one ) => `${ one.spec } ${ one.number }` );
-        assert.deepEqual( await readers( SEED.cl007.production ), [ `${ SEED.ePrescription.spec } ${ SEED.ePrescription.testing }` ] );
-        assert.deepEqual( await readers( SEED.cl007.previous ), [ `${ SEED.ePrescription.spec } ${ SEED.ePrescription.production }` ] );
+    it( "has e-Prescription 1.5.1's frozen record name CL007 1.5.33, and 1.5.2's name 1.5.34 (ruling P2)", async () => {
+        // What the pages no longer follow (ruling F2, design record §4.8): a production page links CL007 as it is in
+        // production, 1.5.34, though 1.5.1 froze with 1.5.33. The page tests rely on the record disagreeing.
+        const recorded = async ( number ) => ( await resolveVersion( db, ( await findPublished( db, SEED.ePrescription.spec, { number: number } ) ).id ) )
+            .find( ( one ) => one.spec === SEED.cl007.spec ).number;
+        assert.equal( await recorded( SEED.ePrescription.production ), SEED.cl007.previous );
+        assert.equal( await recorded( SEED.ePrescription.testing ), SEED.cl007.production );
     } );
 
     it( "keeps CL008's abandoned version and the rules' development version out of every public view", async () => {
