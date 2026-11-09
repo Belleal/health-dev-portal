@@ -93,7 +93,12 @@ Boris's.
 
 ## Tracking — YouTrack project HEL
 
-Every piece of work is a `HEL-###` card, and **moving cards is the agent's job**. Stages: Backlog → Develop (work
-started) → Review (pull request open) → Test → Staging → Done. Log the time spent with each move (`log_work`; say when
-it is an estimate), and close a card with a comment naming the pull request, the checks and what shipped. Defects
-found in the specifications themselves go under HEL-2.
+Every piece of work is a `HEL-###` card, and **moving cards is the agent's job**, following the `youtrack-planning`
+skill. Stages: Backlog → Develop (work started) → Review (pull request open) → Test → Staging → Done.
+
+- **Usage.** With each move, log the stretch's usage as the skill measures it from the session transcript:
+  - active time, as a work item;
+  - input and output tokens, and the AI cost in euros, in the card's three usage fields.
+- **Only measured numbers.** Never an estimate: a number that cannot be measured is left empty (Boris, 2026-11-09).
+- **Closing.** Close a card with a comment naming the pull request, the checks and what shipped.
+- **Spec defects.** Defects found in the specifications themselves go under HEL-2.
