@@ -1,0 +1,49 @@
+{
+    "name": "@health-dev-portal/portal",
+    "version": "0.1.0",
+    "description": "The portal's public website: every published specification version by stage, message by message, the code lists, the errors and the changes, in Bulgarian and English.",
+    "license": "EUPL-1.2",
+    "private": true,
+    "type": "commonjs",
+    "engines": {
+        "node": ">=26"
+    },
+    "exports": {
+        "./portal-server": "./bin/portal-server.js"
+    },
+    "imports": {
+        "#assets": "./site/assets.js",
+        "#copy-fonts": "./scripts/copy-fonts.js",
+        "#definitions": "./site/definitions.types.js",
+        "#fold": "./site/fold.js",
+        "#format": "./site/format.js",
+        "#labels": "./site/labels.js",
+        "#layout": "./site/layout.js",
+        "#pages/*": "./site/pages/*.js",
+        "#paths": "./site/paths.js",
+        "#portal-server": "./bin/portal-server.js",
+        "#responses": "./site/responses.js",
+        "#routes": "./site/routes.js",
+        "#spec-names": "./site/spec-names.js",
+        "#text": "./site/text.js"
+    },
+    "dependencies": {
+        "@fontsource/sofia-sans": "5.3.0",
+        "@fontsource/sofia-sans-extra-condensed": "5.3.0",
+        "@health-dev-portal/data": "*",
+        "@health-dev-portal/spec-model": "*",
+        "@ti-engine/core": "^1.21.0",
+        "@ti-engine/web-content": "^0.5.3",
+        "@ti-engine/web-framework": "^1.61.2"
+    },
+    "scripts": {
+        "fonts": "node scripts/copy-fonts.js",
+        "pretest": "node test/support/build-seed.js",
+        "test": "node --test \"test/**/*.test.js\"",
+        "start": "node -e \"require( '@ti-engine/core' )\""
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "4.14.0",
+        "playwright": "1.65.0"
+    }
+}

@@ -6,7 +6,7 @@
     "private": true,
     "type": "commonjs",
     "engines": {
-        "node": ">=24"
+        "node": ">=26"
     },
     "bin": {
         "hdp-copy": "./bin/copy.js",
@@ -21,11 +21,13 @@
         "./development": "./store/development.js",
         "./editing": "./store/editing.js",
         "./files": "./store/files.js",
+        "./fixed-files": "./store/fixed-files.js",
         "./fixes": "./store/fixes.js",
         "./manifest": "./load/manifest.js",
         "./migration": "./load/migration.js",
         "./moves": "./store/moves.js",
         "./promotion": "./store/promotion.js",
+        "./published": "./store/published.js",
         "./releases": "./store/releases.js",
         "./resolution": "./store/resolution.js",
         "./review": "./store/review.js",
@@ -43,6 +45,7 @@
         "#editing": "./store/editing.js",
         "#errors": "./db/errors.js",
         "#files": "./store/files.js",
+        "#fixed-files": "./store/fixed-files.js",
         "#fixes": "./store/fixes.js",
         "#item-diff": "./store/item-diff.js",
         "#items": "./store/items.js",
@@ -51,6 +54,7 @@
         "#moves": "./store/moves.js",
         "#postgres-driver": "./db/postgres-driver.js",
         "#promotion": "./store/promotion.js",
+        "#published": "./store/published.js",
         "#releases": "./store/releases.js",
         "#resolution": "./store/resolution.js",
         "#review": "./store/review.js",

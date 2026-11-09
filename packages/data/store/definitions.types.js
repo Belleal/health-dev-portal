@@ -208,4 +208,51 @@
  * @property {VersionContent|null} [content] Present when loaded with `loadVersion`.
  */
 
+/**
+ * @typedef {Object} PublishedVersion A public version as the site shows it (plan 8a, decision 2): no actor, author,
+ *     submitter, decider, anomaly or staff comment is ever part of it.
+ * @property {string} id
+ * @property {string} spec
+ * @property {string} kind One of `SPEC_KIND`.
+ * @property {string} number
+ * @property {string} stage `testing`, `production`, `previous-production` or `retired`.
+ * @property {boolean} frozen
+ * @property {string|null} expiresOn The date its backward compatibility ends, stored while it is previous production. A retired former previous-production version still carries it; no page shows it outside previous production.
+ * @property {string|null} enteredOn The date it entered its stage, `yyyy-mm-dd` in Sofia, when that was recorded.
+ * @property {boolean} retired
+ * @property {string|null} replacedBy The number of the public fix that replaced it.
+ */
+
+/**
+ * @typedef {Object} PublishedSpec A spec's public versions.
+ * @property {string} spec
+ * @property {string} kind
+ * @property {PublishedVersion|null} testing
+ * @property {PublishedVersion|null} production
+ * @property {PublishedVersion|null} previousProduction
+ */
+
+/**
+ * @typedef {Object} PublishedEntry A changelog entry as the site shows it; `before` and `after` are parsed.
+ * @property {string} origin One of `CHANGE_ORIGIN`.
+ * @property {{kind: string, identity: string|null}|null} target
+ * @property {string|null} aspect For a detected entry, what changed: `added`, `removed`, `moved` or a field name; `null` for one written by hand or imported.
+ * @property {*} before
+ * @property {*} after
+ * @property {{bg: string|null, en: string|null}} text
+ */
+
+/**
+ * @typedef {Object} PublishedChangelogVersion One public version in a spec's changelog.
+ * @property {string} number
+ * @property {string} stage
+ * @property {string|null} expiresOn The date its backward compatibility ends, stored while it is previous production. A retired former previous-production version still carries it; no page shows it outside previous production.
+ * @property {string|null} enteredTesting
+ * @property {string|null} enteredProduction
+ * @property {string|null} replacedBy
+ * @property {boolean} abandoned Whether its release was abandoned after it reached testing.
+ * @property {{breaking: PublishedEntry[], "dropped-plan": PublishedEntry[], "non-breaking": PublishedEntry[]}} entries
+ *     Without the entries an editor dropped.
+ */
+
 module.exports = {};

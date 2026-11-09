@@ -1250,7 +1250,7 @@ A version's generated files are made the first time it is published, and are fix
 a version promoted in the studio, that is its promotion to testing. For a migrated version, it is the day the public
 site first serves it, so the answers to HEL-26 still shape the files of today's versions, and plan 5 freezes no file.
 
-| | Fixed (never changes, cached forever) | Stage (follows the stage, cached briefly, canonical → fixed) |
+| | Fixed (its content never changes; its generated files are cached forever) | Stage (follows the stage, cached briefly, canonical → fixed) |
 |---|---|---|
 | Pages | `/bg/specs/e-prescription/1.5.1/P001` | `/bg/specs/e-prescription/production/P001`, `…/testing/P001` |
 | Code lists | `/bg/nomenclatures/CL009/1.5.34` | `/bg/nomenclatures/CL009/production`, `…/testing` |
@@ -1454,10 +1454,12 @@ per-organisation monitoring and contact data start there.
 
 ### 10.3 Caching
 
-Generated files, and the portal's own assets addressed by their content: cached forever. Pages at fixed addresses: a
-day *(design call, plan 8a)* — what they show never changes, but their markup follows the portal's releases, and a
-page promised `immutable` would keep a fixed layout defect in every browser that had it (the lesson of ti-engine's
-web-framework 1.19.0). Stage addresses: briefly. Status and feeds: one minute. Staff pages: never.
+Generated files, and the portal's own assets addressed by their content: cached forever. Pages at fixed addresses:
+briefly, like stage addresses *(design call, plan 8a)* — what they show of their own version never changes, but they
+link each list as it is now (§4.8) and name the stages around it, so keeping them for a day would show stale links
+after a promotion; and a page promised `immutable` would keep a fixed layout defect in every browser that had it (the
+lesson of ti-engine's web-framework 1.19.0). A retired version's 410: a day, since retirement is permanent. Status and
+feeds: one minute. Staff pages: never.
 
 ### 10.4 Deployment
 

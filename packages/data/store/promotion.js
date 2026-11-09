@@ -19,6 +19,7 @@ const { addDays, sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
 const { RELEASE_EVENT, RELEASE_STATUS, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ConstraintError } = require( "#database" );
 const { authorOf } = require( "#editing" );
+const { makeFixedFiles } = require( "#fixed-files" );
 const { PromotionRefusedError, checkMove } = require( "#moves" );
 const { eventStatement, lockRelease, releaseIs } = require( "#releases" );
 const { resolutionStatements, resolveAt } = require( "#resolution" );
@@ -219,10 +220,26 @@ module.exports.promoteReleases = async ( db, store, releaseIds, input ) => {
     if ( !Array.isArray( releaseIds ) || !releaseIds.length ) {
         throw new TypeError( "Promote one release or more." );
     }
-    return runs( db, async () => {
+    // The versions of the attempt that committed: each attempt computes them again, and only the last one wrote.
+    let moved = [];
+    const result = await runs( db, async () => {
         const releases = await releasesOf( db, releaseIds, input.to );
+        moved = releases.flatMap( ( release ) => release.moving.map( ( member ) => member.id ) );
         return input.to === STAGE.TESTING ? toTesting( db, releases, input, author ) : toProduction( db, releases, input, author );
     } );
+    if ( input.to === STAGE.TESTING ) {
+        // After the batch, never inside it: the promotion is written and stays so. A version whose files could not be made
+        // is warned of, not thrown, since a caller that saw a throw would take the promotion for undone; the site makes
+        // what is missing when it first serves the version (plan 8a, decision 8).
+        for ( const versionId of moved ) {
+            try {
+                await makeFixedFiles( db, store, versionId );
+            } catch ( error ) {
+                process.emitWarning( `The fixed files of version ${ versionId } were not made after its promotion to testing: ${ error.message }` );
+            }
+        }
+    }
+    return result;
 };
 
 /**

@@ -6,7 +6,7 @@
     "private": true,
     "type": "commonjs",
     "engines": {
-        "node": ">=24"
+        "node": ">=26"
     },
     "exports": {
         "./anomalies": "./model/anomalies.js",
@@ -20,6 +20,7 @@
         "./dates": "./model/dates.js",
         "./definitions": "./model/definitions.types.js",
         "./differences": "./model/differences.js",
+        "./downloads": "./model/downloads.js",
         "./evaluator": "./model/evaluator.js",
         "./freeze": "./model/freeze.js",
         "./identity": "./model/identity.js",
@@ -46,6 +47,7 @@
         "#dates": "./model/dates.js",
         "#definitions": "./model/definitions.types.js",
         "#differences": "./model/differences.js",
+        "#downloads": "./model/downloads.js",
         "#freeze": "./model/freeze.js",
         "#identity": "./model/identity.js",
         "#key-type": "./model/key-type.js",
