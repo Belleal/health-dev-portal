@@ -139,10 +139,10 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         // Previous production has no module version of its own here: it says no module of the stage uses it.
         const previous = ( await get( "/bg/nomenclatures/CL007/previous-production" ) ).text;
         assert.match( previous, /<h2>Използва се в<\/h2>\s*<p>Не се използва от публикуван модул в тази среда\.<\/p>/ );
-        // The list's own changelog, and its two downloads.
+        // The list's own changelog, and its two downloads, each saved under the list's ID and number.
         assert.match( page, /href="\/bg\/changes\/CL007"/ );
-        assert.match( page, /href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.json"/ );
-        assert.match( page, /href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.csv"/ );
+        assert.match( page, /<a href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.json" download="CL007-1\.5\.34\.json">/ );
+        assert.match( page, /<a href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.csv" download="CL007-1\.5\.34\.csv">/ );
         // The CSV is for spreadsheets and says it is changed there; the JSON is the exact file.
         assert.match( page, /CSV[^<]*&#39;/ );
         assert.match( page, /canonical" href="https:\/\/developers\.example\.test\/bg\/nomenclatures\/CL007\/1\.5\.34"/ );
@@ -173,11 +173,14 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         const json = await get( "/downloads/nomenclatures/CL011/1.5.33.json" );
         assert.equal( json.status, 200 );
         assertPublic( json, FOREVER, "application/json; charset=utf-8" );
+        // Saved under the list's ID and number, not under "1.5.33.json", which says nothing of the list.
+        assert.equal( json.headers.get( "content-disposition" ), "attachment; filename=\"CL011-1.5.33.json\"" );
         const list = JSON.parse( json.text );
         assert.equal( list.entries.length, 39005 );
         assert.equal( list.format, "nhis-code-list/1" );
         const csv = await get( "/downloads/nomenclatures/CL011/1.5.33.csv" );
         assertPublic( csv, FOREVER, "text/csv; charset=utf-8" );
+        assert.equal( csv.headers.get( "content-disposition" ), "attachment; filename=\"CL011-1.5.33.csv\"" );
         assert.match( csv.text, /^"key","description_bg","description_en"/ );
         assert.equal( csv.text.split( "\r\n" ).filter( Boolean ).length, 39005 + 1 );
     } );
@@ -197,6 +200,7 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
             assert.equal( response.status, 302, stage );
             assertPublic( response, BRIEF, null );
             assert.equal( response.headers.get( "location" ), `/downloads/nomenclatures/CL007/${ number }.${ ext }` );
+            assert.equal( response.headers.get( "content-disposition" ), null, "the redirect is no file" );
         }
         // No version in testing, no download of it.
         assert.equal( ( await get( "/downloads/nomenclatures/CL007/testing.json" ) ).status, 404 );
@@ -213,6 +217,20 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         }
         // Its published version is there, at its own number.
         assert.equal( ( await get( "/bg/nomenclatures/CL008/production" ) ).status, 200 );
+    } );
+
+    it( "answers a retired version's downloads with 410 and its changelog, as its page", async () => {
+        // CL007 1.0.7 was published once and is kept for its changelog, with no content: its page answered 410 and its
+        // downloads 404, as if they had never existed.
+        const retired = "1.0.7";
+        assert.equal( ( await get( `/bg/nomenclatures/CL007/${ retired }` ) ).status, 410 );
+        for ( const ext of [ "json", "csv" ] ) {
+            const response = await get( `/downloads/nomenclatures/CL007/${ retired }.${ ext }` );
+            assert.equal( response.status, 410, ext );
+            assertPublic( response, FIXED );
+            assert.match( response.text, /<a href="\/bg\/changes\/CL007">/ );
+            assert.equal( response.headers.get( "content-disposition" ), null );
+        }
     } );
 
     it( "escapes the filter, and answers a page past the end with 404", async () => {

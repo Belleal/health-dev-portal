@@ -29,8 +29,8 @@
 /**
  * @typedef {Object} Address An address as `paths.parseAddress` reads it: the page and its parameters.
  * @property {string|null} lang `null` for a download.
- * @property {string} page `home`, `specs`, `spec`, `conditions`, `dictionary`, `message`, `lists`, `list`, `download`,
- *     `errors`, `changes`, `compare` or `feed`.
+ * @property {string} page `language` (`/bg`, which redirects to `/bg/`), `home`, `specs`, `spec`, `conditions`,
+ *     `dictionary`, `message`, `lists`, `list`, `download`, `errors`, `changes`, `compare` or `feed`.
  * @property {string} [spec] A module's key, `rules`, or — under changes — a code list's ID; `null` for the changes index
  *     and the feed of everything.
  * @property {string} [at] A public stage slug or a number, as written: `paths.parseAt` reads it.

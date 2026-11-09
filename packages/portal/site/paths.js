@@ -422,10 +422,11 @@ const downloadPage = ( rest ) => {
  *
  * @method
  * @param {string} address e.g. `request.originalUrl`.
- * @returns {Object|null} `{ lang, page, …parameters }`: `page` is `home`, `specs`, `spec`, `conditions`, `dictionary`,
- *     `message` (with `code`, `tab`, `slug`), `lists`, `list` (with `query: { q, expired, page }`), `download` (with
- *     `lang: null`), `errors` (with `testing`), `changes` (with `spec`, `null` for the index), `compare` (with `from`,
- *     `to`) or `feed`. `null` for what is no address of the site.
+ * @returns {Object|null} `{ lang, page, …parameters }`: `page` is `language` (the language's own address without its
+ *     slash, `/bg`), `home`, `specs`, `spec`, `conditions`, `dictionary`, `message` (with `code`, `tab`, `slug`),
+ *     `lists`, `list` (with `query: { q, expired, page }`), `download` (with `lang: null`), `errors` (with `testing`),
+ *     `changes` (with `spec`, `null` for the index), `compare` (with `from`, `to`) or `feed`. `null` for what is no
+ *     address of the site.
  * @public
  */
 module.exports.parseAddress = ( address ) => {
@@ -450,8 +451,13 @@ module.exports.parseAddress = ( address ) => {
         return downloadPage( segments.slice( 1 ) );
     }
     const [ lang, section, ...rest ] = segments;
-    if ( !LANGUAGES.includes( lang ) || section === undefined ) {
+    if ( !LANGUAGES.includes( lang ) ) {
         return null;
+    }
+    // `/bg` with no slash after it: the language itself, which the routes send to its home page. It was no address,
+    // so a reader who left off the slash got the 404 page (final review M1).
+    if ( section === undefined ) {
+        return { lang: lang, page: "language" };
     }
     if ( section === "" ) {
         return rest.length === 0 ? { lang: lang, page: "home" } : null;

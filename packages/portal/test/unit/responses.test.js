@@ -51,6 +51,12 @@ describe( "Responses", () => {
         send( answer, { status: 201, cache: CACHE.BRIEF, body: "{}", type: "application/json; charset=utf-8" } );
         assert.deepEqual( [ answer.code, answer.headers[ "cache-control" ], answer.headers[ "content-type" ], answer.body ],
             [ 201, "public, max-age=60", "application/json; charset=utf-8", "{}" ] );
+        // Any other header a response needs, such as a download's file name; it cannot stand in for the caching.
+        const download = response();
+        send( download, { cache: CACHE.FOREVER, body: "x", type: "text/csv; charset=utf-8",
+            headers: { "Content-Disposition": "attachment; filename=\"CL007-1.5.34.csv\"", "Cache-Control": "no-cache" } } );
+        assert.deepEqual( [ download.headers[ "content-disposition" ], download.headers[ "cache-control" ] ],
+            [ "attachment; filename=\"CL007-1.5.34.csv\"", "public, max-age=31536000, immutable" ] );
     } );
 
     it( "answers a retired fixed address with 410, cached a day, linking its changes in the address's language", () => {

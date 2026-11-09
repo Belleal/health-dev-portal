@@ -106,12 +106,15 @@ describe( "Addresses", () => {
         assert.equal( parseAddress( `/bg/specs/e-prescription/1.5.1/P001/elements/contents/${ NOTE.toLowerCase() }` ).slug, `contents/${ NOTE }` );
         assert.equal( parseAddress( "/bg/specs/e-prescription/1.5.1/P001/elements/contents/бележка" ).slug, `contents/${ NOTE }` );
         assert.deepEqual( parseAddress( "/bg/?utm=x" ), { lang: "bg", page: "home" } );
+        // The language without its slash is an address of its own, which the routes send to the home page.
+        assert.deepEqual( parseAddress( "/en" ), { lang: "en", page: "language" } );
+        assert.deepEqual( parseAddress( "/bg?utm=x" ), { lang: "bg", page: "language" } );
         assert.deepEqual( parseAddress( "/en/nomenclatures?q=a&q=b" ).query, { q: "a" } );
     } );
 
     it( "refuses what is no address: a staff stage, a list under the specs, a module under the lists, and hostile input", () => {
         for ( const path of [
-            "/", "/bg", "/fr/", "/bg//", "/BG/", "/bg/nope", "/bg/specs/", "/bg/specs/e-prescription",
+            "/", "/fr", "/fr/", "/bg//", "/BG", "/BG/", "/bg/nope", "/bg/specs/", "/bg/specs/e-prescription",
             "/bg/specs/e-prescription/development", "/bg/specs/e-prescription/implementation", "/bg/specs/e-prescription/retired",
             "/bg/specs/e-prescription/1.5.", "/bg/specs/e-prescription/v1.5.1", "/bg/specs/CL007/production", "/bg/nomenclatures/e-prescription/production",
             "/bg/specs/e-prescription/1.5.1/p001", "/bg/specs/e-prescription/1.5.1/P001/elements", "/bg/specs/e-prescription/1.5.1/P001/elements/",

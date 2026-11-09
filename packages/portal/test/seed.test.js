@@ -30,7 +30,20 @@ const { findPublished, listPublished, publishedChangelog, upcoming } = require( 
 const { resolveVersion } = require( "@health-dev-portal/data/resolution" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { SEEDED, SEED, seedContent } = require( "./support/server" );
-const { SEED_DATABASE } = require( "./support/seed" );
+const { SEED_DATABASE, inCi } = require( "./support/seed" );
+
+describe( "The seed's reading of CI", () => {
+
+    it( "is CI only when CI is set and is not false", () => {
+        assert.equal( inCi( { CI: "true" } ), true );
+        assert.equal( inCi( { CI: "1" } ), true );
+        // The seed's build took any value for CI, so CI=false failed a local run that every test would have skipped
+        // (final review M1); the build, the test server and the accessibility test now share this one rule.
+        assert.equal( inCi( { CI: "false" } ), false );
+        assert.equal( inCi( { CI: "" } ), false );
+        assert.equal( inCi( {} ), false );
+    } );
+} );
 
 describe( "The seed", { skip: !SEEDED && "build the seed first: npm run fixtures:fetch, then npm test --workspace packages/portal" }, () => {
 

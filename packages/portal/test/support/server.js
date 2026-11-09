@@ -46,7 +46,7 @@ const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { readContent } = require( "@health-dev-portal/data/targets" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { installMemoryCache } = require( "./memory-cache" );
-const { SEED, SEED_DATABASE, SEED_FILES } = require( "./seed" );
+const { SEED, SEED_DATABASE, SEED_FILES, inCi } = require( "./seed" );
 
 /**
  * Whether the seed has been built: the HTTP tests skip without it, locally.
@@ -58,7 +58,7 @@ module.exports.SEEDED = fs.existsSync( SEED_DATABASE ) && fs.existsSync( SEED_FI
 
 // In CI a missing seed is a failure, never a skip: a skipped test looks exactly like a passing one (the rule the data
 // layer's HDP_TEST_POSTGRES_URL follows).
-if ( !module.exports.SEEDED && process.env.CI ) {
+if ( !module.exports.SEEDED && inCi() ) {
     throw new Error( "The portal's seed is missing: CI must run `npm run fixtures:fetch` before `npm test`, whose pretest builds it." );
 }
 
@@ -69,6 +69,14 @@ if ( !module.exports.SEEDED && process.env.CI ) {
  * @public
  */
 module.exports.SEED = SEED;
+
+/**
+ * Whether the tests run in CI (`CI` set and not `false`), where a missing seed or browser fails rather than skips.
+ *
+ * @type {boolean}
+ * @public
+ */
+module.exports.IN_CI = inCi();
 
 let cache = null;
 let address = null;

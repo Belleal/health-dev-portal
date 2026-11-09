@@ -37,6 +37,8 @@ const { conditionsPage, dictionaryPage, specPage, specsIndexPage } = require( "#
 // responses.js. A kind with no function yet is a 404, so an address the site will have is never answered by anything
 // else meanwhile.
 const PAGES = Object.freeze( {
+    // `/bg` to `/bg/`, cached as `/` to `/bg/` is: the home page is the language's own address.
+    language: ( context, parts ) => redirect( context.response, { status: 301, location: home( parts.lang ), cache: CACHE.BRIEF } ),
     home: homePage,
     specs: specsIndexPage,
     spec: specPage,

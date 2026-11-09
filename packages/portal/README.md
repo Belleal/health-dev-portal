@@ -79,7 +79,7 @@ npm test --workspace packages/portal
 
 - **The seed.** `pretest` builds `.fixtures/portal/` (git-ignored) from the public fixtures, through the data layer's
   own migration and lifecycle functions: about 6 s, once per run. Without the fixtures it says so and the HTTP tests
-  skip; in CI it fails, since a skipped test looks exactly like a passing one.
+  skip; in CI (`CI` set and not `false`) it fails, since a skipped test looks exactly like a passing one.
 - **One server per test file**, in the test's process, on a copy of the seed (`test/support/server.js`): core allows
   one service instance per process, and `node --test` runs each file in its own.
 - **No Redis.** The tests replace core's exported `cache.instance` with a stand-in written for the portal
@@ -118,7 +118,7 @@ version of the fonts goes into a new directory.
 
 | Response | `Cache-Control` |
 |---|---|
-| A page at a fixed address (`…/1.5.1/…`), and a retired one's 410 | `public, max-age=86400` |
+| A page at a fixed address (`…/1.5.1/…`), and a retired one's 410, its downloads' too | `public, max-age=86400` |
 | Home, indexes, stage pages, errors, changes, comparison, feeds, 404, redirects | `public, max-age=60` |
 | A fixed download | `public, max-age=31536000, immutable` |
 | The stylesheet and the script at their hashed address, the fonts | `public, max-age=31536000, immutable` |

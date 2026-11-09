@@ -99,13 +99,16 @@ class PortalServer extends TiWebServer {
      * anything but HTML) before the portal's 404 is reached (review of task 3, I2). The framework's routes that are not
      * public pages are taken by the portal's own 404 instead (`defineWebApplicationRoutes`).
      *
+     * The exception ignores case, as Express's routing does: without `i`, `/ADMIN/config/editors` counted as public and
+     * reached the admin routes past the protection, which answered a browser 401 rather than its 303 (final review M8).
+     *
      * @method
      * @override
      * @public
      */
     defineUnprotectedRoutes() {
         super.defineUnprotectedRoutes();
-        this.addUnprotectedRoute( /^\/(?!admin(?:\/|$)).*$/ );
+        this.addUnprotectedRoute( /^\/(?!admin(?:\/|$)).*$/i );
     }
 
     /**
@@ -118,7 +121,10 @@ class PortalServer extends TiWebServer {
      *     `connect.sid`), after which every page re-sent both cookies beside its public caching (review of task 3, I1);
      *     `/me`, `/login/:method` and `/logout` serve a sign-in the portal does not have until plan 9.
      * - **After them**, every other GET goes to the pages, whose own 404 answers what is none: the framework's would
-     *   redirect an HTML GET to `/`.
+     *   redirect an HTML GET to `/`. It is a pattern with no named or captured part, so Express decodes nothing of the
+     *   address before the portal reads it: as `*splat`, a malformed escape such as `/bg/%E0%A4%A` failed Express's
+     *   decoding, which the framework answered 303 to `/?error=4002` for a browser and 400 otherwise, with no caching
+     *   stated (final review M2, measured), where the address parser answers it with the 404 page.
      *
      * A generic gap, for a CA card in ti-engine: a `TiWebServer` with no sign-in method enabled still mounts the routes
      * that mint and serve sessions, and an application can only shadow them, one by one, as this does.
@@ -136,7 +142,7 @@ class PortalServer extends TiWebServer {
             this.registerRoute( "post", route, notFound );
         }
         super.defineWebApplicationRoutes();
-        this.registerRoute( "get", "*splat", pageHandler( () => ( { db: this.#db, store: this.#store } ) ) );
+        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store } ) ) );
     }
 
     // HDP_DATABASE_URL is required; HDP_FILES_DIR defaults to `.files` under the working directory.

@@ -97,6 +97,18 @@ module.exports.SEED = Object.freeze( {
 const SEED = module.exports.SEED;
 
 /**
+ * Whether the tests run in CI, where a missing seed or browser is a failure rather than a skip: `CI` set, and not to
+ * `false`. The seed's build read any value as CI, so `CI=false` failed a local run the tests themselves would have
+ * skipped (final review M1); the build, the server and the accessibility test now read it alike.
+ *
+ * @method
+ * @param {Object<string, string|undefined>} [environment]
+ * @returns {boolean}
+ * @public
+ */
+module.exports.inCi = ( environment = process.env ) => Boolean( environment.CI ) && environment.CI !== "false";
+
+/**
  * A spec's production content, deep-cloned, to change into a new version: what readContent gives is shared and
  * deep-frozen.
  *

@@ -28,10 +28,10 @@ const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 const { fold, needles } = require( "#fold" );
 const { formatDate } = require( "#format" );
-const { label, otherLanguage } = require( "#labels" );
+const { LANGUAGES, label, otherLanguage } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
-const { CACHE, notFound, redirect, send } = require( "#responses" );
+const { CACHE, gone, notFound, redirect, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { columnText, localText } = require( "#text" );
 const { elementName } = require( "./message-tree" );
@@ -43,6 +43,10 @@ const PAGE_SIZE = 500;
 
 // The messages that read a list are named up to this many, then counted (decision 9).
 const USED_IN_SHOWN = 10;
+
+// A download's file name, `CL011-1.5.33.json`: the list's ID and the version's number, both of which the address parser
+// holds to ASCII letters, digits and dots, so the name needs no quoting or encoding in a header.
+const fileName = ( id, number, ext ) => `${ id }-${ number }.${ ext }`;
 
 // A list's name by the id of the version it was read from. A frozen version never changes, so its name is read once;
 // the index would otherwise read every list's whole content, CL011's 39,005 entries among them, on each request.
@@ -279,8 +283,8 @@ ${ pager( lang, { id: parts.id, at: parts.at, q: q, expired: expired, number: nu
 <section>
 <h2>${ label( lang, "downloadsTitle" ) }</h2>
 <ul>
-<li><a href="${ paths.download( parts.id, version.number, "json" ) }">${ label( lang, "downloadJson" ) }</a></li>
-<li><a href="${ paths.download( parts.id, version.number, "csv" ) }">${ label( lang, "downloadCsv" ) }</a></li>
+<li><a href="${ paths.download( parts.id, version.number, "json" ) }" download="${ fileName( parts.id, version.number, "json" ) }">${ label( lang, "downloadJson" ) }</a></li>
+<li><a href="${ paths.download( parts.id, version.number, "csv" ) }" download="${ fileName( parts.id, version.number, "csv" ) }">${ label( lang, "downloadCsv" ) }</a></li>
 </ul>
 <p>${ label( lang, "csvNote" ) }</p>
 </section>
@@ -296,9 +300,10 @@ ${ await usedIn( db, lang, parts.id, version ) }
 };
 
 /**
- * Answers a code list's download: a number's fixed file, with caching that never ends since its bytes never change; a
- * stage's address redirects to the fixed one of the version it names. Anything else — a version that was never public,
- * a module's number, a stage with no version — is a 404.
+ * Answers a code list's download: a number's fixed file, with caching that never ends since its bytes never change,
+ * saved under the list's ID and number; a stage's address redirects to the fixed one of the version it names. A retired
+ * version's file is gone, as its page is: 410, with its changelog. Anything else — a version that was never public, a
+ * module's number, a stage with no version — is a 404.
  *
  * @method
  * @param {import( "#definitions" ).PageContext} context
@@ -314,6 +319,12 @@ module.exports.downloadFile = async ( context, parts ) => {
         notFound( request, response );
         return;
     }
+    // A retired version has no content to make a file of, and was answered 404 while its page answered 410 (final
+    // review M5). A download is under no language: its notice is Bulgarian, as a 404 there is, and links that changelog.
+    if ( version.retired ) {
+        gone( request, response, paths.changes( LANGUAGES[ 0 ], parts.id ) );
+        return;
+    }
     if ( !Object.hasOwn( at, "number" ) ) {
         redirect( response, { status: 302, location: paths.download( parts.id, version.number, parts.ext ), cache: CACHE.BRIEF } );
         return;
@@ -324,5 +335,7 @@ module.exports.downloadFile = async ( context, parts ) => {
         notFound( request, response );
         return;
     }
-    send( response, { cache: CACHE.FOREVER, body: file.bytes, type: file.type } );
+    // Saved as `1.5.33.json` without it, a name that says nothing of the list (final review M4).
+    send( response, { cache: CACHE.FOREVER, body: file.bytes, type: file.type,
+        headers: { "Content-Disposition": `attachment; filename="${ fileName( parts.id, version.number, parts.ext ) }"` } } );
 };

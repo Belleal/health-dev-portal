@@ -61,13 +61,17 @@ const languageOf = ( request ) => /^\/en(?:\/|$)/.test( request.path ) ? "en" : 
  * @param {string} answer.cache The `Cache-Control`, one of `CACHE`.
  * @param {string|Buffer} answer.body
  * @param {string} [answer.type="text/html; charset=utf-8"] The `Content-Type`.
+ * @param {Object<string, string>} [answer.headers] Any other header, such as a download's `Content-Disposition`.
  * @returns {void}
  * @throws {TypeError} For no caching: every response the portal makes states it (decision 4).
  * @public
  */
-module.exports.send = ( response, { status = 200, cache, body, type = HTML } ) => {
+module.exports.send = ( response, { status = 200, cache, body, type = HTML, headers = {} } ) => {
     if ( typeof cache !== "string" || cache === "" ) {
         throw new TypeError( "Every portal response states its Cache-Control (plan 8a, decision 4)." );
+    }
+    for ( const [ name, value ] of Object.entries( headers ) ) {
+        response.set( name, value );
     }
     response.status( status ).set( "Cache-Control", cache ).set( "Content-Type", type ).send( body );
 };

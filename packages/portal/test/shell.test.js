@@ -62,6 +62,26 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
         assert.match( ( await get( "/app/x" ) ).text, /<html lang="bg">/ );
     } );
 
+    it( "sends a language's address without its slash to that language's home page", async () => {
+        // `/bg` was a 404: the address parser read a language with no section after it as no address at all.
+        for ( const lang of [ "bg", "en" ] ) {
+            const response = await get( `/${ lang }` );
+            assertPublic( response, "public, max-age=60", null );
+            assert.deepEqual( [ response.status, response.headers.get( "location" ) ], [ 301, `/${ lang }/` ], lang );
+        }
+    } );
+
+    it( "answers a malformed escape with its own 404, never the framework's redirect or 400", async () => {
+        // Express decoded a named route parameter before the portal saw the address, and failed on these: the framework
+        // answered 303 to /?error=4002 for a browser and 400 otherwise, with no caching stated (measured).
+        for ( const path of [ "/bg/%E0%A4%A", "/en/specs/%E0%A4%A/production", "/downloads/nomenclatures/CL007/%E0%A4%A.json", "/%E0%A4%A" ] ) {
+            const response = await get( path );
+            assertPublic( response, "public, max-age=60" );
+            assert.equal( response.status, 404, path );
+            assert.match( response.text, /<h1>(Страницата не е намерена|Page not found)<\/h1>/, path );
+        }
+    } );
+
     it( "answers every unknown address with its own 404, outside the languages too, never a redirect to /", async () => {
         for ( const path of [ "/nope", "/robots.txt", "/favicon.ico", "/sitemap.xml", "/x/y/z" ] ) {
             const response = await get( path );
@@ -88,6 +108,13 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
     it( "keeps the framework's /admin protected, and sets no cookie there either", async () => {
         const response = await get( "/admin/config/editors" );
         assert.deepEqual( [ response.status, response.headers.get( "location" ), response.headers.get( "set-cookie" ) ], [ 303, "/", null ] );
+        // Express routes `/ADMIN/…` to the same handlers as `/admin/…`, so the exception to "public" must ignore case too.
+        for ( const path of [ "/ADMIN/config/editors", "/Admin/config/editors" ] ) {
+            const other = await get( path );
+            assert.deepEqual( [ other.status, other.headers.get( "location" ), other.headers.get( "set-cookie" ) ], [ 303, "/", null ], path );
+            const api = await fetch( `${ portal.url }${ path }`, { redirect: "manual", headers: { accept: "application/json" } } );
+            assert.deepEqual( [ api.status, api.headers.get( "set-cookie" ) ], [ 401, null ], path );
+        }
     } );
 
     it( "puts the response's nonce on its one script, and serves both assets as immutable at their hashed address", async () => {

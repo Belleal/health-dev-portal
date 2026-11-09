@@ -38,7 +38,7 @@ const { directoryStore } = require( "@health-dev-portal/data/files" );
 const { readManifest } = require( "@health-dev-portal/data/manifest" );
 const { migrate } = require( "@health-dev-portal/data/migration" );
 const { migrateSchema } = require( "@health-dev-portal/data/schema" );
-const { SEED_DIRECTORY, seed } = require( "./seed" );
+const { SEED_DIRECTORY, inCi, seed } = require( "./seed" );
 
 const FIXTURES = path.resolve( __dirname, "../../../../.fixtures/public" );
 const SET = Object.freeze( { nomenclatures: "nomenclatures-1.5.33.xlsx", rules: "rules-1.1.1.xlsx", module: "eprescription-1.5.1.xlsx", xsd: "api-v1" } );
@@ -47,7 +47,7 @@ const build = async () => {
     const missing = Object.values( SET ).filter( ( file ) => !fs.existsSync( path.join( FIXTURES, file ) ) );
     if ( missing.length ) {
         const note = `The portal's seed needs the public fixtures ${ missing.join( ", " ) } in ${ FIXTURES }: run \`npm run fixtures:fetch\`.`;
-        if ( process.env.CI ) {
+        if ( inCi() ) {
             console.error( note );
             process.exit( 1 );
         }

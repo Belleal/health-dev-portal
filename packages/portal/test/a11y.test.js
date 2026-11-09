@@ -23,14 +23,12 @@
 
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { SEED, SEEDED, get, startPortal } = require( "./support/server" );
+// A missing browser skips locally and fails in CI, as a missing seed does: a skipped check looks exactly like a passing one.
+const { IN_CI, SEED, SEEDED, get, startPortal } = require( "./support/server" );
 const paths = require( "#paths" );
 
 const TAGS = [ "wcag2a", "wcag2aa", "wcag21a", "wcag21aa" ];
 const SPEC = SEED.ePrescription.spec;
-
-// A missing browser skips locally and fails in CI, as a missing seed does: a skipped check looks exactly like a passing one.
-const IN_CI = Boolean( process.env.CI ) && process.env.CI !== "false";
 
 /**
  * Every address to check: each kind of page, and both languages where a page has two.
