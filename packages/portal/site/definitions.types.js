@@ -50,7 +50,8 @@
  * @property {import( "@health-dev-portal/data/definitions" ).PublishedVersion & {content: Object}} version Public, not
  *     retired, with its content.
  * @property {boolean} fixed Whether the address names it by number: its fixed address (decision 3).
- * @property {string} cache Its `Cache-Control`: a day at a fixed address, a minute at a stage's (decision 4).
+ * @property {string} cache Its `Cache-Control`: a minute, at a fixed address as at a stage's, since the page links each
+ *     list as it is now and names the stages around it (design record §10.3).
  */
 
 /**

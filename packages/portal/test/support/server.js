@@ -118,10 +118,20 @@ module.exports.startPortal = async () => {
     const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-portal-" ) );
     const database = path.join( directory, "seed.sqlite" );
     const files = path.join( directory, "files" );
-    fs.copyFileSync( SEED_DATABASE, database );
-    fs.cpSync( SEED_FILES, files, { recursive: true } );
-    const server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files } );
-    await server.start();
+    let server = null;
+    // A refused start never hands back `stop`, so it cleans up here: without this each one left its copy of the seed in
+    // the temporary directory, and the server unstopped (CodeRabbit on #20).
+    try {
+        fs.copyFileSync( SEED_DATABASE, database );
+        fs.cpSync( SEED_FILES, files, { recursive: true } );
+        server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files } );
+        await server.start();
+    } catch ( error ) {
+        // A stop after a refused start may fail too; the start's error is the one worth reporting.
+        await server?.stop().catch( () => {} );
+        fs.rmSync( directory, { recursive: true, force: true } );
+        throw error;
+    }
     address = server.serverUrl;
     return {
         url: server.serverUrl,

@@ -30,17 +30,22 @@
 
 ( () => {
     for ( const button of document.querySelectorAll( "button[data-copy]" ) ) {
+        // Read once: read on each click, a second click within the moment read "copied", and kept it as the label.
+        const said = button.textContent;
         button.hidden = false;
         button.addEventListener( "click", () => {
+            // No clipboard at all outside a secure context: writeText would throw before any promise could refuse.
+            if ( !navigator.clipboard ) {
+                return;
+            }
             const address = new URL( button.dataset.copy || window.location.href, window.location.href ).href;
-            const said = button.textContent;
             navigator.clipboard.writeText( address ).then( () => {
                 button.textContent = button.dataset.copied || said;
                 window.setTimeout( () => {
                     button.textContent = said;
                 }, 2000 );
             } ).catch( () => {
-                // Refused, as on a page not served over HTTPS: the address bar still holds the same address.
+                // Refused, as without the permission: the address bar still holds the same address.
             } );
         } );
     }

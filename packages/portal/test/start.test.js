@@ -22,7 +22,11 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { createPortal } = require( "./support/server" );
+const fs = require( "node:fs" );
+const path = require( "node:path" );
+const support = require( "./support/server" );
+
+const { createPortal } = support;
 
 // Core raises what a start rejects with as its own exception, which keeps the original message in its data.
 const naming = ( setting ) => ( error ) => new RegExp( setting ).test( error.data.message );
@@ -40,5 +44,38 @@ describe( "A refused start", () => {
         await assert.rejects( server.start(), naming( "TI_WEB_PUBLIC_URL" ) );
         assert.equal( server.serverUrl, "" );
         assert.equal( server.startup.state, "failed" );
+    } );
+} );
+
+const UNSEEDED = !support.SEEDED && "the portal's seed is not built (npm run fixtures:fetch, then npm test)";
+
+describe( "A test portal whose start is refused", { skip: UNSEEDED }, () => {
+
+    // Without this a refused start left its copy of the seed in the temporary directory on every run, and the server
+    // unstopped, since the caller never received `stop` (CodeRabbit on #20).
+    it( "stops the server and removes its copy of the seed, and rejects with the start's own error", async () => {
+        const refusal = new Error( "refused" );
+        const seen = { files: null, stopped: false };
+        const real = support.createPortal;
+        support.createPortal = ( environment ) => {
+            seen.files = environment.HDP_FILES_DIR;
+            return {
+                start: async () => {
+                    throw refusal;
+                },
+                stop: async () => {
+                    seen.stopped = true;
+                    throw new Error( "a stop after a refused start may fail too" );
+                }
+            };
+        };
+        try {
+            await assert.rejects( support.startPortal(), ( error ) => error === refusal );
+        } finally {
+            support.createPortal = real;
+        }
+        assert.ok( seen.files, "the copy was made before the start" );
+        assert.equal( fs.existsSync( path.dirname( seen.files ) ), false );
+        assert.equal( seen.stopped, true );
     } );
 } );

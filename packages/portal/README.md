@@ -104,6 +104,9 @@ node --test packages/portal/test/a11y.test.js
 Without Chromium the test skips with a note; in CI (`CI` set and not `false`) it fails, as a missing seed does. CI
 installs it with `npx playwright install --with-deps chromium`. The file takes about a minute.
 
+`test/script.test.js` drives the portal's one script in the same Chromium, under the same rule when it is missing. It
+covers the "copy link" button, with and without a clipboard.
+
 ## Fonts
 
 Sofia Sans (400, 600, 700) and Sofia Sans Extra Condensed (700), Cyrillic and Latin, are copied from the pinned
