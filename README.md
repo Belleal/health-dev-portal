@@ -22,7 +22,7 @@ Where a file does not say otherwise, code is EUPL-1.2 and prose is CC BY 4.0.
 
 ## Development
 
-Requires Node 24 (`.nvmrc`).
+Requires Node 26, the current LTS line (`.nvmrc`).
 
 ```bash
 npm ci

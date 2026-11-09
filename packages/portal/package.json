@@ -6,7 +6,7 @@
     "private": true,
     "type": "commonjs",
     "engines": {
-        "node": ">=24"
+        "node": ">=26"
     },
     "exports": {
         "./portal-server": "./bin/portal-server.js"
