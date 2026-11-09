@@ -43,6 +43,16 @@ HDP_TEST_POSTGRES_URL=postgres://postgres@localhost:5432/postgres npm test
 Each suite works in a schema of its own and drops it afterwards. The container trusts every connection, so it is for
 tests only.
 
+### Dependency overrides
+
+`package.json` overrides two transitive dependencies, each to close an advisory its parent's own range cannot reach.
+Remove each one when its parent's range admits a fixed version, then check that `npm audit` stays clean.
+
+- **`minimatch` 11.0.5 under eslint**, for GHSA-g3hv-75wg-m249: eslint 10.14 still asks for minimatch 10. The
+  override was measured, not assumed: lint covers the same 231 files with the same result.
+- **`uuid` 11.1.1 under exceljs**, for GHSA-w5hq-g745-h8pq: exceljs 4.4.0, the version §5.7 was measured with, asks
+  for uuid 8. exceljs calls only `v4()`, which uuid 11 keeps.
+
 ### Importing a module workbook
 
 ```bash
