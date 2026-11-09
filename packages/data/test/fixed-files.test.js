@@ -79,6 +79,26 @@ eachDatabase( "Fixed files", ( db ) => {
         assert.deepEqual( await names( id ), [] );
     } );
 
+    it( "reports a file whose row is kept but whose bytes are missing, naming only the version and the file", async () => {
+        const id = await frozenList( "CL096" );
+        const made = await fixedFile( db(), store, id, "list.json" );
+        // The row stays, so the file is never made again: without a report, the download answers 404 for good and no one
+        // learns why (final review, ledger line 51).
+        const emptied = { ...store, get: async () => null };
+        const error = mock.method( console, "error", () => {} );
+        try {
+            assert.equal( await fixedFile( db(), emptied, id, "list.json" ), null );
+            assert.equal( error.mock.callCount(), 1 );
+            const message = String( error.mock.calls[ 0 ].arguments[ 0 ] );
+            assert.ok( message.includes( id ) && message.includes( "list.json" ), message );
+            assert.equal( message.includes( made.hash ), false, "nothing of the data but the version and the name" );
+            assert.equal( error.mock.calls[ 0 ].arguments.length, 1 );
+        } finally {
+            error.mock.restore();
+        }
+        assert.deepEqual( await names( id ), [ "list.json" ] );
+    } );
+
     it( "refuses a version that is not public and frozen", async () => {
         await ensureSpec( db(), "CL092", "code-list" );
         const development = await storeVersion( db(), { spec: "CL092", kind: "code-list", number: null, stage: "development", content: codeListVersion( "CL092", [ "1" ], null ) } );

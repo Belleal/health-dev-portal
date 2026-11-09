@@ -174,6 +174,9 @@ eachDatabase( "Published", ( db ) => {
             [ "production", "2026-10-20", "2026-11-05", null, false ],
             [ "previous-production", null, null, null, false ]
         ] );
+        // Previous production says until when it stays backward compatible wherever it appears (§7.6), the changelog
+        // included, which had no date to say it with (final review M3).
+        assert.deepEqual( versions.map( ( one ) => one.expiresOn ), [ null, null, "2027-04-30" ] );
         const entries = versions[ 0 ].entries;
         assert.deepEqual( Object.keys( entries ), [ "breaking", "dropped-plan", "non-breaking" ] );
         assert.deepEqual( entries.breaking.map( ( entry ) => entry.text ), [ { bg: "Нарушаваща промяна", en: "A breaking change" } ] );

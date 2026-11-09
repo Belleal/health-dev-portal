@@ -112,7 +112,8 @@ module.exports.findPublished = async ( db, spec, at ) => {
 
 /**
  * A spec's changelog for the public, newest first: its public versions, each with the dates it entered testing and
- * production and its entries grouped by category. An entry an editor dropped is left out, and none names a person.
+ * production, the date previous production expires, and its entries grouped by category. An entry an editor dropped is
+ * left out, and none names a person.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
@@ -139,9 +140,10 @@ module.exports.publishedChangelog = async ( db, spec ) => {
                     text: { bg: entry.text_bg, en: entry.text_en } } );
             }
         }
-        return { number: version.number, stage: version.stage, enteredTesting: dates.get( `${ version.id }/${ STAGE.TESTING }` ) || null,
-            enteredProduction: dates.get( `${ version.id }/${ STAGE.PRODUCTION }` ) || null, replacedBy: version.replacedBy,
-            abandoned: rows[ index ].release_status === RELEASE_STATUS.ABANDONED, entries: grouped };
+        // `expiresOn` so that the changelog, too, says until when previous production stays backward compatible (§7.6).
+        return { number: version.number, stage: version.stage, expiresOn: version.expiresOn,
+            enteredTesting: dates.get( `${ version.id }/${ STAGE.TESTING }` ) || null, enteredProduction: dates.get( `${ version.id }/${ STAGE.PRODUCTION }` ) || null,
+            replacedBy: version.replacedBy, abandoned: rows[ index ].release_status === RELEASE_STATUS.ABANDONED, entries: grouped };
     } ).sort( ( a, b ) => compareNumbers( b.number, a.number ) );
 };
 

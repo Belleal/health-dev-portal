@@ -71,7 +71,8 @@ const ensured = async ( db, store, published, file ) => {
  * @param {string} versionId
  * @param {string} name e.g. `list.json`.
  * @returns {Promise<{bytes: Buffer, type: string, hash: string}|null>} `null` unless the version is public and frozen
- *     and its kind has a file of that name.
+ *     and its kind has a file of that name; `null` too, reported on the console's error stream, when the file is recorded
+ *     but the store has lost its bytes.
  * @public
  */
 module.exports.fixedFile = async ( db, store, versionId, name ) => {
@@ -83,7 +84,14 @@ module.exports.fixedFile = async ( db, store, versionId, name ) => {
     }
     const hash = await ensured( db, store, published, file );
     const bytes = await store.get( hash );
-    return bytes ? { bytes: bytes, type: file.type, hash: hash } : null;
+    if ( !bytes ) {
+        // The row stays, so the file is never made again and its download answers 404 for good: said at error level,
+        // or no one learns why (final review, ledger line 51). Nothing of the data goes in the message but the
+        // version's ID and the file's name. The data layer has no logger of its own; console.error is its error level.
+        console.error( `The fixed file ${ name } of version ${ versionId } is recorded, but its bytes are missing from the file store.` );
+        return null;
+    }
+    return { bytes: bytes, type: file.type, hash: hash };
 };
 
 /**

@@ -246,6 +246,7 @@
  * @typedef {Object} PublishedChangelogVersion One public version in a spec's changelog.
  * @property {string} number
  * @property {string} stage
+ * @property {string|null} expiresOn For previous production, the date its backward compatibility ends.
  * @property {string|null} enteredTesting
  * @property {string|null} enteredProduction
  * @property {string|null} replacedBy
