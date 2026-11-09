@@ -26,8 +26,8 @@ const assert = require( "node:assert/strict" );
 const { SEED, SEEDED, assertPublic, get, rowsOf, seedContent, startPortal } = require( "./support/server" );
 const { bySegment, endpointSegment, stageBand } = require( "#pages/version" );
 
-const FIXED = "public, max-age=86400";
 const BRIEF = "public, max-age=60";
+const GONE = "public, max-age=86400";
 
 // Each group of a module's page: its heading and the HTML up to the next.
 const segmentsOf = ( text ) => new Map( [ ...text.matchAll( /<section class="segment">\s*<h2>([^<]*)<\/h2>([\s\S]*?)<\/section>/g ) ]
@@ -112,7 +112,7 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
     it( "groups a module's messages by endpoint segment", async () => {
         const response = await get( `/bg/specs/e-prescription/${ SEED.ePrescription.production }` );
         assert.equal( response.status, 200 );
-        assertPublic( response, FIXED );
+        assertPublic( response, BRIEF );
         const segments = segmentsOf( response.text );
         assert.deepEqual( [ ...segments.keys() ], [ "/doctor", "/pharmacy", "друго" ] );
         const content = await seedContent( SEED.ePrescription.spec, SEED.ePrescription.production );
@@ -147,7 +147,7 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
                 assert.match( response.text, new RegExp( `<a href="/en/specs/e-prescription/${ stage }${ tail.replace( /\./g, "\\." ) }" hreflang="en"` ) );
                 const pinned = await get( `/bg${ fixed }` );
                 assert.equal( pinned.status, 200, fixed );
-                assertPublic( pinned, FIXED );
+                assertPublic( pinned, BRIEF );
             }
         }
     } );
@@ -180,7 +180,7 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
     it( "answers a retired version's fixed address with 410 and a link to its changes", async () => {
         for ( const tail of [ "", "/P001", "/P001/elements/contents/prescription/lrn", "/conditions", "/dictionary" ] ) {
             const response = await get( `/bg/specs/e-prescription/${ SEED.history }${ tail }` );
-            assertPublic( response, FIXED );
+            assertPublic( response, GONE );
             assert.equal( response.status, 410, tail );
             assert.match( response.text, /href="\/bg\/changes\/e-prescription"/ );
         }
@@ -190,7 +190,7 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
     it( "lists a module's conditions with an anchor each, and the module's rules with their error codes", async () => {
         const content = await seedContent( SEED.ePrescription.spec, SEED.ePrescription.production );
         const conditions = await get( "/bg/specs/e-prescription/1.5.1/conditions" );
-        assertPublic( conditions, FIXED );
+        assertPublic( conditions, BRIEF );
         assert.equal( rowsOf( conditions.text ).length, content.conditions.length );
         for ( const condition of content.conditions ) {
             assert.match( conditions.text, new RegExp( `<tr id="${ condition.id }">` ) );
@@ -200,7 +200,7 @@ describe( "A module's pages and the business rules", { skip: !SEEDED && "build t
 
         const rules = await get( `/bg/specs/rules/${ SEED.rules.production }` );
         assert.equal( rules.status, 200 );
-        assertPublic( rules, FIXED );
+        assertPublic( rules, BRIEF );
         const published = await seedContent( SEED.rules.spec, SEED.rules.production );
         assert.equal( rowsOf( rules.text ).length, published.rules.length );
         for ( const rule of published.rules ) {

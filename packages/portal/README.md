@@ -11,7 +11,8 @@ element by element, the code lists, the errors and the changes, in Bulgarian at 
 - **The data** is read through `@health-dev-portal/data/published`, which decides what is public.
 - **Links follow the stage shown** (design record §4.8): a module page links each code list and the rules at their
   version in the stage it shows, else the nearest stage further on, and a list's "used in" names the module versions of
-  its stage. A version's frozen resolution record is never what a page links by.
+  its stage; a page in previous production reads a list's version there where it has one, else the one in production.
+  A version's frozen resolution record is never what a page links by.
 
 ## Running it
 
@@ -120,8 +121,8 @@ version of the fonts goes into a new directory.
 
 | Response | `Cache-Control` |
 |---|---|
-| A page at a fixed address (`…/1.5.1/…`), and a retired one's 410, its downloads' too | `public, max-age=86400` |
-| Home, indexes, stage pages, errors, changes, comparison, feeds, 404, redirects | `public, max-age=60` |
+| A retired version's 410, its downloads' too | `public, max-age=86400` |
+| Home, indexes, stage pages, pages at a fixed address (`…/1.5.1/…`: they link each list as it is now), errors, changes, comparison, feeds, 404, redirects | `public, max-age=60` |
 | A fixed download | `public, max-age=31536000, immutable` |
 | The stylesheet and the script at their hashed address, the fonts | `public, max-age=31536000, immutable` |
 | A failure (500) | `no-store` |

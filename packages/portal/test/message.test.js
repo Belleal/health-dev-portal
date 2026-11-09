@@ -29,7 +29,7 @@ const { escapeHtml } = require( "@ti-engine/web-content/html" );
 const { describeConstraint, spellConstraint } = require( "#format" );
 const { elementMarkers, treeTable } = require( "#pages/message-tree" );
 
-const FIXED = "public, max-age=86400";
+const BRIEF = "public, max-age=60";
 
 const walk = ( nodes, out = [] ) => {
     for ( const node of nodes ) {
@@ -150,7 +150,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
 
     it( "renders every element of P001 with its requirement, count, type, constraints and links", async () => {
         const response = await get( "/bg/specs/e-prescription/1.5.1/P001" );
-        assertPublic( response, "public, max-age=86400" );
+        assertPublic( response, BRIEF );
         assert.equal( rowsOf( response.text ).length, ( await elementsOf( "P001" ) ).length );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /R[\s\S]*1\.\.1[\s\S]*≤ 36/ );
         // The list as it is in production today (design record §4.8, ruling F2), not the 1.5.33 that 1.5.1's frozen
@@ -202,7 +202,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
     it( "selects an element at its own address and fills the panel", async () => {
         const lrn = ( await elementsOf( "P001" ) ).find( ( one ) => one.path === "contents/prescription/lrn" );
         const response = await get( "/bg/specs/e-prescription/1.5.1/P001/elements/contents/prescription/lrn" );
-        assertPublic( response, FIXED );
+        assertPublic( response, BRIEF );
         assert.match( rowOf( response.text, "contents/prescription/lrn" ), /^<tr aria-current="true"/ );
         assert.equal( rowsOf( response.text ).filter( ( row ) => row.includes( "aria-current" ) ).length, 1 );
         const panel = /<aside class="panel"[^>]*>([\s\S]*?)<\/aside>/.exec( response.text )[ 1 ];
@@ -274,7 +274,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         const named = [ ...new Set( ( await elementsOf( "P001" ) ).flatMap( ( one ) => one.conditions ) ) ];
         assert.ok( named.length > 20 );
         const response = await get( "/bg/specs/e-prescription/1.5.1/P001/conditions" );
-        assertPublic( response, FIXED );
+        assertPublic( response, BRIEF );
         assert.equal( rowsOf( response.text ).length, named.length );
         for ( const id of named ) {
             assert.match( response.text, new RegExp( `<tr id="${ id }">` ) );

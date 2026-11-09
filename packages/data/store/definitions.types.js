@@ -217,7 +217,7 @@
  * @property {string} number
  * @property {string} stage `testing`, `production`, `previous-production` or `retired`.
  * @property {boolean} frozen
- * @property {string|null} expiresOn For previous production, the date its backward compatibility ends.
+ * @property {string|null} expiresOn The date its backward compatibility ends, stored while it is previous production. A retired former previous-production version still carries it; no page shows it outside previous production.
  * @property {string|null} enteredOn The date it entered its stage, `yyyy-mm-dd` in Sofia, when that was recorded.
  * @property {boolean} retired
  * @property {string|null} replacedBy The number of the public fix that replaced it.
@@ -246,7 +246,7 @@
  * @typedef {Object} PublishedChangelogVersion One public version in a spec's changelog.
  * @property {string} number
  * @property {string} stage
- * @property {string|null} expiresOn For previous production, the date its backward compatibility ends.
+ * @property {string|null} expiresOn The date its backward compatibility ends, stored while it is previous production. A retired former previous-production version still carries it; no page shows it outside previous production.
  * @property {string|null} enteredTesting
  * @property {string|null} enteredProduction
  * @property {string|null} replacedBy

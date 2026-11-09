@@ -83,7 +83,7 @@ describe( "The pages after a list moves on", { skip: !SEEDED && "build the seed 
             assert.equal( page.status, 200, at );
             const link = /href="(\/bg\/nomenclatures\/CL007\/[^"]+)"/.exec( rowOf( page.text, "contents/prescription/category" ) );
             assert.equal( link[ 1 ], `/bg/nomenclatures/${ LIST }/1.5.35`, at );
-            assertPublic( await get( link[ 1 ] ), "public, max-age=86400" );
+            assertPublic( await get( link[ 1 ] ), "public, max-age=60" );
         }
         // The list's production page names the module in production as its reader, though no record names 1.5.35.
         const list = ( await get( `/bg/nomenclatures/${ LIST }/production` ) ).text;

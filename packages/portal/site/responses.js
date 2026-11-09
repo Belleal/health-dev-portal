@@ -35,10 +35,12 @@ const { home } = require( "#paths" );
  * @public
  */
 module.exports.CACHE = Object.freeze( {
-    // A page at a fixed address, and a retired one's 410: what it shows never changes, but its markup follows the
-    // portal's releases, so a day rather than `immutable` (design record §10.3; ti-engine web-framework 1.19.0).
-    FIXED: "public, max-age=86400",
-    // Home, indexes, stage pages, errors, changes, comparisons, feeds, 404s and redirects: they follow the stages.
+    // A retired version's 410: retirement is permanent, so it is kept a day rather than `immutable`, in case the
+    // address is ever given back (design record §10.3; ti-engine web-framework 1.19.0).
+    RETIRED: "public, max-age=86400",
+    // Home, indexes, every page of a version (at a stage or at a fixed address: it links each list as it is now and
+    // names the stages around it, so a day-old copy shows stale links after a promotion), errors, changes, comparisons,
+    // feeds, 404s and redirects: they follow the stages.
     BRIEF: "public, max-age=60",
     // A fixed download: its bytes never change, by content hash.
     FOREVER: "public, max-age=31536000, immutable",
@@ -131,7 +133,7 @@ module.exports.notFound = ( request, response ) => notice( request, response, { 
  * @returns {void}
  * @public
  */
-module.exports.gone = ( request, response, changesPath ) => notice( request, response, { status: 410, cache: module.exports.CACHE.FIXED,
+module.exports.gone = ( request, response, changesPath ) => notice( request, response, { status: 410, cache: module.exports.CACHE.RETIRED,
     title: ( lang ) => label( lang, "goneTitle" ), text: ( lang ) => label( lang, "goneText" ),
     link: { address: () => changesPath, text: ( lang ) => label( lang, "goneChanges" ) } } );
 

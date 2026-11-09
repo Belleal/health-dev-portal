@@ -108,7 +108,9 @@ module.exports.findShown = async ( context, parts, kinds ) => {
         return null;
     }
     const fixed = Object.hasOwn( at, "number" );
-    return { version: version, fixed: fixed, cache: fixed ? CACHE.FIXED : CACHE.BRIEF };
+    // Brief at a fixed address too: what the page shows of its own version never changes, but it links each list as it is
+    // now (§4.8) and names the stages around it, so a day-old copy would show stale links after a promotion.
+    return { version: version, fixed: fixed, cache: CACHE.BRIEF };
 };
 
 /**
@@ -189,7 +191,15 @@ const FIELDS = Object.freeze( { [ STAGE.TESTING ]: "testing", [ STAGE.PRODUCTION
 // F2): its own, then each public stage further on, as `resolutionOrder` gives them. Previous production is on no stage's
 // line, and `resolutionOrder` refuses it: a page there reads a list in previous production where the list has a version
 // there, and otherwise the one in production, which has been in force beside it all along.
-const linkOrder = ( stage ) => stage === STAGE.PREVIOUS_PRODUCTION ? [ STAGE.PREVIOUS_PRODUCTION, STAGE.PRODUCTION ]
+/**
+ * The stages a page at `stage` looks in for the lists and the rules it links, nearest first.
+ *
+ * @method
+ * @param {string} stage A public stage.
+ * @returns {string[]}
+ * @public
+ */
+const linkOrder = module.exports.linkOrder = ( stage ) => stage === STAGE.PREVIOUS_PRODUCTION ? [ STAGE.PREVIOUS_PRODUCTION, STAGE.PRODUCTION ]
     : resolutionOrder( stage ).filter( ( one ) => Object.hasOwn( FIELDS, one ) );
 
 /**

@@ -26,7 +26,7 @@ const { SEED, SEEDED, assertPublic, get, rowsOf, seedContent, startPortal } = re
 const { transliterate } = require( "@ti-engine/web-content/transliterate" );
 const paths = require( "#paths" );
 
-const FIXED = "public, max-age=86400";
+const GONE = "public, max-age=86400";
 const BRIEF = "public, max-age=60";
 const FOREVER = "public, max-age=31536000, immutable";
 
@@ -234,7 +234,7 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         for ( const ext of [ "json", "csv" ] ) {
             const response = await get( `/downloads/nomenclatures/CL007/${ retired }.${ ext }` );
             assert.equal( response.status, 410, ext );
-            assertPublic( response, FIXED );
+            assertPublic( response, GONE );
             assert.match( response.text, /<a href="\/bg\/changes\/CL007">/ );
             assert.equal( response.headers.get( "content-disposition" ), null );
         }
@@ -255,7 +255,7 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         assert.equal( ( await get( "/bg/nomenclatures/CL007/production?page=x" ) ).status, 404 );
     } );
 
-    it( "answers a module under the lists, and an unknown list, with 404, and a fixed address with a day's caching", async () => {
+    it( "answers a module under the lists, and an unknown list, with 404, and a fixed address with brief caching", async () => {
         for ( const path of [ "/bg/nomenclatures/e-prescription/production", "/bg/nomenclatures/CL000/production", "/bg/nomenclatures/CL007/9.9.9",
             "/bg/nomenclatures/CL007/development" ] ) {
             const response = await get( path );
@@ -264,6 +264,6 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         }
         const fixed = await get( "/bg/nomenclatures/CL007/1.5.34" );
         assert.equal( fixed.status, 200 );
-        assertPublic( fixed, FIXED );
+        assertPublic( fixed, BRIEF );
     } );
 } );
