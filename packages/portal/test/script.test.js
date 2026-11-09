@@ -106,7 +106,7 @@ describe( "The copy link button, in Chromium", { skip: UNSEEDED }, () => {
         assert.deepEqual( errors, [] );
     } );
 
-    it( "throws nothing where the browser offers no clipboard, as on a page not served over HTTPS", async ( context ) => {
+    it( "stays hidden where the browser offers no clipboard, as on a page not served over HTTPS", async ( context ) => {
         if ( skip !== null ) {
             context.skip( skip );
             return;
@@ -117,14 +117,10 @@ describe( "The copy link button, in Chromium", { skip: UNSEEDED }, () => {
             delete Navigator.prototype.clipboard;
         } ) );
         assert.equal( await page.evaluate( () => navigator.clipboard ), undefined );
-        const button = page.locator( COPY );
-        const label = await button.textContent();
 
-        await button.click();
-        // One round trip after the click: the browser reports an uncaught error before it answers anything later.
-        await page.evaluate( () => true );
-
+        // A button shown there would copy nothing, and the address bar is no stand-in: on a stage's page the button
+        // copies the element's fixed address, which the bar does not show.
+        assert.equal( await page.locator( COPY ).isHidden(), true );
         assert.deepEqual( errors.map( ( error ) => error.message ), [] );
-        assert.equal( await button.textContent(), label );
     } );
 } );
