@@ -33,6 +33,7 @@ const paths = require( "#paths" );
 const { CACHE, gone, notFound } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { localText } = require( "#text" );
+const { compatibleUntil } = require( "./stages" );
 
 // The stages a public version can be in, in the switcher's order.
 const STAGES = Object.freeze( [ STAGE.TESTING, STAGE.PRODUCTION, STAGE.PREVIOUS_PRODUCTION ] );
@@ -147,7 +148,8 @@ const switchName = ( lang, stage, version ) => {
     }
     // Previous production is only backward compatible for a time, and says until when, wherever it appears (§7.6).
     const name = label( lang, "switchPrevious", { number: version.number } );
-    return version.expiresOn ? `${ name } · ${ label( lang, "backwardCompatibleUntil", { date: formatDate( version.expiresOn, lang ) } ) }` : name;
+    const until = compatibleUntil( lang, stage, version.expiresOn );
+    return until ? `${ name } · ${ until }` : name;
 };
 
 /**

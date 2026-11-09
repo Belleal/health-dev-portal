@@ -26,12 +26,12 @@
 const { html } = require( "@ti-engine/web-content/html" );
 const { CHANGE_CATEGORY, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { formatCount } = require( "#format" );
-const { label, otherLanguage } = require( "#labels" );
+const { label } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
 const { notFound, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
-const { localText } = require( "#text" );
+const { localText, plainText } = require( "#text" );
 const { elementPanel, messageKind, messagePanel } = require( "./message-panel" );
 const { elementMarkers, elementName, treeTable } = require( "./message-tree" );
 const { conditionsTable, findShown, linkedNumbers, moduleSidebar, plannedOn, stageBand, stageVersions } = require( "./version" );
@@ -49,9 +49,6 @@ const walk = ( nodes, out = [] ) => {
     }
     return out;
 };
-
-// A model text as plain text, for the document's title, where no marker can go: the page's language, else the other.
-const plain = ( value, lang ) => value ? value[ lang ] || value[ otherLanguage( lang ) ] || "" : "";
 
 // The Conditions tab: the conditions the message's elements name, in the order the tree first names them, each with
 // the elements of this message that name it.
@@ -221,7 +218,7 @@ ${ body }`;
     const panel = node === null
         ? messagePanel( lang, { spec: spec, at: at, number: version.number, tab: tab, message: message, messages: content.messages } )
         : elementPanel( lang, { spec: spec, at: at, number: version.number, message: message, node: node, slug: slug, messages: content.messages, linked: linked } );
-    const title = `${ node === null ? `${ message.code } · ${ plain( message.title, lang ) }` : `${ elementName( node ) } · ${ message.code }` } · ${ specName( spec, lang ) } ${ version.number }`;
+    const title = `${ node === null ? `${ message.code } · ${ plainText( message.title, lang ) }` : `${ elementName( node ) } · ${ message.code }` } · ${ specName( spec, lang ) } ${ version.number }`;
     send( response, { cache: shown.cache, body: page( { lang: lang, title: title, path: here( at ), canonical: here( version.number ), section: "specs", band: band,
         sidebar: moduleSidebar( lang, { spec: spec, at: at, version: version, code: code } ), main: main, panel: panel, nonce: nonce } ) } );
 };

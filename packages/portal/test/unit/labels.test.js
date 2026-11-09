@@ -55,6 +55,14 @@ describe( "Labels", () => {
         assert.ok( called.includes( "untranslated" ) && called.length > 10, `only ${ called.length } label calls found` );
     } );
 
+    it( "words previous production's expiry in one place, so that every page naming it says it alike", () => {
+        // Design record §7.6, "marked everywhere": the lists' index wrote it in a cell of its own, and the changelog not at
+        // all (final review M3, M9). One function in pages/stages.js writes it now, for every page.
+        const calls = sources( SITE ).flatMap( ( file ) => [ ...fs.readFileSync( file, "utf8" ).matchAll( /\blabel\(\s*[^,()]+,\s*"backwardCompatibleUntil"/g ) ]
+            .map( () => path.relative( SITE, file ).split( path.sep ).join( "/" ) ) );
+        assert.deepEqual( calls, [ "pages/stages.js" ] );
+    } );
+
     it( "fills in named values, and refuses a key or language it does not have", () => {
         assert.equal( label( "bg", "untranslated" ), "не е преведено" );
         assert.equal( label( "en", "untranslated" ), "not yet translated" );

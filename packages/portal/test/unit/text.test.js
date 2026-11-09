@@ -23,7 +23,7 @@
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { SafeString } = require( "@ti-engine/web-content/html" );
-const { localText, columnText } = require( "#text" );
+const { localText, columnText, plainText } = require( "#text" );
 const { formatCount, formatDate } = require( "#format" );
 const { SPEC_NAMES, specName } = require( "#spec-names" );
 
@@ -49,6 +49,17 @@ describe( "Model texts", () => {
     it( "gives a bilingual column its own language or a dash, unmarked", () => {
         assert.equal( String( columnText( { bg: "<Описание>", en: null }, "bg" ) ), "&lt;Описание&gt;" );
         assert.equal( String( columnText( { bg: "Описание", en: null }, "en" ) ), "—" );
+    } );
+
+    it( "gives a document's title its plain text, where no marker can go: the page's language, else the other, else nothing", () => {
+        assert.equal( plainText( { bg: "Тип на рецепта", en: null }, "en" ), "Тип на рецепта" );
+        assert.equal( plainText( { bg: "Описание", en: "Description" }, "en" ), "Description" );
+        assert.equal( plainText( { bg: "<b>", en: null }, "bg" ), "<b>", "plain, and escaped where it is put" );
+        // A blank text is as missing as in localText, so the title names what the heading shows.
+        assert.equal( plainText( { bg: "Описание", en: "  " }, "en" ), "Описание" );
+        assert.equal( plainText( { bg: null, en: null }, "bg" ), "" );
+        assert.equal( plainText( null, "bg" ), "" );
+        assert.throws( () => plainText( { bg: "a", en: null }, "fr" ), RangeError );
     } );
 } );
 

@@ -19,7 +19,7 @@
  * The pages once a list moves on past the seed (plan 8a, final review ruling F2), against a real server on a copy of
  * the seed that these tests move further through the data layer's own lifecycle, as staff would. A production page
  * links each list as it is in production today, never at the version its own record froze with (design record §4.8,
- * "Membership stays live").
+ * "Membership stays live"); a comparison leaves out a version that was abandoned in testing (final review M11).
  */
 
 const { after, before, describe, it } = require( "node:test" );
@@ -29,6 +29,7 @@ const { implemented, productionContent } = require( "./support/seed" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { directoryStore } = require( "@health-dev-portal/data/files" );
 const { promoteReleases } = require( "@health-dev-portal/data/promotion" );
+const { abandonRelease } = require( "@health-dev-portal/data/releases" );
 const { resolveVersion } = require( "@health-dev-portal/data/resolution" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
@@ -87,5 +88,24 @@ describe( "The pages after a list moves on", { skip: !SEEDED && "build the seed 
         // The list's production page names the module in production as its reader, though no record names 1.5.35.
         const list = ( await get( `/bg/nomenclatures/${ LIST }/production` ) ).text;
         assert.match( /<h2>Използва се в<\/h2>\s*<ul>([\s\S]*?)<\/ul>/.exec( list )[ 1 ], /href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001\/elements\/[^"]*category"/ );
+    } );
+
+    it( "leaves a version abandoned in testing out of a comparison across it, and keeps it, marked, in the changelog", async () => {
+        // 1.5.36 reaches testing and its release is abandoned; 1.5.37 follows it there. 1.5.36 never went live, so what a
+        // reader changes to go from production to 1.5.37 is not its: the comparison listed its entries all the same
+        // (final review M11).
+        const production = ( await findVersion( db, LIST, { stage: STAGE.PRODUCTION } ) ).number;
+        await abandonRelease( db, store, await toTesting( "1.5.36" ), BY_APPROVER );
+        await toTesting( "1.5.37" );
+        const compare = await get( `/bg/changes/${ LIST }/compare?from=${ production }&to=1.5.37` );
+        assert.equal( compare.status, 200 );
+        assertPublic( compare, "public, max-age=60" );
+        assert.match( compare.text, /<h3>Версия 1\.5\.37 / );
+        assert.doesNotMatch( compare.text, /Версия 1\.5\.36/ );
+        // The changelog still has it, marked abandoned.
+        const changelog = ( await get( `/bg/changes/${ LIST }` ) ).text;
+        const start = changelog.indexOf( "id=\"v1.5.36\"" );
+        assert.ok( start > 0 );
+        assert.match( changelog.slice( start, changelog.indexOf( "</h2>", start ) ), /изоставена/ );
     } );
 } );

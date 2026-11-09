@@ -67,12 +67,14 @@ ${ links }${ fallback === null ? null : html`<link rel="alternate" hreflang="x-d
  * @param {import( "@ti-engine/web-content/html" ).SafeString|null} [parts.sidebar]
  * @param {import( "@ti-engine/web-content/html" ).SafeString} parts.main
  * @param {import( "@ti-engine/web-content/html" ).SafeString|null} [parts.panel] The detail panel, on the right.
+ * @param {{path: string, title: string}|null} [parts.feed] The page's Atom feed, named in the head so that a feed reader
+ *     given the page finds it (design record §8.2): the home page's and each changes page's.
  * @param {string} parts.nonce The response's CSP nonce, `response.locals.nonce`.
  * @returns {string}
  * @throws {RangeError} For a language the site does not have.
  * @public
  */
-module.exports.page = ( { lang, title, path, canonical = null, section = null, band = null, sidebar = null, main, panel = null, nonce } ) => {
+module.exports.page = ( { lang, title, path, canonical = null, section = null, band = null, sidebar = null, main, panel = null, feed = null, nonce } ) => {
     const switchTo = otherLanguage( lang );
     const sections = SECTIONS.map( ( one ) => one.section === section
         ? html`<li><a href="${ one.address( lang ) }" aria-current="true">${ one.name( lang ) }</a></li>`
@@ -84,7 +86,7 @@ module.exports.page = ( { lang, title, path, canonical = null, section = null, b
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${ title } · ${ label( lang, "siteName" ) }</title>
-${ alternates( lang, canonical ) }<link rel="icon" href="data:,">
+${ alternates( lang, canonical ) }${ feed ? html`<link rel="alternate" type="application/atom+xml" title="${ feed.title }" href="${ absolute( feed.path ) }">\n` : null }<link rel="icon" href="data:,">
 <link rel="stylesheet" href="${ assetPath( STYLESHEET ) }" nonce="${ nonce }">
 <script src="${ assetPath( SCRIPT ) }" defer nonce="${ nonce }"></script>
 </head>

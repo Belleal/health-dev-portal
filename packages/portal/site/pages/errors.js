@@ -29,6 +29,7 @@ const { label } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
 const { CACHE, notFound, send } = require( "#responses" );
+const { specName } = require( "#spec-names" );
 const { localText } = require( "#text" );
 
 // The warnings' list is named nowhere in the code packages: it is an ordinary list of the nomenclatures.
@@ -50,6 +51,12 @@ const readVersions = async ( db, testing ) => {
     }
     return { found: found, fallback: fallback };
 };
+
+// A version the page shows, by name: the rules by the name the site gives them, a list by its own, which may lack a
+// language and is marked as anywhere else, with its ID beside it. By ID alone the page said "rules 1.1.1" and "CL999
+// 1.5.33" (final review, ledger line 136).
+const versionName = ( lang, spec, version ) => spec === RULES ? `${ specName( spec, lang ) } ${ version.number }`
+    : html`${ localText( version.content.list.name, lang ) } · ${ spec } ${ version.number }`;
 
 // One error: its code as the anchor the rules page links to, its text, and the rules of the same stage that raise it. The
 // match is on the code exactly as stored: a look-alike spelling on either side is a data defect to see, never to fold.
@@ -96,8 +103,8 @@ module.exports.errorsPage = async ( context, parts ) => {
     const warnings = found[ WARNING_LIST ];
     const rules = found[ RULES ];
     const title = label( lang, testing ? "errorsTitleTesting" : "errorsTitleProduction" );
-    const versions = [ ERROR_CODE_LIST, WARNING_LIST, RULES ].filter( ( spec ) => found[ spec ] !== null ).map( ( spec ) => html`<li>${ label( lang, fallback[ spec ] ? "errorsFromProduction" : "errorsFromStage",
-        { spec: spec, number: found[ spec ].number } ) }</li>\n` );
+    const versions = [ ERROR_CODE_LIST, WARNING_LIST, RULES ].filter( ( spec ) => found[ spec ] !== null ).map( ( spec ) => html`<li>${ versionName( lang, spec, found[ spec ] ) }${ fallback[ spec ]
+        ? html` (${ label( lang, "errorsFromProduction" ) })` : null }</li>\n` );
     // The two pages link to each other, the testing one only where it exists.
     const other = testing ? html`<a href="${ paths.errors( lang ) }">${ label( lang, "errorsProductionLink" ) }</a>`
         : hasTesting ? html`<a href="${ paths.errors( lang, true ) }">${ label( lang, "errorsTestingLink" ) }</a>` : null;

@@ -91,7 +91,9 @@ npm test --workspace packages/portal
 
 `test/a11y.test.js` opens every kind of page in real Chromium, in both languages where it has two, and runs axe against
 WCAG 2.1 A and AA (design record §8.5, EN 301 549). No rule is switched off and no element excluded: a violation is fixed
-in the page or the stylesheet. Install the browser once, then run the file alone or with the rest:
+in the page or the stylesheet. Axe cannot assess keyboard order, focus visibility or what a screen reader says, so a
+green run is no claim of WCAG 2.1 AA or EN 301 549 conformance. Install the browser once, then run the file alone or
+with the rest:
 
 ```bash
 npx playwright install chromium

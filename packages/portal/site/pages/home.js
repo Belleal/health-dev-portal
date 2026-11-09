@@ -17,8 +17,8 @@
 
 /*
  * The home page, `/{lang}/` (design record §8.2, option H1): the versions by stage in the main column, and in the right
- * one what is upcoming in production and what was published last. The environments' status band and the newcomer's link
- * come with plan 8b.
+ * one what is upcoming in production and what was published last, with the feed of every change. The environments'
+ * status band and the newcomer's link come with plan 8b.
  */
 
 const { html } = require( "@ti-engine/web-content/html" );
@@ -27,7 +27,7 @@ const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { formatDate } = require( "#format" );
 const { label } = require( "#labels" );
 const { page } = require( "#layout" );
-const { compare, home, lists } = require( "#paths" );
+const { compare, feed, home, lists } = require( "#paths" );
 const { CACHE, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { aheadLegend, isAhead, modulesAndRules, stageTable } = require( "./stages" );
@@ -83,7 +83,10 @@ ${ aheadLegend( lang ) }`;
 ${ due.length === 0 ? html`<p class="muted">${ label( lang, "upcomingNone" ) }</p>` : html`<ul class="releases">
 ${ due.map( ( release ) => dueRelease( lang, release ) ) }</ul>` }
 <h2>${ label( lang, "latestTitle" ) }</h2>
+<p><a href="${ feed( lang ) }">${ label( lang, "changesFeedAll" ) }</a></p>
 ${ latest.length === 0 ? html`<p class="muted">${ label( lang, "latestNone" ) }</p>` : html`<ul class="releases">
 ${ latest.map( ( one ) => html`<li><span class="muted">${ formatDate( one.on, lang ) }</span> ${ specName( one.spec, lang ) } ${ one.number } · ${ label( lang, one.stage === STAGE.TESTING ? "stageTesting" : "stageProduction" ) }</li>\n` ) }</ul>` }`;
-    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: label( lang, "homeTitle" ), path: home( lang ), canonical: home( lang ), main: main, panel: panel, nonce: nonce } ) } );
+    // The latest releases come with a feed (design record §8.2), linked beside them and named in the head.
+    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: label( lang, "homeTitle" ), path: home( lang ), canonical: home( lang ), main: main, panel: panel,
+        feed: { path: feed( lang ), title: label( lang, "changesFeedAll" ) }, nonce: nonce } ) } );
 };

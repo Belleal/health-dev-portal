@@ -27,15 +27,14 @@ const { findPublished, findPublishedById, listPublished } = require( "@health-de
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { compareNumbers } = require( "@health-dev-portal/spec-model/numbers" );
 const { fold, needles } = require( "#fold" );
-const { formatDate } = require( "#format" );
-const { LANGUAGES, label, otherLanguage } = require( "#labels" );
+const { LANGUAGES, label } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
 const { CACHE, gone, notFound, redirect, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
-const { columnText, localText } = require( "#text" );
+const { columnText, localText, plainText } = require( "#text" );
 const { elementName } = require( "./message-tree" );
-const { isAhead } = require( "./stages" );
+const { STAGES, stageCell } = require( "./stages" );
 const { findShown, modulesIn, plannedOn, stageBand, stageVersions } = require( "./version" );
 
 // What a page of a list holds (decision 9): CL011 alone has 39,005 entries.
@@ -69,9 +68,6 @@ const nameOf = async ( db, version ) => {
     return name;
 };
 
-// A text for a `<title>`, which is plain: the page's language, else the other, else nothing.
-const plain = ( value, lang ) => value && ( value[ lang ] || value[ otherLanguage( lang ) ] ) || "";
-
 // The version the index names a list by, and the one it takes the name from: production's, else testing's, else
 // previous production's.
 const nameSource = ( published ) => published.production || published.testing || published.previousProduction;
@@ -83,19 +79,6 @@ const filterForm = ( lang, { action, q, hidden = [] } ) => html`<form class="fil
 <input id="q" type="search" name="q" value="${ q === null ? "" : q }">
 ${ hidden.map( ( [ name, value ] ) => html`<input type="hidden" name="${ name }" value="${ value }">\n` ) }<button type="submit">${ label( lang, "filterButton" ) }</button>
 </form>`;
-
-// The index's cell of one stage: the version's number as a link to its page, and for previous production until when it
-// is backward compatible (§7.6), or "—".
-const stageCell = ( lang, published, stage ) => {
-    const version = { testing: published.testing, production: published.production, "previous-production": published.previousProduction }[ stage ];
-    if ( version === null ) {
-        return html`<td>${ label( lang, "noVersion" ) }</td>`;
-    }
-    const number = stage === STAGE.TESTING && isAhead( published ) ? html`<span class="ahead">${ version.number }</span>` : version.number;
-    const until = stage === STAGE.PREVIOUS_PRODUCTION && version.expiresOn
-        ? html`<br><span class="muted">${ label( lang, "backwardCompatibleUntil", { date: formatDate( version.expiresOn, lang ) } ) }</span>` : null;
-    return html`<td><a href="${ paths.list( lang, published.spec, stage ) }">${ number }</a>${ until }</td>`;
-};
 
 /**
  * Answers the code lists' index: every published list, with its name and the version in each public stage, filtered
@@ -129,7 +112,8 @@ ${ shown.length === 0 ? html`<p>${ label( lang, "listsNone" ) }</p>` : html`<tab
 <tbody>
 ${ shown.map( ( one ) => {
         const stage = one.published.production ? STAGE.PRODUCTION : one.published.testing ? STAGE.TESTING : STAGE.PREVIOUS_PRODUCTION;
-        return html`<tr><td><a href="${ paths.list( lang, one.published.spec, stage ) }"><code>${ one.published.spec }</code></a></td><td>${ localText( one.name, lang ) }</td>${ stageCell( lang, one.published, STAGE.TESTING ) }${ stageCell( lang, one.published, STAGE.PRODUCTION ) }${ stageCell( lang, one.published, STAGE.PREVIOUS_PRODUCTION ) }</tr>\n`;
+        const address = ( at ) => paths.list( lang, one.published.spec, at );
+        return html`<tr><td><a href="${ address( stage ) }"><code>${ one.published.spec }</code></a></td><td>${ localText( one.name, lang ) }</td>${ STAGES.map( ( at ) => stageCell( lang, one.published, at, address ) ) }</tr>\n`;
     } ) }</tbody>
 </table>` }`;
     send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: title, path: paths.lists( lang, { q: q } ), canonical: paths.lists( lang, { q: q } ),
@@ -293,7 +277,7 @@ ${ pager( lang, { id: parts.id, at: parts.at, q: q, expired: expired, number: nu
 ${ await usedIn( db, lang, parts.id, version ) }
 </section>
 <p><a href="${ paths.changes( lang, parts.id ) }">${ label( lang, "changelog" ) }</a></p>`;
-    const name = plain( list.name, lang );
+    const name = plainText( list.name, lang );
     send( response, { cache: shown.cache, body: page( { lang: lang, title: name === "" ? `${ list.id } ${ version.number }` : `${ list.id } · ${ name } ${ version.number }`,
         path: paths.list( lang, parts.id, parts.at, { ...parameters, page: number } ), canonical: paths.list( lang, parts.id, version.number, { ...parameters, page: number } ),
         section: "nomenclatures", band: band, main: main, nonce: nonce } ) } );

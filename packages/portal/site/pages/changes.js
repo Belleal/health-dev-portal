@@ -34,7 +34,7 @@ const { CACHE, notFound, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { localText } = require( "#text" );
 const { aspectName, differenceRow, shownValue } = require( "./message" );
-const { modulesAndRules } = require( "./stages" );
+const { compatibleUntil, modulesAndRules } = require( "./stages" );
 
 // A changelog's groups, in the order a version lists them (decision 10).
 const GROUPS = Object.freeze( [
@@ -68,10 +68,17 @@ module.exports.stageName = ( lang, stage ) => label( lang, STAGE_LABELS[ stage ]
 // has none, and is only in the changelog.
 const keptVersions = ( changelog ) => changelog.filter( ( version ) => version.stage !== STAGE.RETIRED );
 
+// A version's stage in words, previous production with until when it stays backward compatible (§7.6): the changelog
+// and the comparison's choices named it with no date (final review M3).
+const stageWords = ( lang, version ) => {
+    const until = compatibleUntil( lang, version.stage, version.expiresOn );
+    return until ? `${ module.exports.stageName( lang, version.stage ) } · ${ until }` : module.exports.stageName( lang, version.stage );
+};
+
 // What a version says about when it was published and what became of it: the dates that were recorded, or that none were;
 // the fix it was retired for; "abandoned" when it was abandoned in testing.
 const versionNotes = ( lang, version ) => {
-    const notes = [ module.exports.stageName( lang, version.stage ) ];
+    const notes = [ stageWords( lang, version ) ];
     if ( version.enteredTesting ) {
         notes.push( label( lang, "versionTestingSince", { date: formatDate( version.enteredTesting, lang ) } ) );
     }
@@ -121,7 +128,7 @@ const comparisonForm = ( lang, spec, kept ) => {
     if ( kept.length < 2 ) {
         return html`<p class="muted">${ label( lang, "compareNeedTwo" ) }</p>`;
     }
-    const options = ( chosen ) => kept.map( ( version ) => html`<option value="${ version.number }"${ version.number === chosen ? html` selected` : null }>${ version.number } · ${ module.exports.stageName( lang, version.stage ) }</option>\n` );
+    const options = ( chosen ) => kept.map( ( version ) => html`<option value="${ version.number }"${ version.number === chosen ? html` selected` : null }>${ version.number } · ${ stageWords( lang, version ) }</option>\n` );
     return html`<form class="filter" method="get" action="${ paths.changes( lang, spec ) }/compare">
 <label for="compare-from">${ label( lang, "compareFrom" ) }</label>
 <select id="compare-from" name="from">
@@ -160,7 +167,8 @@ ${ own.map( ( one ) => html`<li>${ link( one ) }</li>\n` ) }</ul>
 <h2>${ label( lang, "changesLatest" ) }</h2>
 ${ latest.length === 0 ? html`<p class="muted">${ label( lang, "changesLatestNone" ) }</p>` : html`<ul class="releases">
 ${ latest.map( ( one ) => html`<li><span class="muted">${ formatDate( one.on, lang ) }</span> <a href="${ paths.changes( lang, one.spec ) }#v${ one.number }">${ specName( one.spec, lang ) } ${ one.number }</a> · ${ module.exports.stageName( lang, one.stage ) }</li>\n` ) }</ul>` }`;
-    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: title, path: paths.changes( lang ), canonical: paths.changes( lang ), section: "changes", main: main, nonce: nonce } ) } );
+    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: title, path: paths.changes( lang ), canonical: paths.changes( lang ), section: "changes", main: main,
+        feed: { path: paths.feed( lang ), title: label( lang, "changesFeedAll" ) }, nonce: nonce } ) } );
 };
 
 /**
@@ -187,8 +195,10 @@ module.exports.changelogPage = async ( context, parts ) => {
 <h2>${ label( lang, "compareLegend" ) }</h2>
 ${ comparisonForm( lang, spec, keptVersions( changelog ) ) }
 ${ changelog.length === 0 ? html`<p>${ label( lang, "changelogNoVersions" ) }</p>` : changelog.map( ( version ) => versionSection( lang, version, 2 ) ) }`;
+    // The feed is named in the head as well as linked, so that a feed reader given the changelog finds it (final review M7).
     send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: `${ name } · ${ label( lang, "changelog" ) }`, path: paths.changes( lang, spec ),
-        canonical: paths.changes( lang, spec ), section: "changes", main: main, nonce: nonce } ) } );
+        canonical: paths.changes( lang, spec ), section: "changes", main: main, feed: { path: paths.feed( lang, spec ), title: `${ name } · ${ label( lang, "changesFeedSpec" ) }` },
+        nonce: nonce } ) } );
 };
 
 // The structural differences between two contents, as one table per category: breaking first. A category with none is left
@@ -210,8 +220,8 @@ ${ group.rows.map( ( difference ) => differenceRow( lang, difference ) ) }</tbod
 
 /**
  * Answers the comparison of two kept versions of a spec: the structural differences by category, then the changelog
- * entries of the public versions after the first up to the second. A reversed pair is swapped; an equal pair, an unknown
- * or retired version, and an unpublished spec are the 404 page.
+ * entries of the public versions after the first up to the second, leaving out any abandoned in testing. A reversed pair
+ * is swapped; an equal pair, an unknown or retired version, and an unpublished spec are the 404 page.
  *
  * @method
  * @param {import( "#definitions" ).PageContext} context
@@ -239,7 +249,9 @@ module.exports.comparePage = async ( context, parts ) => {
         return;
     }
     const differences = compareContents( current.kind, base.content, current.content );
-    const between = changelog.filter( ( version ) => compareNumbers( version.number, from ) > 0 && compareNumbers( version.number, to ) <= 0 );
+    // A version abandoned in testing never went live, so going from `from` to `to` changes nothing of it: the comparison
+    // listed its entries all the same (final review M11). The changelog keeps it, marked.
+    const between = changelog.filter( ( version ) => !version.abandoned && compareNumbers( version.number, from ) > 0 && compareNumbers( version.number, to ) <= 0 );
     const name = specName( spec, lang );
     const title = label( lang, "compareTitle", { name: name, from: from, to: to } );
     const address = paths.compare( lang, spec, from, to );

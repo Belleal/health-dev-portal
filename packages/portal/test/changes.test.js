@@ -107,6 +107,35 @@ describe( "The changes pages and the feeds", { skip: !SEEDED && "build the seed 
         }
     } );
 
+    it( "marks previous production backward compatible until its date in the changelog and among the comparison's choices", async () => {
+        // Design record §7.6: wherever it appears. The changelog and the comparison form named CL007 1.5.33 only as
+        // previous production, with no date (final review M3).
+        const previous = SEED.cl007.previous.replace( /\./g, "\\." );
+        for ( const [ lang, until ] of [ [ "bg", "обратно съвместима до 30.04.2027" ], [ "en", "backward compatible until 30 Apr 2027" ] ] ) {
+            const page = ( await get( `/${ lang }/changes/${ SEED.cl007.spec }` ) ).text;
+            const start = page.indexOf( `id="v${ SEED.cl007.previous }"` );
+            assert.ok( start > 0, lang );
+            assert.ok( page.slice( start, page.indexOf( "</h2>", start ) ).includes( until ), `${ lang }: the version's heading` );
+            const options = [ ...page.matchAll( new RegExp( `<option value="${ previous }"[^>]*>([^<]*)</option>`, "g" ) ) ];
+            assert.equal( options.length, 2, `${ lang }: one in each select` );
+            assert.ok( options.every( ( option ) => option[ 1 ].includes( until ) ), `${ lang }: ${ options.map( ( option ) => option[ 1 ] ) }` );
+            // The version in production says nothing of the kind.
+            assert.equal( page.split( until ).length - 1, 3, lang );
+        }
+    } );
+
+    it( "names each changes page's feed in its head, for a feed reader to find", async () => {
+        const feedLink = ( text ) => /<link rel="alternate" type="application\/atom\+xml" title="([^"]+)" href="([^"]+)">/.exec( text );
+        const spec = feedLink( ( await get( "/bg/changes/e-prescription" ) ).text );
+        assert.ok( spec, "the changelog names its feed" );
+        assert.equal( spec[ 2 ], `${ PUBLIC_URL }/bg/changes/e-prescription/feed.atom` );
+        assert.equal( feedLink( ( await get( "/en/changes/CL007" ) ).text )[ 2 ], `${ PUBLIC_URL }/en/changes/CL007/feed.atom` );
+        assert.equal( feedLink( ( await get( "/en/changes" ) ).text )[ 2 ], `${ PUBLIC_URL }/en/changes/feed.atom` );
+        // A page with no feed of its own names none.
+        assert.equal( feedLink( ( await get( "/bg/changes/e-prescription/compare?from=1.5.1&to=1.5.2" ) ).text ), null );
+        assert.equal( feedLink( ( await get( "/bg/nope" ) ).text ), null );
+    } );
+
     it( "carries a comparison form that works without JavaScript", async () => {
         const page = ( await get( "/bg/changes/e-prescription" ) ).text;
         const form = page.match( /<form\b[^>]*>[\s\S]*?<\/form>/ )[ 0 ];

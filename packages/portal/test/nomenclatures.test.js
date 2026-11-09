@@ -145,6 +145,13 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         assert.match( page, /<a href="\/downloads\/nomenclatures\/CL007\/1\.5\.34\.csv" download="CL007-1\.5\.34\.csv">/ );
         // The CSV is for spreadsheets and says it is changed there; the JSON is the exact file.
         assert.match( page, /CSV[^<]*&#39;/ );
+        // The prefix is for a carriage return, as the CSV writes it, never a line break; and a spreadsheet drops the
+        // leading zeros of a key such as 01, which the JSON keeps (final review M10).
+        assert.match( page, /CSV[^<]*връщане на каретката[^<]*водещите нули[^<]*01[^<]*JSON/ );
+        assert.doesNotMatch( page, /нов ред/ );
+        const english = ( await get( "/en/nomenclatures/CL007/production" ) ).text;
+        assert.match( english, /CSV[^<]*carriage return[^<]*leading zeros[^<]*01[^<]*JSON/ );
+        assert.doesNotMatch( english, /line break/ );
         assert.match( page, /canonical" href="https:\/\/developers\.example\.test\/bg\/nomenclatures\/CL007\/1\.5\.34"/ );
         // A display column comes only with a display to show, and a column with no text in a language is "—".
         assert.match( page, /<th scope="col">Изписване \(български\)<\/th>/ );

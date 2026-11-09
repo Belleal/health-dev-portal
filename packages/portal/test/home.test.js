@@ -99,6 +99,16 @@ describe( "The home page and the specifications index", { skip: !SEEDED && "buil
         assert.match( ( await get( "/en/" ) ).text, /Latest publications[\s\S]*CL007[\s\S]{0,200}1\.5\.34[\s\S]{0,200}production/ );
     } );
 
+    it( "links the feed of every change beside the latest publications, and names it in the head", async () => {
+        // Design record §8.2: "the latest releases with a feed". The home page had neither link (final review M7).
+        for ( const [ lang, latest ] of [ [ "bg", "Последни издания" ], [ "en", "Latest publications" ] ] ) {
+            const text = ( await get( `/${ lang }/` ) ).text;
+            assert.match( text, new RegExp( `<link rel="alternate" type="application/atom\\+xml" title="[^"]+" href="https://developers\\.example\\.test/${ lang }/changes/feed\\.atom">` ) );
+            const panel = text.slice( text.indexOf( `<h2>${ latest }</h2>` ) );
+            assert.match( panel, new RegExp( `^<h2>${ latest }</h2>\\s*<p><a href="/${ lang }/changes/feed\\.atom">` ), lang );
+        }
+    } );
+
     it( "never shows a version abandoned before testing, nor one still in development", async () => {
         for ( const path of [ "/bg/", "/en/", "/bg/specs", "/en/specs" ] ) {
             const text = ( await get( path ) ).text;

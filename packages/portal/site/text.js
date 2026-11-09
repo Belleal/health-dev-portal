@@ -66,3 +66,23 @@ module.exports.columnText = ( value, lang ) => {
     otherLanguage( lang );
     return html`${ value && present( value[ lang ] ) ? value[ lang ] : DASH }`;
 };
+
+/**
+ * A model text as plain text, for a document's `<title>`, where no marker can go: the page's language, else the other,
+ * else nothing. A blank text is as missing as it is to `localText`, so the title names what the heading shows. One
+ * function for every page: the message page and the list page each had a copy (final review M9).
+ *
+ * @method
+ * @param {import( "@health-dev-portal/spec-model/definitions" ).LocalText|null} value
+ * @param {string} lang
+ * @returns {string} Unescaped: it is escaped where the page puts it.
+ * @throws {RangeError} For a language the site does not have.
+ * @public
+ */
+module.exports.plainText = ( value, lang ) => {
+    const other = otherLanguage( lang );
+    if ( value && present( value[ lang ] ) ) {
+        return value[ lang ];
+    }
+    return value && present( value[ other ] ) ? value[ other ] : "";
+};

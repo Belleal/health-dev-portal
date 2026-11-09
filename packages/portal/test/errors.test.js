@@ -94,6 +94,23 @@ describe( "The errors page", { skip: !SEEDED && "build the seed first: npm run f
         assert.equal( bulgarian.includes( "не е преведено" ), false );
     } );
 
+    it( "names the versions it shows by the spec's name, and a list by its own with its ID", async () => {
+        // The page said "CL999 1.5.33", "CL998 1.5.33" and "rules 1.1.1" (final review, ledger line 136).
+        const names = Object.fromEntries( await Promise.all( [ "CL999", "CL998" ].map( async ( id ) => [ id, ( await seedContent( id, SEED.nomenclatures ) ).list.name ] ) ) );
+        const shownIn = ( text, heading ) => new RegExp( `<p>${ heading }:</p>\\s*<ul>([\\s\\S]*?)</ul>` ).exec( text )[ 1 ];
+        const bg = shownIn( ( await get( "/bg/errors" ) ).text, "Показани версии" );
+        for ( const id of [ "CL999", "CL998" ] ) {
+            assert.ok( bg.includes( `<li>${ escapeHtml( names[ id ].bg ) } · ${ id } ${ SEED.nomenclatures }</li>` ), `${ id }: ${ bg }` );
+        }
+        assert.ok( bg.includes( `<li>Бизнес правила ${ SEED.rules.production }</li>` ), bg );
+        assert.doesNotMatch( bg, /rules 1\.1\.1/ );
+        // In English the rules have their English name, and a list with no English name is marked, as anywhere else.
+        const en = shownIn( ( await get( "/en/errors" ) ).text, "Versions shown" );
+        assert.ok( en.includes( `<li>Business rules ${ SEED.rules.production }</li>` ), en );
+        assert.equal( names.CL999.en, null );
+        assert.ok( en.includes( `<li><span lang="bg">${ escapeHtml( names.CL999.bg ) }</span> <span class="untranslated">not yet translated</span> · CL999 ${ SEED.nomenclatures }</li>` ), en );
+    } );
+
     it( "answers the testing page with 404 while nothing of the three is in testing", async () => {
         for ( const address of [ "/bg/errors/testing", "/en/errors/testing" ] ) {
             const response = await get( address );
