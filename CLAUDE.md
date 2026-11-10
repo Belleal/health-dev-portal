@@ -1,4 +1,4 @@
-# Working agreement — Belleal/health-dev-portal
+# Working agreement — nhis-development-portal
 
 Read this at session start. The **design record** in `docs/superpowers/specs/` is the authority on what the portal
 is; this file is how we work on it. Where they seem to disagree on a fact, the design record wins; on process, this
@@ -7,14 +7,33 @@ file.
 ## Start of session
 
 1. Read the latest design record and the plan being executed (`docs/superpowers/plans/`).
-2. Set the commit identity before the first commit:
+2. Set the commit identity before the first commit. It is Boris's work address, so that the company's GitHub links
+   commits to him; it is public in the mirror (Boris, 2026-11-10):
 
    ```bash
    git config user.name "Boris Kostadinov"
-   git config user.email "kostadinov.boris@gmail.com"
+   git config user.email "b.kostadinov@is-bg.net"
    ```
 
-3. Before touching ti-engine, or deciding whether something belongs there, load the `ti-engine` skill.
+3. Check the two remotes (see *Repositories*): `origin` is the company's repository, `mirror` the public one.
+4. Before touching ti-engine, or deciding whether something belongs there, load the `ti-engine` skill.
+
+## Repositories
+
+- **`origin`: `AI-Engineering/nhis-development-portal`**, in the company's GitHub Enterprise account. Branches,
+  pull requests, CI, CodeRabbit and Dependabot all work here.
+- **`mirror`: `Belleal/health-dev-portal`** on github.com, public. It receives `main` and nothing else. Nothing is
+  opened or reviewed there.
+  - After Boris merges, push `main` from `origin`, not the local branch, which may be behind or carry unreviewed
+    commits:
+
+    ```bash
+    git fetch origin
+    git push mirror refs/remotes/origin/main:refs/heads/main
+    ```
+
+  - In a fresh clone, add it with `git remote add mirror https://github.com/Belleal/health-dev-portal.git`.
+- **The mirror makes everything on `main` public.** So the data rules below hold for both repositories.
 
 ## The framework boundary
 
@@ -38,8 +57,8 @@ npm, and only then used here through a version range. Nothing НЗИС-specific 
 ## Data rules
 
 - **Never commit unpublished specification data**: no development-version workbook, XSD or extract, in any form,
-  test fixtures included. The repository is public. Fixtures are synthetic and built in code, or public files fetched
-  by `npm run fixtures:fetch` into the git-ignored `.fixtures/`.
+  test fixtures included. The code is public, through the mirror. Fixtures are synthetic and built in code, or
+  public files fetched by `npm run fixtures:fetch` into the git-ignored `.fixtures/`.
 - Never commit `.env`, secrets, or the spec team's workbooks.
 - Never write a model identifier into a file, commit message or pull-request body.
 
