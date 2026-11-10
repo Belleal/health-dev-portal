@@ -103,7 +103,7 @@ Plan 7 is independent of the others and is needed only before plan 12; the porta
 
 | Topic | Decision | Why / rejected |
 |---|---|---|
-| Repository | `Belleal/health-dev-portal`, public | The portal is open source; development-version spec data therefore never enters the repo |
+| Repository | `AI-Engineering/nhis-development-portal` in the company's GitHub Enterprise account, where pull requests, CI and reviews happen. `Belleal/health-dev-portal` on github.com stays a public mirror of `main` (Boris, 2026-11-10) | The portal is open source, and the mirror keeps its code public; development-version spec data therefore never enters either. The move puts the code in the company's account, with CodeRabbit Advanced. Rejected: archiving the old repository as a snapshot, which would stop it being a fallback |
 | Licence | Code EUPL-1.2; content CC BY 4.0 | Public-sector licence with network copyleft and an equal Bulgarian text. Rejected: Apache-2.0 for all (allows a closed hosted fork) |
 | Framework | ti-engine packages from npm; generic gaps go into ti-engine, nothing НЗИС-specific does | The framework knows nothing of its applications |
 | Storage of specs | A database, not Git (§3.2) | The studio needs editing, review, promotion through four stages and 39,000-row lists. Rejected: everything in Git (development versions would need a private repo; a studio committing to Git with approvals is awkward) |
