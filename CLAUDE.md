@@ -22,8 +22,16 @@ file.
 
 - **`origin`: `AI-Engineering/nhis-development-portal`**, in the company's GitHub Enterprise account. Branches,
   pull requests, CI, CodeRabbit and Dependabot all work here.
-- **`mirror`: `Belleal/health-dev-portal`** on github.com, public. It receives `main` and nothing else. After Boris
-  merges, push the merged `main` there (`git push mirror main`). Nothing is opened or reviewed there.
+- **`mirror`: `Belleal/health-dev-portal`** on github.com, public. It receives `main` and nothing else. Nothing is
+  opened or reviewed there.
+  - After Boris merges, push `main` from `origin`, not the local branch, which may be behind or carry unreviewed
+    commits:
+
+    ```bash
+    git fetch origin
+    git push mirror refs/remotes/origin/main:refs/heads/main
+    ```
+
   - In a fresh clone, add it with `git remote add mirror https://github.com/Belleal/health-dev-portal.git`.
 - **The mirror makes everything on `main` public.** So the data rules below hold for both repositories.
 
