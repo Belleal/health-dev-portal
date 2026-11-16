@@ -88,7 +88,7 @@ module.exports.parseCardinality = ( text ) => {
  *
  * @method
  * @param {string} text e.g. `min=1, max=255, chars=an`.
- * @param {string|null} dataType On a numeric type, `min`/`max` bound the value rather than the length.
+ * @param {string|null} dataType On a numeric type, `max` counts digits rather than characters, and `min` is not read.
  * @returns {{constraint: import( "@health-dev-portal/spec-model/definitions" ).Constraint|null, unparsed: string[]}}
  * @public
  */
@@ -102,8 +102,17 @@ module.exports.parseConstraint = ( text, dataType ) => {
     for ( const token of text.split( "," ).map( ( part ) => part.trim() ).filter( Boolean ) ) {
         const bound = /^(min|max)=(\d+)$/.exec( token );
         const charset = /^chars=(\w+)$/.exec( token );
-        if ( bound ) {
-            constraint[ bound[ 1 ] + ( numeric ? "Value" : "Length" ) ] = Number( bound[ 2 ] );
+        if ( bound && numeric ) {
+            // On a number, max= counts digits (Boris, 2026-11-06, HEL-34): read as a value, sick-leave days max=2 refused
+            // a 14-day leave. No workbook writes min= on one, so it has no settled meaning and is reported, not guessed.
+            // Nor max=0: xs:totalDigits must be positive, and with 0 the generated XSD does not compile (CodeRabbit, #2).
+            if ( bound[ 1 ] === "max" && Number( bound[ 2 ] ) > 0 ) {
+                constraint.maxDigits = Number( bound[ 2 ] );
+            } else {
+                unparsed.push( token );
+            }
+        } else if ( bound ) {
+            constraint[ bound[ 1 ] + "Length" ] = Number( bound[ 2 ] );
         } else if ( charset ) {
             constraint.charset = charset[ 1 ];
         } else if ( Object.hasOwn( FORMATS, token ) ) {

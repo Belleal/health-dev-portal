@@ -73,7 +73,7 @@ describe( "buildMessageTree", () => {
         const medication = find( tree, "contents/prescription/group/medication" );
         assert.deepEqual( medication.cardinality, { min: 1, max: null } );
         assert.deepEqual( medication.conditions, [ "CDP29" ] );
-        assert.equal( find( tree, "contents/prescription/allowedRepeatsNumber@value" ).constraint.maxValue, 1 );
+        assert.equal( find( tree, "contents/prescription/allowedRepeatsNumber@value" ).constraint.maxDigits, 1 );
         assert.equal( find( tree, "contents/prescription/isProtocolBased@value" ).defaultValue, "false" );
         const polymorphic = find( tree, "contents/prescription/group/medication/doseQuantityCode@value" );
         assert.equal( polymorphic.kind, "polymorphic" );

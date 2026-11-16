@@ -52,13 +52,15 @@ describe( "Constraints as a reader reads them", () => {
 
     it( "states a number's max= as a count of digits", () => {
         // HEL-26 (Boris, 2026-11-06): on a number, the workbooks' max= counts digits, as sick-leave days' max=2 does.
-        const days = { kind: "field", dataType: "Unsigned Int", constraint: { raw: "max=2", maxValue: 2 } };
+        const days = { kind: "field", dataType: "Unsigned Int", constraint: { raw: "max=2", maxDigits: 2 } };
         assert.equal( String( describeConstraint( days, "bg" ) ), "до 2 цифри" );
         assert.equal( String( describeConstraint( days, "en" ) ), "up to 2 digits" );
-        const one = { kind: "field", dataType: "Unsigned Int", constraint: { raw: "max=1", maxValue: 1 } };
+        assert.deepEqual( spellConstraint( days, "en" ), [ "up to 2 digits" ] );
+        const one = { kind: "field", dataType: "Unsigned Int", constraint: { raw: "max=1", maxDigits: 1 } };
         assert.equal( String( describeConstraint( one, "bg" ) ), "до 1 цифра" );
         assert.equal( String( describeConstraint( one, "en" ) ), "up to 1 digit" );
-        assert.equal( String( describeConstraint( { kind: "field", dataType: "Decimal", constraint: { raw: "min=2, max=5", minValue: 2, maxValue: 5 } }, "en" ) ), "2–5 digits" );
+        // A min= on a number is reported at import and split into nothing (HEL-34), so it shows as the workbook wrote it.
+        assert.equal( String( describeConstraint( { kind: "field", dataType: "Positive Int", constraint: { raw: "min=1" } }, "en" ) ), "<code>min=1</code>" );
     } );
 
     it( "states a string's length, its character class with its meaning, and its format", () => {

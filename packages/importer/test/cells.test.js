@@ -64,10 +64,25 @@ describe( "cells", () => {
         assert.deepEqual( parseConstraint( "base64", "String" ), { constraint: { raw: "base64", format: "base64" }, unparsed: [] } );
     } );
 
-    it( "reads bounds on a numeric type as values, not lengths", () => {
-        // P001 allowedRepeatsNumber: Unsigned Int, "max=1" — the value 1, not one digit.
-        assert.deepEqual( parseConstraint( "max=1", "Unsigned Int" ).constraint, { raw: "max=1", maxValue: 1 } );
-        assert.deepEqual( parseConstraint( "min=1", "Positive Int" ).constraint, { raw: "min=1", minValue: 1 } );
+    it( "reads max= on a number as a count of digits", () => {
+        // HEL-34 (Boris, 2026-11-06, HEL-26): sick-leave days max=2 allows two digits, so 14 days fits. Read as a value,
+        // it refused them.
+        assert.deepEqual( parseConstraint( "max=2", "Positive Int" ), { constraint: { raw: "max=2", maxDigits: 2 }, unparsed: [] } );
+        assert.deepEqual( parseConstraint( "max=1", "Unsigned Int" ), { constraint: { raw: "max=1", maxDigits: 1 }, unparsed: [] } );
+    } );
+
+    it( "reports a min= on a number rather than guess what it means", () => {
+        // No production workbook writes one (0 of the 15 numeric constraints in the eight modules, measured 2026-11-16),
+        // so nothing settles whether it would count digits or bound the value.
+        assert.deepEqual( parseConstraint( "min=1", "Positive Int" ), { constraint: { raw: "min=1" }, unparsed: [ "min=1" ] } );
+        assert.deepEqual( parseConstraint( "min=1, max=3", "Integer" ), { constraint: { raw: "min=1, max=3", maxDigits: 3 }, unparsed: [ "min=1" ] } );
+    } );
+
+    it( "reports a max=0 on a number, which no XSD can hold, and keeps it on a string", () => {
+        // xs:totalDigits must be a positive integer: with value 0, xmllint refuses to compile the schema (measured with
+        // xmllint-wasm, 2026-11-16; CodeRabbit on #2). On a string, max=0 stays a length, as it always was.
+        assert.deepEqual( parseConstraint( "max=0", "Positive Int" ), { constraint: { raw: "max=0" }, unparsed: [ "max=0" ] } );
+        assert.deepEqual( parseConstraint( "max=0", "String" ), { constraint: { raw: "max=0", maxLength: 0 }, unparsed: [] } );
     } );
 
     it( "keeps what it does not understand, and reports it", () => {
