@@ -34,7 +34,7 @@
         "@health-dev-portal/spec-model": "*",
         "@ti-engine/core": "^1.22.0",
         "@ti-engine/web-content": "^0.5.4",
-        "@ti-engine/web-framework": "^1.62.0"
+        "@ti-engine/web-framework": "^1.62.1"
     },
     "scripts": {
         "fonts": "node scripts/copy-fonts.js",
