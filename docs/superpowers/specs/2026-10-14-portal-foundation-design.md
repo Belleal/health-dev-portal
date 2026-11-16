@@ -1366,7 +1366,8 @@ Mockup: [`mockups/home-layout.html`](mockups/home-layout.html), option H1.
   placeholder templates that no XSD accepts (§5.8), so the portal writes its own from the message's XSD shape:
   - every element once;
   - every value of a type the XSD accepts;
-  - a coded value as the first key of its list that has not expired.
+  - a coded value as its fixed value where it has one, since the XSD requires it, and otherwise as the first key of
+    its list that has not expired.
 
   The sample says that it is no real message. Its signature is left empty.
 

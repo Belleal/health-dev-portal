@@ -61,15 +61,20 @@ Reject any at review, before Task 1.
      - the version's content;
      - its recorded resolution (`resolveVersion`), giving each code list as `{ id, keyType }`, all that `valueTypeOf` reads (§4.10);
      - for the samples, each list's first key that has not expired at the list version read, from that version's content. A key is expired when its `validUntil` is not after that version (plan 8a, decision 9).
+   - **Each message's files come from that message alone:** `messageShape` and `writeMessageXsd` for it, and its own sample. Never `generateXsds` for the whole version, which maps every message in one pass: one message's `RangeError` stopped them all (CodeRabbit on #3).
    - **A file that cannot be made** is not stored, for example when `messageShape`'s `RangeError` names two paths with one type name.
      - The error is logged on the console's error stream with the version's ID and the file's name.
-     - The file answers as missing.
+     - The file answers as missing, and the version's other messages keep theirs.
+     - **The zip is made only when every other file is.** A zip that left a file out would be fixed so forever.
      - The next request tries again, so a generator fixed later heals it.
-   - **A withdrawn message** has no XSD and no sample: `generateXsds` already leaves it out.
+   - **A withdrawn message** has no XSD and no sample, as `generateXsds` already leaves it out.
    - **At promotion** `promoteReleases` already calls `makeFixedFiles` for every version entering testing. From now on that makes a module's files too. As in plan 8a, a failure is logged and does not undo the promotion.
 3. **The sample message** (§8.3, a design call this plan records there). `synthesizeMessage` of the message's shape, the shape its XSD is written from:
    - **Elements:** each `max( min, 1 )` times, so an optional one appears once.
-   - **Coded values:** each is the first key of its list that has not expired, so the message tester (plan 11) will accept it.
+   - **Coded values:**
+     - **A fixed value wins,** since its XSD requires it. 242 of the 1,500 coded elements in the eight production modules have one, among them every header's sender and recipient (measured 2026-11-16, CodeRabbit on #3).
+     - **A fixed value that is no key of its list is still written.** The XSD requires it, and linking already reports it as `fixed-value-not-a-key`.
+     - **Any other coded value** is the first key of its list that has not expired, so the message tester (plan 11) will accept it.
    - **Other values:** `synthesizeMessage`'s own, which fit the XSD.
    - **Layout:**
      - indented by two spaces, with an XML declaration;
@@ -179,7 +184,9 @@ Reject any at review, before Task 1.
 
 1. **A version whose XSDs cannot be generated.**
    - Expected: the pages still render; the file answers 404 and its tab says it could not be made; one error is logged naming the version and the file; nothing is stored.
-   - → Task 2, "logs a file it cannot make, stores nothing, and answers null"; Task 5, "says when a file could not be made".
+   - The version's other messages keep their files, and no zip is made.
+   - → Task 2, "logs a file it cannot make, stores nothing, and answers null" and "keeps the other messages' files when
+     one cannot be made, and makes no zip"; Task 5, "says when a file could not be made".
 2. **A withdrawn message** (P011 and P012 in e-Prescription 1.5.1).
    - Expected:
      - the set page lists it, marked, with no links;
@@ -212,7 +219,7 @@ Reject any at review, before Task 1.
 |---|---|
 | `packages/spec-model/model/synthetic-message.js` | `synthesizeMessage` takes `keys` and `indent` |
 | `packages/spec-model/model/xsd-shape.js`, `definitions.types.js` | A schema attribute's `codeList` |
-| `packages/spec-model/model/downloads.js` | `sampleMessages`, `moduleModelJson`, `changelogJson` beside plan 8a's code-list formats |
+| `packages/spec-model/model/downloads.js` | `sampleMessage`, `moduleModelJson`, `changelogJson` beside plan 8a's code-list formats |
 | `packages/data/store/fixed-files.js` | `fixedFilesOf` replaces `FIXED_FILES`; `fixedFile`, `makeFixedFiles` for modules; `xmldsigSchema` |
 | `packages/data/assets/xmldsig-core-schema.xsd` | W3C's xmldsig, as his.bg serves it |
 | `packages/portal/site/paths.js`, `routes.js` | The addresses of decision 7 |
@@ -234,13 +241,14 @@ Reject any at review, before Task 1.
 **Interfaces:**
 - Consumes: `generateXsds`, `messageShape` (plan 4); `compareNumbers` (`#numbers`).
 - Produces:
-  - `synthesizeMessage( shape, { omit?, keys?: Map<string, string>, indent?: string } ) => string`. With no `keys` a
-    coded value is written as before; with no `indent`, on one line as before, so plan 4's corpus is unchanged.
+  - `synthesizeMessage( shape, { omit?, keys?: Map<string, string>, indent?: string } ) => string`.
+    - A coded attribute without a fixed value is written as its list's key from `keys`. A fixed value always wins.
+    - With no `keys` and no `indent`, the output is as before, on one line, so plan 4's corpus is unchanged.
   - A `SchemaNode` attribute's `codeList: string|null`. It is set by `messageShape`, and is null in shapes read from a
     published XSD.
-  - `sampleMessages( content: ModuleVersion, codeLists: Array<{id, keyType}>, keys: Map<string, string> ) =>
-    Array<{ code: string, fileName: string, text: string }>`, where `fileName` is `{code}.xml`, in message order, with
-    withdrawn messages left out.
+  - `sampleMessage( message: Message, version: { spec, number }, codeLists: Array<{id, keyType}>, keys: Map<string,
+    string> ) => string`: one message's sample, from its own `messageShape`.
+    - It throws that function's `RangeError`, so that the caller can keep the version's other files (decision 2).
   - `moduleModelJson( content: ModuleVersion ) => string`.
   - `changelogJson( spec: string, number: string, versions: Array<{ number, entries }> ) => string`.
 
@@ -253,6 +261,10 @@ it( "writes a coded value as the key it is given for its list", () => {
     assert.match( synthesizeMessage( shape, { keys: new Map( [ [ "CL009", "12" ] ] ) } ), /value="12"/ );
     assert.match( synthesizeMessage( shape ), /value="1"/ );
 } );
+it( "keeps a field's fixed value over its list's key", () => {
+    // header/recipient: codeList "CL018", fixed "4", as every common-services message has it
+    assert.match( synthesizeMessage( header, { keys: new Map( [ [ "CL018", "1" ] ] ) } ), /<recipient value="4"\/>/ );
+} );
 it( "puts each element on its own line, indented, when asked", () => {
     const lines = synthesizeMessage( shape, { indent: "  " } ).split( "\n" );
     assert.match( lines[ 0 ], /^<message xmlns="https:\/\/www\.his\.bg"/ );
@@ -263,13 +275,16 @@ it( "names a coded attribute's list", () => {
     // P001's medicationCode value is CL009's; an uncoded field's is null
 } );
 // downloads.test.js
-it( "writes one sample per message not withdrawn, declared, commented in both languages", () => {
-    const samples = sampleMessages( moduleWith( [ "P001", "P011:withdrawn" ] ), [ { id: "CL009", keyType: "integer" } ], new Map( [ [ "CL009", "12" ] ] ) );
-    assert.deepEqual( samples.map( ( one ) => [ one.code, one.fileName ] ), [ [ "P001", "P001.xml" ] ] );
-    assert.ok( samples[ 0 ].text.startsWith( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ) );
-    assert.match( samples[ 0 ].text, /Синтетичен пример от e-prescription 1\.5\.1/ );
-    assert.match( samples[ 0 ].text, /Synthetic example from e-prescription 1\.5\.1/ );
-    assert.match( samples[ 0 ].text, /The XML signature goes here \(xmldsig\)\. -->\s*<ds:Signature\/>/ );
+it( "writes a message's sample, declared and commented in both languages", () => {
+    const text = sampleMessage( p001, { spec: "e-prescription", number: "1.5.1" }, [ { id: "CL009", keyType: "integer" } ], new Map( [ [ "CL009", "12" ] ] ) );
+    assert.ok( text.startsWith( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ) );
+    assert.match( text, /Синтетичен пример от e-prescription 1\.5\.1/ );
+    assert.match( text, /Synthetic example from e-prescription 1\.5\.1/ );
+    assert.match( text, /The XML signature goes here \(xmldsig\)\. -->\s*<ds:Signature\/>/ );
+} );
+it( "throws the message's own RangeError, which the caller keeps to that message", () => {
+    // a message whose two sibling groups share a tag
+    assert.throws( () => sampleMessage( broken, { spec: "e-prescription", number: "1.5.1" }, [], new Map() ), RangeError );
 } );
 it( "writes the model without workbook sources or the studio's bindings", () => {
     const model = JSON.parse( moduleModelJson( content ) );
@@ -287,10 +302,10 @@ it( "writes the changelog up to the version, newest first, without dates", () =>
 - [ ] **Step 2: Run them and watch them fail**
 
 Run: `node --test packages/spec-model/test/synthetic-message.test.js packages/spec-model/test/xsd-shape.test.js packages/spec-model/test/downloads.test.js`
-Expected: the five new tests fail; `sampleMessages`, `moduleModelJson` and `changelogJson` are not functions.
+Expected: the seven new tests fail; `sampleMessage`, `moduleModelJson` and `changelogJson` are not functions.
 
-- [ ] **Step 3: Implement**, as the interfaces say. `sampleMessages` builds the shapes as `generateXsds` does, so a sample
-  and its XSD come from one shape. Add `codeList` to the attribute `@typedef`.
+- [ ] **Step 3: Implement**, as the interfaces say. `sampleMessage` builds its shape as `generateXsds` builds each one,
+  so a sample and its XSD come from the same shape. Add `codeList` to the attribute `@typedef`.
 
 - [ ] **Step 4: Run spec-model's suite**
 
@@ -308,14 +323,15 @@ Expected: all pass, plan 4's synthetic-message tests unchanged.
 
 **Interfaces:**
 - Consumes:
-  - Task 1's functions;
+  - Task 1's functions, and `messageShape` and `writeMessageXsd` (plan 4) for each message's XSD;
   - `resolveVersion` (`#resolution`) and `readContent` (`#targets`), for the lists' first valid keys;
   - `publishedChangelog` (`#published`).
 - Produces:
   - `fixedFilesOf( published, inputs ) => Array<{ name, type, make: ( made ) => Promise<Buffer> }>`. It replaces `FIXED_FILES`.
     - A code list has plan 8a's two files.
-    - A module has decision 2's files, the zip last.
-    - `made( name )` gives a sibling's bytes, so the zip is made from the stored files.
+    - A module has decision 2's files, each message's own, and the zip last.
+    - `made( name )` gives a sibling's bytes, so the zip is made from the stored files. It throws when a sibling cannot
+      be made, so the zip is not made either.
   - `fixedFile( db, store, versionId, name )` and `makeFixedFiles( db, store, versionId )`: plan 8a's signatures, now also for modules.
   - `xmldsigSchema() => Buffer`: the asset's bytes, read once.
 
@@ -349,11 +365,17 @@ it( "zips every file under the version's folder, with xmldsig beside the XSDs", 
     assert.deepEqual( await zip.file( "e-prescription-1.5.1/xsd/xmldsig-core-schema.xsd" ).async( "nodebuffer" ), xmldsigSchema() );
 } );
 it( "logs a file it cannot make, stores nothing, and answers null", async () => {
-    // a message whose two sibling groups share a tag: messageShape throws a RangeError
-    assert.equal( await fixedFile( db, store, broken.id, "NHIS-P001.xsd" ), null );
+    // P002's two sibling groups share a tag, so messageShape throws a RangeError for it; P001 is sound
+    assert.equal( await fixedFile( db, store, broken.id, "NHIS-P002.xsd" ), null );
     assert.equal( logged.length, 1 );
-    assert.match( logged[ 0 ], new RegExp( `${ broken.id }.*NHIS-P001\\.xsd` ) );
-    assert.equal( await db.get( "SELECT 1 AS one FROM fixed_files WHERE version_id = ?", [ broken.id ] ), undefined );
+    assert.match( logged[ 0 ], new RegExp( `${ broken.id }.*NHIS-P002\\.xsd` ) );
+    assert.equal( await db.get( "SELECT 1 AS one FROM fixed_files WHERE version_id = ? AND name = ?", [ broken.id, "NHIS-P002.xsd" ] ), undefined );
+} );
+it( "keeps the other messages' files when one cannot be made, and makes no zip", async () => {
+    assert.notEqual( await fixedFile( db, store, broken.id, "NHIS-P001.xsd" ), null );
+    assert.notEqual( await fixedFile( db, store, broken.id, "P001.xml" ), null );
+    assert.equal( await fixedFile( db, store, broken.id, "all.zip" ), null );
+    assert.equal( await db.get( "SELECT 1 AS one FROM fixed_files WHERE version_id = ? AND name = ?", [ broken.id, "all.zip" ] ), undefined );
 } );
 ```
 
@@ -363,7 +385,7 @@ it( "logs a file it cannot make, stores nothing, and answers null", async () => 
 - [ ] **Step 3: Run them and watch them fail**
 
 Run: `npm test -w packages/data`
-Expected: the five new tests fail (a module has no files yet), and the rest pass.
+Expected: the six new tests fail (a module has no files yet), and the rest pass.
 
 - [ ] **Step 4: Implement**, as the interfaces and decisions 2–6 say. `ensured` keeps its `ON CONFLICT DO NOTHING`. A
   `make` that throws is caught in `fixedFile` and `makeFixedFiles` alike.
