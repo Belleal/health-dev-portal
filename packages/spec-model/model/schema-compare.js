@@ -164,7 +164,8 @@ const newer = ( version, than ) => {
  * - `choice`: a cardinality or use that differs on an element inside a published `xs:choice`, which the generated XSD
  *   leaves to the conditions;
  * - `deliberate`: what §4.10 changes on purpose — a coded value typed by its list's key type, whatever today's type
- *   had, and a fixed value the published XSD did not have;
+ *   had, a number's digit count where nothing else about its type differs, and a fixed value the published XSD did not
+ *   have;
  * - `change-note`: across versions, a difference a note of a version after the published XSD's explains. The note quotes
  *   a path the element's path ends with (`"..dentalProcedure.code"`), and names the element's message or no message.
  *   An `order` difference is never a note's;
@@ -205,6 +206,13 @@ module.exports.explainDifferences = ( differences, context ) => {
             const ours = generated.get( difference.path );
             const attribute = ours ? ours.attributes.find( ( candidate ) => candidate.name === difference.attribute ) : null;
             if ( attribute && attribute.documentation && attribute.documentation.startsWith( "Code list " ) ) {
+                return "deliberate";
+            }
+            // A number's max= is its digit count (§4.10, HEL-34), and today's XSDs mostly bound no number. The added facet is
+            // on purpose only when it is the whole difference: a base changed beside it, or a different count today, is
+            // still for a person to read.
+            if ( attribute && typeof attribute.value.totalDigits === "number"
+                && module.exports.describeValueType( { ...attribute.value, totalDigits: null } ) === difference.published ) {
                 return "deliberate";
             }
         }

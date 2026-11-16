@@ -179,6 +179,17 @@ describe( "explainDifferences", () => {
         assert.deepEqual( entries.map( ( entry ) => [ entry.kind, entry.attribute, entry.cause ] ), [ [ "value-type", "nhifCode", "deliberate" ] ] );
     } );
 
+    // A number's max= is a digit count written as xs:totalDigits (§4.10, HEL-34), where today's sick-leave fields have
+    // none: the added facet is on purpose. Any other difference beside it is not, and stays for a person to read.
+    it( "explains a number's added digit count as deliberate, and nothing it comes with", () => {
+        const theirs = root( [ node( "q", "field", { origin: origin(), attributes: [ attribute( "value", { value: value( "positiveInteger" ) } ) ] } ),
+            node( "r", "field", { origin: origin(), attributes: [ attribute( "value", { value: value( "int" ) } ) ] } ) ] );
+        const ours = root( [ node( "q", "field", { attributes: [ attribute( "value", { value: value( "positiveInteger", { totalDigits: 2 } ) } ) ] } ),
+            node( "r", "field", { attributes: [ attribute( "value", { value: value( "positiveInteger", { totalDigits: 2 } ) } ) ] } ) ] );
+        const entries = explainDifferences( compareShapes( "X006", theirs, ours ), { publishedShape: theirs, generatedShape: ours, publishedVersion: "1.3.10", changeNotes: [] } );
+        assert.deepEqual( entries.map( ( entry ) => [ entry.path, entry.kind, entry.cause ] ), [ [ "q", "value-type", "deliberate" ], [ "r", "value-type", "unexplained" ] ] );
+    } );
+
     // e-Hospitalization 1.0.6: a physician typed in the message's own file, whose qualification is NHIS-Fields' type.
     it( "explains an attribute only a shared field type has as the shared type's", () => {
         const theirs = root( [ node( "q", "field", { origin: { file: "NHIS-H005.xsd", choice: null, typeFile: "NHIS-Fields.xsd" },

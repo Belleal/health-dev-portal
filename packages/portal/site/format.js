@@ -44,7 +44,7 @@ const formatName = ( format ) => Object.hasOwn( FORMATS, format ) ? FORMATS[ for
 // `max-length=2` — else `null`. Such a constraint showed as none at all: 203 elements of the eight published workbooks
 // carry one (final review I1, measured). Where any part was split, the parts say it, and the raw text is not repeated.
 const unsplit = ( constraint ) => {
-    const split = [ constraint.minLength, constraint.maxLength, constraint.minValue, constraint.maxValue ].some( bound ) || Boolean( constraint.charset ) || Boolean( constraint.format );
+    const split = [ constraint.minLength, constraint.maxLength, constraint.maxDigits ].some( bound ) || Boolean( constraint.charset ) || Boolean( constraint.format );
     return !split && typeof constraint.raw === "string" && constraint.raw.trim() !== "" ? constraint.raw.trim() : null;
 };
 const characters = ( lang, count ) => count === 1 ? label( lang, "lengthOne" ) : label( lang, "lengthCount", { count: count } );
@@ -71,10 +71,9 @@ module.exports.charsetMeaning = ( charset, lang ) => typeof charset === "string"
 
 /**
  * An element's constraints as the tree table shows them (decision 7): a string's length (`≤ 36`, `≥ 2`, `2–36`, `= 36`),
- * its character class with its meaning in a `title`, and its format (`YYMMDD`, `base64`). On a number, `max=` counts
- * digits, as HEL-26 settled (Boris, 2026-11-06), so it reads "до 2 цифри": the model still keeps it as `maxValue`, which
- * HEL-34 renames, and a reader shown "≤ 2" would take it for a value. A constraint the importer split into no part is
- * shown as the workbook writes it, in `<code>`.
+ * its character class with its meaning in a `title`, and its format (`YYMMDD`, `base64`). A number's `maxDigits` reads
+ * "до 2 цифри", in words, because a reader shown "≤ 2" would take it for a value (HEL-34). A constraint the importer
+ * split into no part is shown as the workbook writes it, in `<code>`.
  *
  * @method
  * @param {import( "@health-dev-portal/spec-model/definitions" ).ElementNode} element
@@ -92,16 +91,14 @@ module.exports.describeConstraint = ( element, lang ) => {
         return html`<code>${ raw }</code>`;
     }
     const parts = [];
-    const { minLength, maxLength, minValue, maxValue } = constraint;
+    const { minLength, maxLength, maxDigits } = constraint;
     if ( bound( minLength ) && bound( maxLength ) ) {
         parts.push( minLength === maxLength ? `= ${ maxLength }` : `${ minLength }–${ maxLength }` );
     } else if ( bound( maxLength ) || bound( minLength ) ) {
         parts.push( bound( maxLength ) ? `≤ ${ maxLength }` : `≥ ${ minLength }` );
     }
-    if ( bound( minValue ) && bound( maxValue ) ) {
-        parts.push( minValue === maxValue ? digits( lang, maxValue ) : `${ minValue }–${ digits( lang, maxValue ) }` );
-    } else if ( bound( maxValue ) || bound( minValue ) ) {
-        parts.push( spelled( lang, minValue, maxValue, digits ) );
+    if ( bound( maxDigits ) ) {
+        parts.push( spelled( lang, null, maxDigits, digits ) );
     }
     if ( constraint.charset ) {
         const meaning = module.exports.charsetMeaning( constraint.charset, lang );
@@ -137,8 +134,8 @@ module.exports.spellConstraint = ( element, lang ) => {
     if ( bound( constraint.minLength ) || bound( constraint.maxLength ) ) {
         words.push( spelled( lang, constraint.minLength, constraint.maxLength, characters ) );
     }
-    if ( bound( constraint.minValue ) || bound( constraint.maxValue ) ) {
-        words.push( spelled( lang, constraint.minValue, constraint.maxValue, digits ) );
+    if ( bound( constraint.maxDigits ) ) {
+        words.push( spelled( lang, null, constraint.maxDigits, digits ) );
     }
     if ( constraint.charset ) {
         const meaning = module.exports.charsetMeaning( constraint.charset, lang );

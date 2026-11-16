@@ -39,9 +39,9 @@
  * @property {string} raw
  * @property {number} [minLength]
  * @property {number} [maxLength]
- * @property {number} [minValue] On numeric types the bounds are read as values, not lengths. The workbooks' own use
- *     suggests digit counts (sick-leave days `max=2`), so a generated XSD writes neither (design record §4.10).
- * @property {number} [maxValue]
+ * @property {number} [maxDigits] A number's `max=`: how many digits it may have, not its largest value (Boris,
+ *     2026-11-06, HEL-34), so sick-leave days `max=2` allow 14. A generated XSD writes it as `xs:totalDigits` (design
+ *     record §4.10). A number's `min=` is not read.
  * @property {string} [charset] e.g. `an` (alphanumeric).
  * @property {string} [format] `date`, `date-time`, `yymmdd`, `boolean` or `base64`.
  */
