@@ -119,15 +119,17 @@ class PortalServer extends TiWebServer {
      *     token);
      *   - `GET /csrf-token` minted a token into a new session for anyone, saved and cookied (`ti-xsrf-token` and
      *     `connect.sid`), after which every page re-sent both cookies beside its public caching (review of task 3, I1);
-     *     `/me`, `/login/:method` and `/logout` serve a sign-in the portal does not have until plan 9.
+     *     `/logout` ends a sign-in the portal does not have until plan 9. The framework keeps both mounted on a site
+     *     with no sign-in method, by design: a public form asks `/csrf-token` for its token.
+     *   - `/me` and `/login/:method` need no shadow since web-framework 1.62.0: with no sign-in method in effect they
+     *     pass the request on (CA-573), here to the pages' 404. That closed, for them, the gap this comment named for a
+     *     CA card (HEL-43).
      * - **After them**, every other GET goes to the pages, whose own 404 answers what is none: the framework's would
      *   redirect an HTML GET to `/`. It is a pattern with no named or captured part, so Express decodes nothing of the
      *   address before the portal reads it: as `*splat`, a malformed escape such as `/bg/%E0%A4%A` failed Express's
      *   decoding, which the framework answered 303 to `/?error=4002` for a browser and 400 otherwise, with no caching
-     *   stated (final review M2, measured), where the address parser answers it with the 404 page.
-     *
-     * A generic gap, for a CA card in ti-engine: a `TiWebServer` with no sign-in method enabled still mounts the routes
-     * that mint and serve sessions, and an application can only shadow them, one by one, as this does.
+     *   stated (final review M2, measured), where the address parser answers it with the 404 page. The framework
+     *   answers such an escape with its own 404 since 1.62.0 (CA-573), but the portal's page is still the one shown.
      *
      * @method
      * @override
@@ -135,10 +137,10 @@ class PortalServer extends TiWebServer {
      */
     defineWebApplicationRoutes() {
         this.registerRoute( "get", "/", rootRedirect );
-        for ( const route of [ "/not-found", "/app", "/app/*splat", "/csrf-token", "/me", "/login/:method" ] ) {
+        for ( const route of [ "/not-found", "/app", "/app/*splat", "/csrf-token" ] ) {
             this.registerRoute( "get", route, notFound );
         }
-        for ( const route of [ "/app/*splat", "/login/:method", "/logout" ] ) {
+        for ( const route of [ "/app/*splat", "/logout" ] ) {
             this.registerRoute( "post", route, notFound );
         }
         super.defineWebApplicationRoutes();
