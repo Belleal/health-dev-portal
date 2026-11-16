@@ -86,6 +86,8 @@ describe( "valueTypeOf", () => {
             type( "unsignedInt", { totalDigits: 1 } ) );
         // A min= on a number is reported at import and split into nothing, so it adds no facet.
         assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "min=1" } } ), LISTS ), type( "positiveInteger" ) );
+        // A digit count of 0, however it reached the model, writes no facet: xs:totalDigits 0 does not compile.
+        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "max=0", maxDigits: 0 } } ), LISTS ), type( "positiveInteger" ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "base64", format: "base64" } } ), LISTS ), type( "base64Binary" ) );
         // A code-list value is typed by its list alone: its key, not its length, is what the list defines.
         assert.deepEqual( valueTypeOf( element( { dataType: "Codeable Concept", codeList: "CL007", constraint: { raw: "max=2, chars=an", maxLength: 2, charset: "an" } } ), LISTS ),

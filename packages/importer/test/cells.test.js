@@ -78,6 +78,13 @@ describe( "cells", () => {
         assert.deepEqual( parseConstraint( "min=1, max=3", "Integer" ), { constraint: { raw: "min=1, max=3", maxDigits: 3 }, unparsed: [ "min=1" ] } );
     } );
 
+    it( "reports a max=0 on a number, which no XSD can hold, and keeps it on a string", () => {
+        // xs:totalDigits must be a positive integer: with value 0, xmllint refuses to compile the schema (measured with
+        // xmllint-wasm, 2026-11-16; CodeRabbit on #2). On a string, max=0 stays a length, as it always was.
+        assert.deepEqual( parseConstraint( "max=0", "Positive Int" ), { constraint: { raw: "max=0" }, unparsed: [ "max=0" ] } );
+        assert.deepEqual( parseConstraint( "max=0", "String" ), { constraint: { raw: "max=0", maxLength: 0 }, unparsed: [] } );
+    } );
+
     it( "keeps what it does not understand, and reports it", () => {
         assert.deepEqual( parseConstraint( "max=36, odd one", "String" ),
             { constraint: { raw: "max=36, odd one", maxLength: 36 }, unparsed: [ "odd one" ] } );

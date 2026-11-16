@@ -88,7 +88,8 @@ module.exports.valueTypeOf = ( element, codeLists ) => {
     const value = plain( constraint && constraint.format === "base64" ? "base64Binary" : BASES[ element.dataType ] || "string" );
     if ( constraint && NUMBERS.has( value.base ) ) {
         // A number's max= counts its digits (Boris, 2026-11-06, HEL-34). As maxInclusive it refused a 14-day sick leave.
-        value.totalDigits = constraint.maxDigits ?? null;
+        // Only a positive count is written: xs:totalDigits 0 does not compile, however the 0 reached the model.
+        value.totalDigits = constraint.maxDigits >= 1 ? constraint.maxDigits : null;
         return value;
     }
     if ( !constraint || value.base !== "string" ) {

@@ -105,7 +105,8 @@ module.exports.parseConstraint = ( text, dataType ) => {
         if ( bound && numeric ) {
             // On a number, max= counts digits (Boris, 2026-11-06, HEL-34): read as a value, sick-leave days max=2 refused
             // a 14-day leave. No workbook writes min= on one, so it has no settled meaning and is reported, not guessed.
-            if ( bound[ 1 ] === "max" ) {
+            // Nor max=0: xs:totalDigits must be positive, and with 0 the generated XSD does not compile (CodeRabbit, #2).
+            if ( bound[ 1 ] === "max" && Number( bound[ 2 ] ) > 0 ) {
                 constraint.maxDigits = Number( bound[ 2 ] );
             } else {
                 unparsed.push( token );
