@@ -108,6 +108,17 @@ describe( "sampleMessage", () => {
     it( "throws the message's own RangeError, which the caller keeps to that message", () => {
         assert.throws( () => sampleMessage( brokenMessage(), VERSION, LIST_TYPES, new Map() ), RangeError );
     } );
+
+    // Plan 8b, decision 3 (CodeRabbit on #3): only a fixed value the XSD keeps wins. I006's senderId is fixed to "NHIS" on
+    // the integer list CL018; messageShape drops a fixed value its type refuses, and the sample writes the list's key.
+    it( "writes the list's key where the XSD drops a fixed value its type refuses", () => {
+        const message = prescriptionMessage();
+        const sender = message.elements[ 0 ].children[ 0 ];
+        Object.assign( sender, { fixedValue: "NHIS" } );
+        const text = sampleMessage( message, VERSION, LIST_TYPES, new Map( [ [ "CL018", "4" ] ] ) );
+        assert.match( text, /<sender value="4"\/>/ );
+        assert.doesNotMatch( text, /NHIS"/ );
+    } );
 } );
 
 describe( "moduleModelJson", () => {
