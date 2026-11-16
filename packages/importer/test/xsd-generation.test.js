@@ -52,6 +52,9 @@ if ( !PRESENT && process.env.CI ) {
 }
 
 const withoutOrigin = ( node ) => ( { ...node, origin: null, children: node.children.map( withoutOrigin ) } );
+// A generated attribute's code list is for its sample message (plan 8b); no XSD writes it, so none reads it back.
+const asWritten = ( node ) => ( { ...node, children: node.children.map( asWritten ),
+    attributes: node.attributes.map( ( attribute ) => Object.fromEntries( Object.entries( attribute ).filter( ( [ key ] ) => key !== "codeList" ) ) ) } );
 
 describe( "The generated XSDs of the production modules", { skip: PRESENT ? false : "run `npm run fixtures:fetch` first" }, () => {
     let generated;
@@ -99,7 +102,7 @@ describe( "The generated XSDs of the production modules", { skip: PRESENT ? fals
     it( "reads a generated XSD back into the shape it was written from", () => {
         for ( const file of generated ) {
             const read = expandMessage( readXsdSet( [ { name: file.fileName, text: file.text } ] ), file.code );
-            assert.deepEqual( withoutOrigin( read ), messageShape( file.message, file.lists ), file.code );
+            assert.deepEqual( withoutOrigin( read ), asWritten( messageShape( file.message, file.lists ) ), file.code );
         }
     } );
 

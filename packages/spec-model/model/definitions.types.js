@@ -315,6 +315,8 @@
  * @property {ValueType} value
  * @property {string|null} fixed
  * @property {string|null} documentation A coded value's names its list: `Code list CL035.`
+ * @property {string|null} [codeList] A generated coded value's list, which a sample message takes a key of (plan 8b);
+ *     `null` otherwise, and absent from a shape read from a published XSD.
  */
 
 /**

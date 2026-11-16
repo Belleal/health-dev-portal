@@ -41,11 +41,19 @@ const LONGEST = 64;
 const escape = ( text ) => text.replace( /&/g, "&amp;" ).replace( /</g, "&lt;" ).replace( />/g, "&gt;" ).replace( /"/g, "&quot;" )
     .replace( /\t/g, "&#9;" ).replace( /\n/g, "&#10;" ).replace( /\r/g, "&#13;" );
 
-function sampleOf( attribute ) {
+function sampleOf( attribute, keys ) {
+    // A fixed value first, as the XSD requires it: 242 of the 1,500 coded elements of the eight production modules have
+    // one, every header's sender and recipient among them (CodeRabbit on #3).
     if ( attribute.fixed !== null && attribute.fixed !== undefined ) {
         return attribute.fixed;
     }
     const type = attribute.value;
+    // Then a real key of the list, so that a sample passes the code-list check too (plan 8b, decision 3), but only one
+    // the type accepts: a key that did not fit would make the sample fail its own XSD.
+    const key = attribute.codeList ? keys.get( attribute.codeList ) : undefined;
+    if ( key !== undefined && fitsValueType( key, type ) ) {
+        return key;
+    }
     if ( type.enumeration.length ) {
         return type.enumeration[ 0 ];
     }
@@ -64,21 +72,23 @@ function sampleOf( attribute ) {
     return "A".repeat( shortest );
 }
 
-function write( node, omit ) {
-    if ( omit.has( node.path ) ) {
-        return "";
+// A node as lines, each `[ depth, text ]`: a field, the signature or an empty group is one line, and a group is its open
+// tag, its children's lines and its close tag. Joined without breaks, they are the one-line message plan 4 writes.
+function lines( node, context, depth ) {
+    if ( context.omit.has( node.path ) ) {
+        return [];
     }
     const one = () => {
         if ( node.kind === "signature" ) {
-            return "<ds:Signature/>";
+            return [ [ depth, "<ds:Signature/>" ] ];
         }
         if ( node.kind === "field" ) {
-            return `<${ node.tag }${ node.attributes.map( ( attribute ) => ` ${ attribute.name }="${ escape( sampleOf( attribute ) ) }"` ).join( "" ) }/>`;
+            return [ [ depth, `<${ node.tag }${ node.attributes.map( ( attribute ) => ` ${ attribute.name }="${ escape( sampleOf( attribute, context.keys ) ) }"` ).join( "" ) }/>` ] ];
         }
-        const children = node.children.map( ( child ) => write( child, omit ) ).join( "" );
-        return children ? `<${ node.tag }>${ children }</${ node.tag }>` : `<${ node.tag }/>`;
+        const children = node.children.flatMap( ( child ) => lines( child, context, depth + 1 ) );
+        return children.length ? [ [ depth, `<${ node.tag }>` ], ...children, [ depth, `</${ node.tag }>` ] ] : [ [ depth, `<${ node.tag }/>` ] ];
     };
-    return Array.from( { length: Math.max( node.min, 1 ) }, one ).join( "" );
+    return Array.from( { length: Math.max( node.min, 1 ) }, one ).flat();
 }
 
 /**
@@ -90,13 +100,19 @@ function write( node, omit ) {
  *
  * @method
  * @param {import( "#definitions" ).SchemaNode} shape The root `message`.
- * @param {{omit?: Set<string>}} [options] Paths left out with everything under them: the other alternatives of a choice
- *     a published XSD makes.
+ * @param {{omit?: Set<string>, keys?: Map<string, string>, indent?: string}} [options]
+ *     - `omit`: paths left out with everything under them, the other alternatives of a choice a published XSD makes;
+ *     - `keys`: a key of each code list by its ID, written for a coded value with no fixed value (plan 8b);
+ *     - `indent`: each element on its own line, indented this much per level. Without it the message is one line.
  * @returns {string} The message, without an XML declaration.
  * @public
  */
 module.exports.synthesizeMessage = ( shape, options = {} ) => {
-    const omit = options.omit || new Set();
-    const body = shape.children.map( ( child ) => write( child, omit ) ).join( "" );
-    return `<message xmlns="${ NAMESPACE }" xmlns:ds="${ XMLDSIG }">${ body }</message>`;
+    const context = { omit: options.omit || new Set(), keys: options.keys || new Map() };
+    const body = shape.children.flatMap( ( child ) => lines( child, context, 1 ) );
+    const open = `<message xmlns="${ NAMESPACE }" xmlns:ds="${ XMLDSIG }">`;
+    if ( typeof options.indent === "string" && options.indent !== "" ) {
+        return [ open, ...body.map( ( [ depth, text ] ) => `${ options.indent.repeat( depth ) }${ text }` ), "</message>" ].join( "\n" );
+    }
+    return `${ open }${ body.map( ( [ , text ] ) => text ).join( "" ) }</message>`;
 };
