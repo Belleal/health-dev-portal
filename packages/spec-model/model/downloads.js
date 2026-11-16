@@ -150,6 +150,8 @@ module.exports.moduleModelJson = ( content ) => `${ JSON.stringify( {
 /**
  * A version's changelog as JSON (plan 8b, decision 4): this version and every earlier one given, newest first, each
  * with its entries. No dates, stages or expiry: they change after the file is fixed, and the changelog page has them.
+ * No workbook rows either, as in the model: an added or removed element's entry holds the whole element as `after` or
+ * `before`, its `source` with it (final review of plan 8b).
  *
  * @method
  * @param {string} spec
@@ -163,5 +165,5 @@ module.exports.changelogJson = ( spec, number, versions ) => `${ JSON.stringify(
     spec: spec,
     version: number,
     versions: versions.filter( ( one ) => compareNumbers( one.number, number ) <= 0 ).sort( ( a, b ) => compareNumbers( b.number, a.number ) )
-        .map( ( one ) => ( { number: one.number, entries: one.entries } ) )
+        .map( ( one ) => ( { number: one.number, entries: withoutSources( one.entries ) } ) )
 }, null, 2 ) }\n`;

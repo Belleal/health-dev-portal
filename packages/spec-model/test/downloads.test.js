@@ -138,4 +138,17 @@ describe( "changelogJson", () => {
         assert.deepEqual( Object.keys( log.versions[ 0 ] ), [ "number", "entries" ] );
         assert.equal( log.versions[ 0 ].entries[ "non-breaking" ][ 0 ].text.bg, "Промяна 1.5.1" );
     } );
+
+    // Final review of plan 8b: an added or removed element's entry holds the whole element as `after` or `before`, workbook
+    // row included (e-Prescription 1.5.2's zip had `after.source: { sheet: "P001", row: 28 }`), in a file fixed forever.
+    it( "writes the changelog without the workbook rows in its entries' snapshots", () => {
+        const added = { origin: "detected", target: { kind: "element", identity: "contents/x@value" }, aspect: "added", before: null,
+            after: { identity: "contents/x@value", source: { sheet: "P001", row: 28 }, children: [ { identity: "contents/x@name", source: { sheet: "P001", row: 29 } } ] },
+            text: { bg: null, en: null } };
+        const removed = { ...added, aspect: "removed", before: added.after, after: null };
+        const one = { ...version( "1.5.1" ), entries: { breaking: [ removed ], "dropped-plan": [], "non-breaking": [ added ] } };
+        const log = JSON.parse( changelogJson( "e-prescription", "1.5.1", [ one ] ) );
+        assert.equal( keysAtAnyDepth( log ).includes( "source" ), false );
+        assert.equal( log.versions[ 0 ].entries[ "non-breaking" ][ 0 ].after.children[ 0 ].identity, "contents/x@name" );
+    } );
 } );

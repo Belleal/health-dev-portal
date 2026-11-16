@@ -265,4 +265,20 @@ eachDatabase( "Fixed files", ( db ) => {
         await loggedDuring( () => makeFixedFiles( db(), store, broken ) );
         assert.deepEqual( await names( broken ), [ "NHIS-P001.xsd", "P001.xml", "changelog.json", "model.json" ] );
     } );
+
+    // Final review of plan 8b: a database that fails while a file's inputs are read is no generator's failure. Caught as
+    // one, it was a 404 cached for a minute, and the message's tab said the file could not be made.
+    it( "lets a failure to read a version's inputs propagate, storing and logging nothing", async () => {
+        const fresh = await frozenModule( "e-immunization", "1.0.0", [ soundP001() ] );
+        const failing = { ...interleaved( db(), null ), all: ( sql, params ) => /FROM resolutions/.test( sql )
+            ? Promise.reject( new Error( "connection lost" ) ) : db().all( sql, params ) };
+        for ( const name of [ "NHIS-P001.xsd", "P001.xml", "changelog.json", "all.zip" ] ) {
+            const logged = await loggedDuring( () => assert.rejects( fixedFile( failing, store, fresh, name ), /connection lost/, name ) );
+            assert.deepEqual( logged, [], name );
+        }
+        await assert.rejects( loggedDuring( () => makeFixedFiles( failing, store, fresh ) ), /connection lost/ );
+        assert.deepEqual( await names( fresh ), [] );
+        // Once the database answers again, the files are made.
+        assert.notEqual( await fixedFile( db(), store, fresh, "NHIS-P001.xsd" ), null );
+    } );
 } );

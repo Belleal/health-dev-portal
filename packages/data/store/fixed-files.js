@@ -62,21 +62,38 @@ module.exports.xmldsigSchema = () => {
 const text = ( value ) => Buffer.from( value, "utf8" );
 const publicMessages = ( content ) => content.messages.filter( ( message ) => message.lifecycle !== LIFECYCLE.WITHDRAWN );
 
+// A file's own failure: what its generator threw, or a sibling the zip needs that could not be made. It is logged and
+// answered as no file. Anything else, the database or the store failing while a file is made, is no file's failure and
+// propagates: caught as one, a database outage became a 404 cached for a minute (final review of plan 8b).
+class NotMadeError extends Error {}
+const generated = async ( make ) => {
+    try {
+        return await make();
+    } catch ( error ) {
+        throw new NotMadeError( error.message, { cause: error } );
+    }
+};
+
 // A module's files (plan 8b, decision 2). Each message's XSD and sample come from that message alone, so one message
 // messageShape refuses costs only its own files; generateXsds, which maps them all in one pass, would have stopped every
 // one (CodeRabbit on #3). The zip comes last and is made from the stored files, so it holds what is served.
 function moduleFiles( published, inputs ) {
     const { content, spec, number } = published;
     const messages = publicMessages( content );
-    const listsOf = async () => new Map( ( await inputs() ).codeLists.map( ( list ) => [ list.id, list ] ) );
-    const xsds = messages.map( ( message ) => ( { name: `NHIS-${ message.code }.xsd`, type: XML,
-        make: async () => text( writeMessageXsd( messageShape( message, await listsOf() ), { version: content.version } ) ) } ) );
+    // The inputs are read outside `generated`, so that a database failing while they are read propagates.
+    const xsds = messages.map( ( message ) => ( { name: `NHIS-${ message.code }.xsd`, type: XML, make: async () => {
+        const lists = new Map( ( await inputs() ).codeLists.map( ( list ) => [ list.id, list ] ) );
+        return generated( () => text( writeMessageXsd( messageShape( message, lists ), { version: content.version } ) ) );
+    } } ) );
     const samples = messages.map( ( message ) => ( { name: `${ message.code }.xml`, type: XML, make: async () => {
         const { codeLists, keys } = await inputs();
-        return text( sampleMessage( message, { spec: spec, number: number }, codeLists, keys ) );
+        return generated( () => text( sampleMessage( message, { spec: spec, number: number }, codeLists, keys ) ) );
     } } ) );
-    const model = { name: "model.json", type: JSON_TYPE, make: async () => text( moduleModelJson( content ) ) };
-    const changelog = { name: "changelog.json", type: JSON_TYPE, make: async () => text( changelogJson( spec, number, ( await inputs() ).changelog ) ) };
+    const model = { name: "model.json", type: JSON_TYPE, make: () => generated( () => text( moduleModelJson( content ) ) ) };
+    const changelog = { name: "changelog.json", type: JSON_TYPE, make: async () => {
+        const versions = ( await inputs() ).changelog;
+        return generated( () => text( changelogJson( spec, number, versions ) ) );
+    } };
     const folder = `${ spec }-${ number }`;
     const zip = { name: "all.zip", type: ZIP, make: async ( made ) => {
         const archive = new JSZip();
@@ -89,7 +106,7 @@ function moduleFiles( published, inputs ) {
         }
         archive.file( `${ folder }/model.json`, await made( model.name ) );
         archive.file( `${ folder }/changelog.json`, await made( changelog.name ) );
-        return archive.generateAsync( { type: "nodebuffer", compression: "DEFLATE" } );
+        return generated( () => archive.generateAsync( { type: "nodebuffer", compression: "DEFLATE" } ) );
     } };
     return [ ...xsds, ...samples, model, changelog, zip ];
 }
@@ -111,8 +128,8 @@ function moduleFiles( published, inputs ) {
 module.exports.fixedFilesOf = ( published, inputs ) => {
     if ( published.kind === SPEC_KIND.CODE_LIST ) {
         return [
-            { name: "list.json", type: JSON_TYPE, make: async () => text( codeListJson( published.content ) ) },
-            { name: "list.csv", type: CSV, make: async () => text( codeListCsv( published.content ) ) }
+            { name: "list.json", type: JSON_TYPE, make: () => generated( () => text( codeListJson( published.content ) ) ) },
+            { name: "list.csv", type: CSV, make: () => generated( () => text( codeListCsv( published.content ) ) ) }
         ];
     }
     return published.kind === SPEC_KIND.MODULE ? moduleFiles( published, inputs ) : [];
@@ -161,9 +178,9 @@ const rowOf = ( db, versionId, name ) => db.get( "SELECT hash FROM fixed_files W
 
 // Makes one file if it has no row, and answers the hash that is there afterwards. Two requests that both found no row
 // both make the file and both write; the primary key keeps the first, and each reads back the winner rather than
-// trusting its own hash. A file whose `make` throws is not stored: its error is logged with the version and the name,
+// trusting its own hash. A file whose generator fails is not stored: its error is logged with the version and the name,
 // and the answer is null, so the next request tries again and a generator fixed meanwhile heals it (plan 8b, decision 2).
-// A failure to store is not caught: it is the store's, not the file's.
+// Any other failure, of the database or the store, is not the file's and propagates (`NotMadeError`).
 const ensured = async ( db, store, published, files, file ) => {
     const existing = await rowOf( db, published.id, file.name );
     if ( existing ) {
@@ -174,7 +191,7 @@ const ensured = async ( db, store, published, files, file ) => {
         const hash = sibling ? await ensured( db, store, published, files, sibling ) : null;
         const bytes = hash === null ? null : await store.get( hash );
         if ( !bytes ) {
-            throw new Error( `${ name } could not be made` );
+            throw new NotMadeError( `${ name } could not be made` );
         }
         return bytes;
     };
@@ -182,6 +199,9 @@ const ensured = async ( db, store, published, files, file ) => {
     try {
         bytes = await file.make( made );
     } catch ( error ) {
+        if ( !( error instanceof NotMadeError ) ) {
+            throw error;
+        }
         // The data layer has no logger of its own; console.error is its error level. Nothing of the data goes in the
         // message but the version's ID, the file's name and what the generator said (plan 8a, final review).
         console.error( `The fixed file ${ file.name } of version ${ published.id } could not be made: ${ error.message }` );
