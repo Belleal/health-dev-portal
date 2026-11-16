@@ -22,7 +22,8 @@
  *
  * - "Copy link": a `<button class="copy" data-copy="<address>" data-copied="<text>" hidden>`. It copies the address,
  *   made absolute against the page's, and says `data-copied` for a moment. It stays hidden where the browser offers no
- *   clipboard.
+ *   clipboard. With `data-copy-target="<id>"` in place of `data-copy`, it copies the text of the element with that ID:
+ *   the XSD and Sample message tabs' code (plan 8b, decision 9).
  * - Collapsing: in a tree, each row is `<tr data-depth="<n>">`, and a row with nested rows holds
  *   `<button class="twisty" data-toggle aria-expanded="true" aria-label="…" hidden>`, which hides or shows them.
  */
@@ -33,14 +34,19 @@
     // Outside a secure context the browser offers no clipboard at all. There the button stays hidden, as without the
     // script: shown, it would copy nothing, and on a stage's page the address bar does not hold the fixed address it
     // copies (CodeRabbit on #20).
-    const copyButtons = navigator.clipboard ? document.querySelectorAll( "button[data-copy]" ) : [];
+    const copyButtons = navigator.clipboard ? document.querySelectorAll( "button[data-copy], button[data-copy-target]" ) : [];
     for ( const button of copyButtons ) {
         // Read once: read on each click, a second click within the moment read "copied", and kept it as the label.
         const said = button.textContent;
+        // A button whose target is not on the page would copy nothing: it stays hidden, as without the script.
+        const target = button.dataset.copyTarget ? document.getElementById( button.dataset.copyTarget ) : null;
+        if ( button.dataset.copyTarget && !target ) {
+            continue;
+        }
         button.hidden = false;
         button.addEventListener( "click", () => {
-            const address = new URL( button.dataset.copy || window.location.href, window.location.href ).href;
-            navigator.clipboard.writeText( address ).then( () => {
+            const text = target ? target.textContent : new URL( button.dataset.copy || window.location.href, window.location.href ).href;
+            navigator.clipboard.writeText( text ).then( () => {
                 button.textContent = button.dataset.copied || said;
                 window.setTimeout( () => {
                     button.textContent = said;

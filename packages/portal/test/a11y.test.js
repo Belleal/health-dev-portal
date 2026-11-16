@@ -57,7 +57,13 @@ function pagesToCheck( element ) {
             paths.errors( lang ),
             paths.changes( lang ),
             paths.changes( lang, SPEC ),
-            paths.compare( lang, SPEC, SEED.ePrescription.production, SEED.ePrescription.testing )
+            paths.compare( lang, SPEC, SEED.ePrescription.production, SEED.ePrescription.testing ),
+            // Plan 8b: the Schemas section, the two file tabs, and the combined nomenclatures' history (HEL-36).
+            paths.schemas( lang ),
+            paths.schemaSet( lang, SPEC, SEED.ePrescription.production ),
+            paths.message( lang, SPEC, "testing", "P001", "sample" ),
+            paths.message( lang, SPEC, "testing", "P001", "xsd" ),
+            paths.changes( lang, "nomenclatures" )
         ].map( ( address ) => [ address, 200 ] ) );
         // Nothing is in testing as far as errors go, so that address is the 404 page in its language.
         addresses.push(

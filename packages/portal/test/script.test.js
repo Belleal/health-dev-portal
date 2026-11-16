@@ -72,13 +72,13 @@ describe( "The copy link button, in Chromium", { skip: UNSEEDED }, () => {
      * @returns {Promise<{page: import( "playwright" ).Page, errors: Error[]}>}
      * @private
      */
-    const open = async ( prepare = async () => {} ) => {
+    const open = async ( prepare = async () => {}, address = element ) => {
         const context = await browser.newContext();
         await prepare( context );
         const page = await context.newPage();
         const errors = [];
         page.on( "pageerror", ( error ) => errors.push( error ) );
-        await page.goto( element );
+        await page.goto( address );
         return { page, errors };
     };
 
@@ -122,5 +122,28 @@ describe( "The copy link button, in Chromium", { skip: UNSEEDED }, () => {
         // copies the element's fixed address, which the bar does not show.
         assert.equal( await page.locator( COPY ).isHidden(), true );
         assert.deepEqual( errors.map( ( error ) => error.message ), [] );
+    } );
+
+    // Plan 8b, decision 9: the XSD and Sample message tabs copy their whole text, the code element `data-copy-target`
+    // names, rather than an address.
+    it( "copies a code block's text with its button", async ( context ) => {
+        if ( skip !== null ) {
+            context.skip( skip );
+            return;
+        }
+        const origin = new URL( portal.url ).origin;
+        const xsd = new URL( paths.message( "bg", SEED.ePrescription.spec, SEED.ePrescription.production, "P001", "xsd" ), portal.url ).href;
+        const { page, errors } = await open( ( browserContext ) => browserContext.grantPermissions( [ "clipboard-read", "clipboard-write" ], { origin: origin } ), xsd );
+        const button = page.locator( "button.copy[data-copy-target]" );
+        assert.equal( await button.isHidden(), false );
+        const target = await button.getAttribute( "data-copy-target" );
+        await button.click();
+        await page.locator( "button.copy[data-copy-target]", { hasText: await button.getAttribute( "data-copied" ) } ).waitFor();
+        // Chromium on Windows writes line ends to the system clipboard as CRLF (measured 2026-11-16); the script copies the
+        // code's text as it is, and the page's line ends are LF.
+        const copied = ( await page.evaluate( () => navigator.clipboard.readText() ) ).replace( /\r\n/g, "\n" );
+        assert.equal( copied, await page.locator( `#${ target }` ).textContent() );
+        assert.match( copied, /^<\?xml version="1\.0" encoding="UTF-8"\?>/ );
+        assert.deepEqual( errors, [] );
     } );
 } );

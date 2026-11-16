@@ -92,4 +92,34 @@ describe( "synthesizeMessage", () => {
         const xml = synthesizeMessage( root( [ field( "x", value( "string" ), { attributes: [ { name: "value", required: true, value: value( "string" ), fixed: "a\tb\nc\rd", documentation: null } ] } ) ] ) );
         assert.match( xml, /<x value="a&#9;b&#10;c&#13;d"\/>/ );
     } );
+
+    // Plan 8b, decision 3: a sample's coded value is a real key of its list, so the message tester will accept it.
+    const coded = ( tag, list, fixed = null ) => field( tag, value( "int" ), { attributes: [
+        { name: "value", required: true, value: value( "int" ), fixed: fixed, documentation: `Code list ${ list }.`, codeList: list } ] } );
+
+    it( "writes a coded value as the key it is given for its list", () => {
+        assert.match( synthesizeMessage( root( [ coded( "code", "CL009" ) ] ), { keys: new Map( [ [ "CL009", "12" ] ] ) } ), /<code value="12"\/>/ );
+        assert.match( synthesizeMessage( root( [ coded( "code", "CL009" ) ] ) ), /<code value="1"\/>/ );
+    } );
+
+    // 242 of the 1,500 coded elements of the eight production modules have a fixed value, every header's sender and
+    // recipient among them, and the XSD requires it (CodeRabbit on #3).
+    it( "keeps a field's fixed value over its list's key", () => {
+        assert.match( synthesizeMessage( root( [ coded( "recipient", "CL018", "4" ) ] ), { keys: new Map( [ [ "CL018", "1" ] ] ) } ), /<recipient value="4"\/>/ );
+    } );
+
+    // CodeRabbit on #4: a Decimal's sample "1.5" has two digits, so with totalDigits 1 the sample failed its own XSD.
+    it( "writes a number that fits its digit count", () => {
+        assert.match( synthesizeMessage( root( [ field( "dose", value( "decimal", { totalDigits: 1 } ) ) ] ) ), /<dose value="1"\/>/ );
+        assert.match( synthesizeMessage( root( [ field( "dose", value( "decimal", { totalDigits: 2 } ) ) ] ) ), /<dose value="1\.5"\/>/ );
+        assert.match( synthesizeMessage( root( [ field( "days", value( "positiveInteger", { totalDigits: 1 } ) ) ] ) ), /<days value="1"\/>/ );
+    } );
+
+    it( "puts each element on its own line, indented, when asked", () => {
+        const lines = synthesizeMessage( messageShape( prescriptionMessage(), LISTS ), { indent: "  " } ).split( "\n" );
+        assert.match( lines[ 0 ], /^<message xmlns="https:\/\/www\.his\.bg" xmlns:ds="http:\/\/www\.w3\.org\/2000\/09\/xmldsig#">$/ );
+        assert.equal( lines.at( -1 ), "</message>" );
+        assert.ok( lines.slice( 1, -1 ).every( ( line ) => line.startsWith( "  " ) ) );
+        assert.ok( lines.includes( "  <header>" ) && lines.includes( "    <sender value=\"1\"/>" ) && lines.includes( "  </header>" ) );
+    } );
 } );

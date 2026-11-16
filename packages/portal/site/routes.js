@@ -25,7 +25,9 @@ const { sofiaDate } = require( "@health-dev-portal/spec-model/dates" );
 const { home, parseAddress } = require( "#paths" );
 const { CACHE, failed, notFound, redirect } = require( "#responses" );
 const { changelogPage, changesIndexPage, comparePage } = require( "#pages/changes" );
+const { schemaFile, specDownload } = require( "#pages/downloads" );
 const { errorsPage } = require( "#pages/errors" );
+const { schemaSetPage, schemasIndexPage } = require( "#pages/schemas" );
 const { feedPage } = require( "#pages/feeds" );
 const { homePage } = require( "#pages/home" );
 const { messagePage } = require( "#pages/message" );
@@ -48,6 +50,10 @@ const PAGES = Object.freeze( {
     lists: listsPage,
     list: listPage,
     download: downloadFile,
+    "schema-file": schemaFile,
+    "spec-download": specDownload,
+    schemas: schemasIndexPage,
+    "schema-set": schemaSetPage,
     errors: errorsPage,
     // One kind, two pages: `spec` is null for the index and a spec's key for its changelog.
     changes: ( context, parts ) => parts.spec === null ? changesIndexPage( context ) : changelogPage( context, parts ),

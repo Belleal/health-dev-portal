@@ -1,7 +1,8 @@
 # @health-dev-portal/portal
 
-The portal's public website (plan 8a; design record §8): every published specification version by stage, each message
-element by element, the code lists, the errors and the changes, in Bulgarian at `/bg/` and English at `/en/`.
+The portal's public website (plans 8a and 8b; design record §8): every published specification version by stage, each
+message element by element with its XSD and a sample, the code lists, the errors, the changes, and the generated XSDs and
+downloads of every module version, in Bulgarian at `/bg/` and English at `/en/`.
 
 - **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` with no web application manager
   until plan 9 brings the staff area.
@@ -105,7 +106,29 @@ Without Chromium the test skips with a note; in CI (`CI` set and not `false`) it
 installs it with `npx playwright install --with-deps chromium`. The file takes about a minute.
 
 `test/script.test.js` drives the portal's one script in the same Chromium, under the same rule when it is missing. It
-covers the "copy link" button, with and without a clipboard.
+covers the "copy link" button, with and without a clipboard, and the button that copies an XSD or a sample's text.
+
+`test/samples.test.js` validates every sample of e-Prescription 1.5.1, as served, against the XSD served beside it, in
+xmllint compiled to WebAssembly (`xmllint-wasm`). Only the empty signature is refused, by xmldsig itself.
+
+## Schemas and downloads
+
+A module version's generated files (plan 8b; design record §4.10, §7.7, §7.9) are made the first time they are asked for,
+kept by content hash, and never change. A number's address serves the file; a stage's redirects to it.
+
+| Address | What |
+|---|---|
+| `/{lang}/schemas` | Every module's set, by stage, after the notice that `/api/v1/` is obsolete |
+| `/{lang}/schemas/{spec}/{at}` | One version's set: each message's XSD and sample, the zip, the model and xmldsig |
+| `/{lang}/specs/{spec}/{at}/{code}/sample` · `/xsd` | A message's Sample message and XSD tabs |
+| `/schemas/{spec}/{number}/NHIS-{code}.xsd` | A message's XSD, inline |
+| `/schemas/{stage}/NHIS-{code}.xsd` | 302 to the XSD of the one module whose version at that stage has the message |
+| `/schemas/…/xmldsig-core-schema.xsd` | W3C's xmldsig, which every XSD imports, at every set's address and every stage's |
+| `/downloads/specs/{spec}/{number}.zip` · `.json` | Everything of the version in one zip; its model (`nhis-module/1`) |
+| `/downloads/specs/{spec}/{number}/{code}.xml` | A message's synthetic sample |
+| `/downloads/specs/{spec}/{stage}.zip` · `.json` · `/{stage}/{code}.xml` | 302 to the fixed file |
+
+A withdrawn message has no XSD and no sample; a retired version's files answer 410, as plan 8a's downloads do.
 
 ## Fonts
 
@@ -126,6 +149,6 @@ version of the fonts goes into a new directory.
 |---|---|
 | A retired version's 410, its downloads' too | `public, max-age=86400` |
 | Home, indexes, stage pages, pages at a fixed address (`…/1.5.1/…`: they link each list as it is now), errors, changes, comparison, feeds, 404, redirects | `public, max-age=60` |
-| A fixed download | `public, max-age=31536000, immutable` |
+| A fixed download: a code list's JSON or CSV; a module version's XSD, sample, model or zip; xmldsig | `public, max-age=31536000, immutable` |
 | The stylesheet and the script at their hashed address, the fonts | `public, max-age=31536000, immutable` |
 | A failure (500) | `no-store` |

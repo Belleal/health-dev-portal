@@ -235,4 +235,27 @@ describe( "The changes pages and the feeds", { skip: !SEEDED && "build the seed 
             assert.match( entry[ 0 ], /<link href="https:\/\/developers\.example\.test\// );
         }
     } );
+
+    // HEL-36 (design record §4.6): a combined note that names no list stays with the combined spec, shown as such. The
+    // combined spec has only retired versions, so its changelog was a 404.
+    it( "shows the combined nomenclatures' notes that name no list", async () => {
+        for ( const [ lang, name ] of [ [ "bg", "Номенклатури преди разделянето" ], [ "en", "Nomenclatures before the split" ] ] ) {
+            const page = await get( `/${ lang }/changes/nomenclatures` );
+            assert.equal( page.status, 200, lang );
+            assertPublic( page, BRIEF );
+            assert.match( page.text, new RegExp( `<h1>${ name } · ` ), lang );
+            // The combined spec's 9 public versions up to 1.5.33, holding 21 notes that name no list (measured 2026-11-16):
+            // 1.5.33 holds none, every note of it naming a list, which keeps it.
+            assert.equal( [ ...page.text.matchAll( /<h2>(?:Версия|Version) \d/g ) ].length, 9, lang );
+            // With no live version there is nothing to compare and no feed.
+            assert.doesNotMatch( page.text, /name="from"/, lang );
+            assert.doesNotMatch( page.text, /feed\.atom/, lang );
+        }
+        assert.equal( ( await get( "/bg/changes/nomenclatures/feed.atom" ) ).status, 404 );
+    } );
+
+    it( "keeps the combined spec off the home page", async () => {
+        assert.doesNotMatch( ( await get( "/bg/" ) ).text, /преди разделянето/ );
+        assert.doesNotMatch( ( await get( "/en/" ) ).text, /before the split/ );
+    } );
 } );

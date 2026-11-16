@@ -266,4 +266,10 @@ describe( "The code lists", { skip: !SEEDED && "build the seed first: npm run fi
         assert.equal( fixed.status, 200 );
         assertPublic( fixed, BRIEF );
     } );
+
+    // HEL-36: the combined notes that name no list are shown on the nomenclatures pages (§4.6), through their changelog.
+    it( "links the combined history from the nomenclatures index", async () => {
+        assert.match( ( await get( "/en/nomenclatures" ) ).text, /<a href="\/en\/changes\/nomenclatures">Notes of the combined versions that name no list<\/a>/ );
+        assert.match( ( await get( "/bg/nomenclatures" ) ).text, /<a href="\/bg\/changes\/nomenclatures">/ );
+    } );
 } );

@@ -17,14 +17,16 @@
 
 /*
  * The message page (plan 8a, decision 7; design record §8.3, mockup M1), `/{lang}/specs/{spec}/{at}/{code}` and its
- * Conditions and Changes tabs, and `…/{code}/elements/{path…}` with one element selected: every element has an address
+ * Sample message, Conditions, XSD and Changes tabs (plan 8b, decision 9), and `…/{code}/elements/{path…}` with one
+ * element selected: every element has an address
  * of its own (decision 3). The stage switcher in the band, the module's messages in the sidebar, the heading, the tabs
  * and the tree table in the main column, the detail panel on the right. The tree is message-tree.js, the panel
  * message-panel.js.
  */
 
 const { html } = require( "@ti-engine/web-content/html" );
-const { CHANGE_CATEGORY, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { fixedFile } = require( "@health-dev-portal/data/fixed-files" );
+const { CHANGE_CATEGORY, LIFECYCLE, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { formatCount } = require( "#format" );
 const { label } = require( "#labels" );
 const { page } = require( "#layout" );
@@ -36,11 +38,41 @@ const { elementPanel, messageKind, messagePanel } = require( "./message-panel" )
 const { elementMarkers, elementName, treeTable } = require( "./message-tree" );
 const { conditionsTable, findShown, linkedNumbers, moduleSidebar, plannedOn, stageBand, stageVersions } = require( "./version" );
 
+// In §8.3's order: elements, sample message, conditions, XSD, changes.
 const TABS = Object.freeze( [
     { tab: "elements", name: ( lang ) => label( lang, "tabElements" ) },
+    { tab: "sample", name: ( lang ) => label( lang, "tabSample" ) },
     { tab: "conditions", name: ( lang ) => label( lang, "tabConditions" ) },
+    { tab: "xsd", name: ( lang ) => label( lang, "tabXsd" ) },
     { tab: "changes", name: ( lang ) => label( lang, "tabChanges" ) }
 ] );
+
+// The two tabs that show one of the version's fixed files (plan 8b, decision 9): its name, the fixed address it is
+// downloaded from, and the words above it.
+const FILE_TABS = Object.freeze( {
+    xsd: { name: ( code ) => `NHIS-${ code }.xsd`, link: ( spec, number, code ) => paths.schemaFile( spec, number, `NHIS-${ code }.xsd` ), download: "downloadXsd", lede: null },
+    sample: { name: ( code ) => `${ code }.xml`, link: ( spec, number, code ) => paths.sampleDownload( spec, number, code ), download: "downloadSample", lede: "sampleSynthetic" }
+} );
+
+// A file tab: the file's whole text, escaped, under its download link and a button that copies it. A withdrawn message has
+// no files, and a file the data layer could not make or lost is said so: neither is a 404, since the message is there.
+const fileTab = async ( context, { spec, version, message, tab } ) => {
+    const { db, store, lang } = context;
+    if ( message.lifecycle === LIFECYCLE.WITHDRAWN ) {
+        return html`<p>${ label( lang, "fileTabWithdrawn" ) }</p>`;
+    }
+    const kind = FILE_TABS[ tab ];
+    const file = await fixedFile( db, store, version.id, kind.name( message.code ) );
+    if ( file === null ) {
+        return html`<p>${ label( lang, "fileTabMissing" ) }</p>`;
+    }
+    const id = `${ tab }-text`;
+    // The block scrolls sideways, so it takes the focus: a reader on a keyboard could not scroll it otherwise (axe's
+    // scrollable-region-focusable, WCAG 2.1.1, found by plan 8b's accessibility sweep).
+    return html`${ kind.lede === null ? null : html`<p>${ label( lang, kind.lede ) }</p>
+` }<p><a href="${ kind.link( spec, version.number, message.code ) }">${ label( lang, kind.download ) }</a> <button class="copy" type="button" data-copy-target="${ id }" data-copied="${ label( lang, "copied" ) }" hidden>${ label( lang, "copyText" ) }</button></p>
+<pre tabindex="0"><code id="${ id }">${ file.bytes.toString( "utf8" ) }</code></pre>`;
+};
 
 const walk = ( nodes, out = [] ) => {
     for ( const node of nodes ) {
@@ -207,6 +239,8 @@ module.exports.messagePage = async ( context, parts ) => {
         body = conditionsTab( lang, { spec: spec, at: at, message: message, content: content } );
     } else if ( tab === "changes" ) {
         body = changesTab( lang, { spec: spec, version: version, production: production ? production.version : null, markers: markers } );
+    } else if ( Object.hasOwn( FILE_TABS, tab ) ) {
+        body = await fileTab( context, { spec: spec, version: version, message: message, tab: tab } );
     } else {
         body = treeTable( { lang: lang, spec: spec, at: at, message: message, markers: markers, selected: node, linked: linked } );
     }
