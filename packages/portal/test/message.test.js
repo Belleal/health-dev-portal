@@ -313,7 +313,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         const response = await get( "/bg/specs/e-prescription/1.5.1/P001/xsd" );
         assert.equal( response.status, 200 );
         assertPublic( response, BRIEF );
-        assert.match( response.text, /<pre><code id="[^"]+">&lt;\?xml version=/ );
+        assert.match( response.text, /<pre tabindex="0"><code id="[^"]+">&lt;\?xml version=/ );
         assert.match( response.text, /href="\/schemas\/e-prescription\/1\.5\.1\/NHIS-P001\.xsd"/ );
         assert.match( response.text, /<a href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001\/xsd" aria-current="page">XSD<\/a>/ );
         // A stage's page shows the version at that stage, and links its file by number.
@@ -323,7 +323,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
     it( "shows a message's sample, and says it is synthetic", async () => {
         const response = await get( "/en/specs/e-prescription/1.5.1/P001/sample" );
         assert.equal( response.status, 200 );
-        assert.match( response.text, /<pre><code id="[^"]+">&lt;\?xml version=[\s\S]*?&lt;message xmlns=/ );
+        assert.match( response.text, /<pre tabindex="0"><code id="[^"]+">&lt;\?xml version=[\s\S]*?&lt;message xmlns=/ );
         assert.match( response.text, /href="\/downloads\/specs\/e-prescription\/1\.5\.1\/P001\.xml"/ );
         assert.match( response.text, /<p>A synthetic sample: every element once, with values the XSD accepts\. It is not a real message\.<\/p>/ );
     } );
@@ -332,7 +332,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         for ( const tab of [ "xsd", "sample" ] ) {
             const response = await get( `/en/specs/e-prescription/1.5.1/P011/${ tab }` );
             assert.equal( response.status, 200, tab );
-            assert.doesNotMatch( response.text, /<pre>/, tab );
+            assert.doesNotMatch( response.text, /<pre[ >]/, tab );
             assert.match( response.text, /This message is withdrawn: it has no XSD and no sample\./, tab );
         }
     } );
@@ -351,7 +351,7 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
             error.mock.restore();
         }
         assert.equal( response.status, 200 );
-        assert.doesNotMatch( response.text, /<pre>/ );
+        assert.doesNotMatch( response.text, /<pre[ >]/ );
         assert.match( response.text, /The file could not be made\./ );
     } );
 } );

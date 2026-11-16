@@ -67,9 +67,11 @@ const fileTab = async ( context, { spec, version, message, tab } ) => {
         return html`<p>${ label( lang, "fileTabMissing" ) }</p>`;
     }
     const id = `${ tab }-text`;
+    // The block scrolls sideways, so it takes the focus: a reader on a keyboard could not scroll it otherwise (axe's
+    // scrollable-region-focusable, WCAG 2.1.1, found by plan 8b's accessibility sweep).
     return html`${ kind.lede === null ? null : html`<p>${ label( lang, kind.lede ) }</p>
 ` }<p><a href="${ kind.link( spec, version.number, message.code ) }">${ label( lang, kind.download ) }</a> <button class="copy" type="button" data-copy-target="${ id }" data-copied="${ label( lang, "copied" ) }" hidden>${ label( lang, "copyText" ) }</button></p>
-<pre><code id="${ id }">${ file.bytes.toString( "utf8" ) }</code></pre>`;
+<pre tabindex="0"><code id="${ id }">${ file.bytes.toString( "utf8" ) }</code></pre>`;
 };
 
 const walk = ( nodes, out = [] ) => {
