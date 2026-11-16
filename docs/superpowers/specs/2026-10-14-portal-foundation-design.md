@@ -89,7 +89,7 @@ Each step is one implementation plan in `docs/superpowers/plans/`.
 | 5 | Data layer and migration: one SQL subset on SQLite and PostgreSQL (§3.2), the stored model with one spec per code list (§4.6), files by content hash (§3.3), loading today's published workbooks, and copying a database from one driver to the other (§7.11) | Done |
 | 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | Done |
 | 7 | ti-engine SQL and file gateways (§13) | — |
-| 8 | Public site (§8) | 8a (the reference pages) next; 8b (schemas, guides, FAQ, environment status) after |
+| 8 | Public site (§8) | 8a (the reference pages) done; 8b (schemas and downloads) next; 8c (guides, FAQ, environment status, search) after |
 | 9 | Staff area: sign-in, roles, the review queue, review and promotion screens | — |
 | 10 | Editing screens, after their own design session | — |
 | 11 | Message tester and the XSD-equivalence corpus (§8.6) | — |
@@ -502,9 +502,10 @@ against (§4.8), so any kept version's XSDs can be generated again.
     diagnosis, that is not today's order: there a derived type's own fields follow all of its base's.
   - NHIS finds a field by its name and path, not its place; order matters only to the XSD validation at the API
     Gateway's entry (Boris, 2026-11-06, HEL-26). So whatever order the generated XSDs hold is the order the gateway
-    enforces once it validates against them. Whether e-Dental's D001 and D006 and e-Hospitalization's H005 keep the
-    workbook's order, a change on the wire released with its notice, or the workbook takes today's, is still open
-    (HEL-26).
+    enforces once it validates against them.
+  - e-Dental's D001 and D006 and e-Hospitalization's H005 keep the workbook's order (Boris, 2026-11-16, HEL-26). That
+    changes the wire for them once the gateway validates against generated XSDs, so the change is announced with the
+    new XSDs (§15).
 - **Code lists are not enumerated.**
   - Lists change with time, and they are large: messages use 121 lists with 55,090 keys, 39,005 of them in CL011.
   - An enumeration would tie every message to one version of each list.
@@ -1365,6 +1366,15 @@ Mockup: [`mockups/home-layout.html`](mockups/home-layout.html), option H1.
 - Selecting a row opens its definition on the right: description, constraints spelled out, XSD type, the XML it
   produces, every message that uses the same field, and a copy-link button. **Every element has its own address.**
 - Tabs: elements, sample message, conditions, XSD, changes.
+- **The sample message is synthetic** *(design call, plan 8b)*. The published `…-Simplified.xml` samples are
+  placeholder templates that no XSD accepts (§5.8), so the portal writes its own from the message's XSD shape:
+  - every element once;
+  - every value of a type the XSD accepts;
+  - a coded value as its fixed value where the XSD keeps one, since the XSD then requires it, and otherwise as the
+    first key of its list that has not expired. The XSD drops a fixed value its own type refuses (§4.10), such as
+    I006's `NHIS` on an integer list, so the sample does not write it either.
+
+  The sample says that it is no real message. Its signature is left empty.
 
 Mockup: [`mockups/message-page.html`](mockups/message-page.html), option M1.
 
@@ -1547,9 +1557,8 @@ analytics; forum migration (a side task — "Project Space" may not be migratabl
 | Dead sample-message links on the specifications page (HEL-22) | his.bg |
 | One field of one business object constrained differently between messages (HEL-24) | Spec team |
 | I006's `senderId` names CL018 and is fixed to `NHIS`, which is no key of it (HEL-25) | Spec team |
-| Before generated XSDs are published (HEL-26, answered 2026-11-06, §4.10): whether D001, D006 and H005 keep the workbook's field order or the workbook takes today's | Boris |
 | `senderISName`'s `chars=an` dropped from the module sources (HEL-26) | Spec team |
 | e-Dental 1.0.7's change note puts `patientSignature` in `dentalTreatment`; it goes beside `contents`, where the rows have it (HEL-26) | Spec team |
 | Writing the guides (§8.1) | Solution architect, who may delegate to a business analyst |
 | Today's message XSDs reference `ds:Signature` without importing xmldsig, and their `messageType` pattern leaves out D and L (HEL-27) | his.bg |
-| Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |
+| Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced, and D001, D006 and H005 take the workbook's field order (§4.10) | Solution architect |
