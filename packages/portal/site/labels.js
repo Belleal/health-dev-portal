@@ -45,6 +45,7 @@ module.exports.LABELS = Object.freeze( {
         sectionSpecs: "Спецификации",
         sectionNomenclatures: "Номенклатури",
         sectionErrors: "Грешки",
+        sectionSchemas: "Схеми",
         sectionChanges: "Промени",
         sidebar: "В този раздел",
         panel: "Подробности",
@@ -237,7 +238,20 @@ module.exports.LABELS = Object.freeze( {
         compareEntries: "Бележки за промените между версиите",
         compareEntriesNone: "Между тези версии няма записани бележки.",
         compareBack: "Към историята на промените",
-        columnAbout: "Засяга"
+        columnAbout: "Засяга",
+        schemasTitle: "XSD схеми",
+        schemasObsolete: "Схемите на www.his.bg/api/v1/ са остарели: замразени са на по-стари версии на спецификациите и не се обновяват. Тук са схемите на всяка публикувана версия, генерирани от спецификацията.",
+        schemasStageNone: "Няма версия на модул в тази среда.",
+        columnVersion: "Версия",
+        columnArchive: "Архив",
+        schemaSetTitle: "XSD схеми",
+        schemaSetLede: "За всяко съобщение — XSD без общи типове и синтетичен пример: всеки елемент по веднъж, стойности според XSD. Примерът не е реално съобщение.",
+        columnXsd: "XSD",
+        columnSample: "Пример",
+        schemaSetDownloads: "Изтегляне",
+        schemaSetZip: "Всичко в един архив: XSD, примери, модел и история на промените (zip)",
+        schemaSetModel: "Моделът на версията (JSON)",
+        schemaSetXmldsig: "xmldsig-core-schema.xsd на W3C, който всяка XSD импортира"
     } ),
     en: Object.freeze( {
         siteName: "NHIS · Developers",
@@ -248,6 +262,7 @@ module.exports.LABELS = Object.freeze( {
         sectionSpecs: "Specifications",
         sectionNomenclatures: "Nomenclatures",
         sectionErrors: "Errors",
+        sectionSchemas: "Schemas",
         sectionChanges: "Changes",
         sidebar: "In this section",
         panel: "Details",
@@ -440,7 +455,20 @@ module.exports.LABELS = Object.freeze( {
         compareEntries: "Change notes between the versions",
         compareEntriesNone: "No change notes are recorded between these versions.",
         compareBack: "Back to the changelog",
-        columnAbout: "Concerns"
+        columnAbout: "Concerns",
+        schemasTitle: "XSD schemas",
+        schemasObsolete: "The XSDs at www.his.bg/api/v1/ are obsolete: they are frozen at older versions of the specifications and are no longer updated. Here are the XSDs of every published version, generated from the specification.",
+        schemasStageNone: "No module version in this stage.",
+        columnVersion: "Version",
+        columnArchive: "Archive",
+        schemaSetTitle: "XSD schemas",
+        schemaSetLede: "For each message, an XSD with no shared types and a synthetic sample: every element once, values the XSD accepts. The sample is not a real message.",
+        columnXsd: "XSD",
+        columnSample: "Sample",
+        schemaSetDownloads: "Downloads",
+        schemaSetZip: "Everything in one archive: XSDs, samples, model and changelog (zip)",
+        schemaSetModel: "The version's model (JSON)",
+        schemaSetXmldsig: "W3C's xmldsig-core-schema.xsd, which every XSD imports"
     } )
 } );
 

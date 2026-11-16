@@ -138,6 +138,28 @@ module.exports.specs = ( lang ) => `/${ language( lang ) }/specs`;
 module.exports.spec = ( lang, spec, at ) => `/${ language( lang ) }/specs/${ moduleKey( spec ) }/${ atSegment( at ) }`;
 
 /**
+ * The Schemas section (design record §8.1; plan 8b, decision 8): every module's set by stage.
+ *
+ * @method
+ * @param {string} lang
+ * @returns {string}
+ * @public
+ */
+module.exports.schemas = ( lang ) => `/${ language( lang ) }/schemas`;
+
+/**
+ * One module version's set of schema files, at a stage or number.
+ *
+ * @method
+ * @param {string} lang
+ * @param {string} spec A module's key.
+ * @param {string} at A public stage slug or a number.
+ * @returns {string}
+ * @public
+ */
+module.exports.schemaSet = ( lang, spec, at ) => `/${ language( lang ) }/schemas/${ moduleKey( spec ) }/${ atSegment( at ) }`;
+
+/**
  * A module's conditions.
  *
  * @method
@@ -568,6 +590,13 @@ module.exports.parseAddress = ( address ) => {
     }
     if ( section === "changes" ) {
         return changesPage( lang, rest, search );
+    }
+    if ( section === "schemas" ) {
+        if ( rest.length === 0 ) {
+            return { lang: lang, page: "schemas" };
+        }
+        return rest.length === 2 && MODULE.test( rest[ 0 ] ) && module.exports.parseAt( rest[ 1 ] ) !== null
+            ? { lang: lang, page: "schema-set", spec: rest[ 0 ], at: rest[ 1 ] } : null;
     }
     return null;
 };
