@@ -58,7 +58,10 @@ function sampleOf( attribute, keys ) {
         return type.enumeration[ 0 ];
     }
     if ( Object.hasOwn( SAMPLES, type.base ) ) {
-        return type.minInclusive !== null && Number( type.minInclusive ) > Number( SAMPLES[ type.base ] ) ? type.minInclusive : SAMPLES[ type.base ];
+        const sample = type.minInclusive !== null && Number( type.minInclusive ) > Number( SAMPLES[ type.base ] ) ? type.minInclusive : SAMPLES[ type.base ];
+        // A number's digit count can refuse the sample: "1.5" has two digits, so a Decimal of one digit refused its own
+        // sample (CodeRabbit on #4). Then a whole one is tried, which every number type takes.
+        return fitsValueType( sample, type ) ? sample : [ "1", "0" ].find( ( candidate ) => fitsValueType( candidate, type ) ) || sample;
     }
     // The shortest string of one repeated letter that the type accepts: `A…` for `an`, `1…` for `n`, `111111` for YYMMDD.
     const shortest = Math.max( type.minLength ?? 0, 1 );

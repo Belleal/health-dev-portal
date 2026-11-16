@@ -43,21 +43,19 @@ const XMLDSIG = "xmldsig-core-schema.xsd";
 // copy, which points at a DTD on w3.org, so that it compiles offline as the published XSDs import it.
 const XMLDSIG_FILE = path.join( __dirname, "..", "assets", XMLDSIG );
 
-let xmldsig = null;
+// Read when the module loads, where a synchronous read blocks no request and a missing asset stops the start rather than a
+// download (CodeRabbit on #4).
+const xmldsig = fs.readFileSync( XMLDSIG_FILE );
 
 /**
- * W3C's `xmldsig-core-schema.xsd`, which every generated XSD imports by that name (design record §4.10). Read once.
+ * W3C's `xmldsig-core-schema.xsd`, which every generated XSD imports by that name (design record §4.10). Read once,
+ * when the module loads.
  *
  * @method
  * @returns {Buffer}
  * @public
  */
-module.exports.xmldsigSchema = () => {
-    if ( xmldsig === null ) {
-        xmldsig = fs.readFileSync( XMLDSIG_FILE );
-    }
-    return xmldsig;
-};
+module.exports.xmldsigSchema = () => xmldsig;
 
 const text = ( value ) => Buffer.from( value, "utf8" );
 const publicMessages = ( content ) => content.messages.filter( ( message ) => message.lifecycle !== LIFECYCLE.WITHDRAWN );
@@ -66,13 +64,21 @@ const publicMessages = ( content ) => content.messages.filter( ( message ) => me
 // answered as no file. Anything else, the database or the store failing while a file is made, is no file's failure and
 // propagates: caught as one, a database outage became a 404 cached for a minute (final review of plan 8b).
 class NotMadeError extends Error {}
+// What a generator itself threw: the same until a deploy changes the generator, so it is remembered (`unmakeable`).
+class GeneratorError extends NotMadeError {}
 const generated = async ( make ) => {
     try {
         return await make();
     } catch ( error ) {
-        throw new NotMadeError( error.message, { cause: error } );
+        throw new GeneratorError( error.message, { cause: error } );
     }
 };
+
+// The files whose generator failed in this process, by version and name. Retried, each request for one read every list
+// its module reads, CL011's 39,005 entries among them, and logged again, at anyone's asking (CodeRabbit on #4). A
+// restart, which every deploy is, forgets them, so a fixed generator still heals them. A zip that missed a sibling is not
+// remembered: its sibling may have lost its bytes, which heals without a deploy.
+const unmakeable = new Set();
 
 // A module's files (plan 8b, decision 2). Each message's XSD and sample come from that message alone, so one message
 // messageShape refuses costs only its own files; generateXsds, which maps them all in one pass, would have stopped every
@@ -179,12 +185,17 @@ const rowOf = ( db, versionId, name ) => db.get( "SELECT hash FROM fixed_files W
 // Makes one file if it has no row, and answers the hash that is there afterwards. Two requests that both found no row
 // both make the file and both write; the primary key keeps the first, and each reads back the winner rather than
 // trusting its own hash. A file whose generator fails is not stored: its error is logged with the version and the name,
-// and the answer is null, so the next request tries again and a generator fixed meanwhile heals it (plan 8b, decision 2).
-// Any other failure, of the database or the store, is not the file's and propagates (`NotMadeError`).
+// the answer is null, and the failure is remembered until the process restarts, so a generator fixed by a deploy heals it
+// (plan 8b, decision 2). Any other failure, of the database or the store, is not the file's and propagates
+// (`NotMadeError`).
 const ensured = async ( db, store, published, files, file ) => {
     const existing = await rowOf( db, published.id, file.name );
     if ( existing ) {
         return existing.hash;
+    }
+    const key = `${ published.id }/${ file.name }`;
+    if ( unmakeable.has( key ) ) {
+        return null;
     }
     const made = async ( name ) => {
         const sibling = files.find( ( candidate ) => candidate.name === name );
@@ -201,6 +212,9 @@ const ensured = async ( db, store, published, files, file ) => {
     } catch ( error ) {
         if ( !( error instanceof NotMadeError ) ) {
             throw error;
+        }
+        if ( error instanceof GeneratorError ) {
+            unmakeable.add( key );
         }
         // The data layer has no logger of its own; console.error is its error level. Nothing of the data goes in the
         // message but the version's ID, the file's name and what the generator said (plan 8a, final review).

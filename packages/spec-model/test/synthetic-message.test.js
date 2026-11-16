@@ -108,6 +108,13 @@ describe( "synthesizeMessage", () => {
         assert.match( synthesizeMessage( root( [ coded( "recipient", "CL018", "4" ) ] ), { keys: new Map( [ [ "CL018", "1" ] ] ) } ), /<recipient value="4"\/>/ );
     } );
 
+    // CodeRabbit on #4: a Decimal's sample "1.5" has two digits, so with totalDigits 1 the sample failed its own XSD.
+    it( "writes a number that fits its digit count", () => {
+        assert.match( synthesizeMessage( root( [ field( "dose", value( "decimal", { totalDigits: 1 } ) ) ] ) ), /<dose value="1"\/>/ );
+        assert.match( synthesizeMessage( root( [ field( "dose", value( "decimal", { totalDigits: 2 } ) ) ] ) ), /<dose value="1\.5"\/>/ );
+        assert.match( synthesizeMessage( root( [ field( "days", value( "positiveInteger", { totalDigits: 1 } ) ) ] ) ), /<days value="1"\/>/ );
+    } );
+
     it( "puts each element on its own line, indented, when asked", () => {
         const lines = synthesizeMessage( messageShape( prescriptionMessage(), LISTS ), { indent: "  " } ).split( "\n" );
         assert.match( lines[ 0 ], /^<message xmlns="https:\/\/www\.his\.bg" xmlns:ds="http:\/\/www\.w3\.org\/2000\/09\/xmldsig#">$/ );

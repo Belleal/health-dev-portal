@@ -281,4 +281,27 @@ eachDatabase( "Fixed files", ( db ) => {
         // Once the database answers again, the files are made.
         assert.notEqual( await fixedFile( db(), store, fresh, "NHIS-P001.xsd" ), null );
     } );
+
+    // CodeRabbit on #4: a message its generator refuses stays refused until a deploy, yet each request for its files read
+    // every list the module reads, CL011's 39,005 entries among them, and logged again: anyone could make the site do it.
+    it( "remembers a file its generator could not make, and reads nothing for it again", async () => {
+        const twice = await frozenModule( "e-referral", "2.0.0", [ soundP001(), brokenP002() ] );
+        let reads = 0;
+        const counting = { ...interleaved( db(), null ), all: ( sql, params ) => {
+            reads += /FROM resolutions/.test( sql ) ? 1 : 0;
+            return db().all( sql, params );
+        } };
+        const first = await loggedDuring( async () => assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null ) );
+        assert.equal( first.length, 1 );
+        assert.ok( reads > 0 );
+        reads = 0;
+        const again = await loggedDuring( async () => {
+            assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null );
+            assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null );
+        } );
+        assert.deepEqual( [ again, reads ], [ [], 0 ] );
+        // The version's sound files are still made, and the zip, which needs P002, is not.
+        assert.notEqual( await fixedFile( counting, store, twice, "NHIS-P001.xsd" ), null );
+        assert.equal( await loggedDuring( async () => assert.equal( await fixedFile( counting, store, twice, "all.zip" ), null ) ).then( ( logged ) => logged.length ), 1 );
+    } );
 } );
