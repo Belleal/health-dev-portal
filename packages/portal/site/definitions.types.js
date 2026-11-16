@@ -28,9 +28,11 @@
 
 /**
  * @typedef {Object} Address An address as `paths.parseAddress` reads it: the page and its parameters.
- * @property {string|null} lang `null` for a download.
+ * @property {string|null} lang `null` for a download or a schema file.
  * @property {string} page `language` (`/bg`, which redirects to `/bg/`), `home`, `specs`, `spec`, `conditions`,
- *     `dictionary`, `message`, `lists`, `list`, `download`, `errors`, `changes`, `compare` or `feed`.
+ *     `dictionary`, `message`, `lists`, `list`, `download`, `schema-file`, `spec-download`, `errors`, `changes`,
+ *     `compare` or `feed`.
+ * @property {string} [name] A schema file's name: `NHIS-{code}.xsd` or `xmldsig-core-schema.xsd`.
  * @property {string} [spec] A module's key, `rules`, or — under changes — a code list's ID; `null` for the changes index
  *     and the feed of everything.
  * @property {string} [at] A public stage slug or a number, as written: `paths.parseAt` reads it.
@@ -39,7 +41,8 @@
  * @property {string|null} [slug] The selected element's slug, as `paths.elementSlugs` gives it.
  * @property {string} [id] A code list's ID.
  * @property {{q: string|null, expired?: boolean, page?: number}} [query] A list's filter, expired entries and page.
- * @property {string} [ext] A download's format, `json` or `csv`.
+ * @property {string} [ext] A download's format: `json` or `csv` for a code list; `zip`, `json` or, for a sample, `xml`
+ *     for a module version.
  * @property {boolean} [testing] Whether the errors page is testing's.
  * @property {string} [from] The comparison's older number.
  * @property {string} [to] The comparison's newer number.

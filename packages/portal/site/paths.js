@@ -39,6 +39,13 @@ const CODE = /^[A-Z]\d{3}$/;
 const TABS = Object.freeze( [ "elements", "conditions", "changes" ] );
 const MODULE_PAGES = Object.freeze( [ "conditions", "dictionary" ] );
 const EXTENSIONS = Object.freeze( [ "json", "csv" ] );
+// A module version's downloads (plan 8b, decision 7): its zip and its model, and each message's sample.
+const SPEC_EXTENSIONS = Object.freeze( [ "zip", "json" ] );
+const SAMPLE_FILE = /^([A-Z]\d{3})\.xml$/;
+// A set's schema files: each message's XSD, and W3C's xmldsig, which every one of them imports by that name (§4.10).
+const XMLDSIG = "xmldsig-core-schema.xsd";
+const SCHEMA_FILE = /^NHIS-[A-Z]\d{3}\.xsd$/;
+const isSchemaName = ( name ) => name === XMLDSIG || SCHEMA_FILE.test( name );
 const PAGE_NUMBER = /^[1-9]\d*$/;
 
 let publicUrl = null;
@@ -264,6 +271,51 @@ module.exports.download = ( id, number, ext ) => {
 };
 
 /**
+ * A schema file of a module version (design record §7.7; plan 8b, decision 7). At a number it is the fixed
+ * `/schemas/{spec}/{number}/{name}`; at a stage, `/schemas/{stage}/{name}`, which names no module: each message code is
+ * in one module only (all 186 of the eight production modules, measured 2026-11-16).
+ *
+ * @method
+ * @param {string} spec
+ * @param {string} at A number, or a public stage slug.
+ * @param {string} name `NHIS-{code}.xsd`, or `xmldsig-core-schema.xsd`.
+ * @returns {string}
+ * @public
+ */
+module.exports.schemaFile = ( spec, at, name ) => {
+    const where = atSegment( at );
+    const file = checked( name, isSchemaName, "a schema file" );
+    return STAGES.includes( where ) ? `/schemas/${ where }/${ file }` : `/schemas/${ moduleKey( spec ) }/${ where }/${ file }`;
+};
+
+/**
+ * A module version's zip or model (plan 8b, decision 7): `/downloads/specs/{spec}/{at}.{ext}`.
+ *
+ * @method
+ * @param {string} spec
+ * @param {string} at A number, or a public stage slug.
+ * @param {string} ext `zip` or `json`.
+ * @returns {string}
+ * @public
+ */
+module.exports.specDownload = ( spec, at, ext ) => {
+    checked( ext, ( value ) => SPEC_EXTENSIONS.includes( value ), "a module download's format" );
+    return `/downloads/specs/${ moduleKey( spec ) }/${ atSegment( at ) }.${ ext }`;
+};
+
+/**
+ * A message's sample (plan 8b, decisions 3 and 7): `/downloads/specs/{spec}/{at}/{code}.xml`.
+ *
+ * @method
+ * @param {string} spec
+ * @param {string} at A number, or a public stage slug.
+ * @param {string} code
+ * @returns {string}
+ * @public
+ */
+module.exports.sampleDownload = ( spec, at, code ) => `/downloads/specs/${ moduleKey( spec ) }/${ atSegment( at ) }/${ messageCode( code ) }.xml`;
+
+/**
  * The errors and warnings in production, or in testing.
  *
  * @method
@@ -403,9 +455,47 @@ const changesPage = ( lang, rest, search ) => {
     return { lang: lang, page: "compare", spec: spec, from: from, to: to };
 };
 
-// A download, `/downloads/nomenclatures/{id}/{at}.{ext}`.
+// A module version's download: `/downloads/specs/{spec}/{at}.{ext}`, or a sample, `/downloads/specs/{spec}/{at}/{code}.xml`.
+const specDownloadPage = ( rest ) => {
+    const [ spec, at, file ] = rest;
+    if ( typeof spec !== "string" || !MODULE.test( spec ) ) {
+        return null;
+    }
+    if ( rest.length === 3 ) {
+        const sample = SAMPLE_FILE.exec( file );
+        return sample && module.exports.parseAt( at ) !== null ? { lang: null, page: "spec-download", spec: spec, at: at, ext: "xml", code: sample[ 1 ] } : null;
+    }
+    const dot = rest.length === 2 ? at.lastIndexOf( "." ) : -1;
+    if ( dot < 1 ) {
+        return null;
+    }
+    const where = at.slice( 0, dot );
+    const ext = at.slice( dot + 1 );
+    return module.exports.parseAt( where ) !== null && SPEC_EXTENSIONS.includes( ext ) ? { lang: null, page: "spec-download", spec: spec, at: where, ext: ext, code: null } : null;
+};
+
+// A schema file: `/schemas/{spec}/{number}/{name}`, or `/schemas/{stage}/{name}` (decision 7). The name is one a set can
+// hold, or nothing is looked up for it.
+const schemaPage = ( rest ) => {
+    const name = rest[ rest.length - 1 ];
+    if ( typeof name !== "string" || !isSchemaName( name ) ) {
+        return null;
+    }
+    if ( rest.length === 2 && STAGES.includes( rest[ 0 ] ) ) {
+        return { lang: null, page: "schema-file", spec: null, at: rest[ 0 ], name: name };
+    }
+    if ( rest.length === 3 && MODULE.test( rest[ 0 ] ) && NUMBER.test( rest[ 1 ] ) ) {
+        return { lang: null, page: "schema-file", spec: rest[ 0 ], at: rest[ 1 ], name: name };
+    }
+    return null;
+};
+
+// A download, `/downloads/nomenclatures/{id}/{at}.{ext}`, or a module version's under `/downloads/specs/`.
 const downloadPage = ( rest ) => {
     const [ kind, id, file ] = rest;
+    if ( kind === "specs" ) {
+        return specDownloadPage( rest.slice( 1 ) );
+    }
     const dot = typeof file === "string" ? file.lastIndexOf( "." ) : -1;
     if ( rest.length !== 3 || kind !== "nomenclatures" || !LIST.test( id ) || dot < 1 ) {
         return null;
@@ -424,7 +514,8 @@ const downloadPage = ( rest ) => {
  * @param {string} address e.g. `request.originalUrl`.
  * @returns {Object|null} `{ lang, page, …parameters }`: `page` is `language` (the language's own address without its
  *     slash, `/bg`), `home`, `specs`, `spec`, `conditions`, `dictionary`, `message` (with `code`, `tab`, `slug`),
- *     `lists`, `list` (with `query: { q, expired, page }`), `download` (with `lang: null`), `errors` (with `testing`),
+ *     `lists`, `list` (with `query: { q, expired, page }`), `download`, `schema-file` (with `spec`, `null` at a stage, and
+ *     `name`) and `spec-download` (with `ext` and `code`, a sample's), all three with `lang: null`, `errors` (with `testing`),
  *     `changes` (with `spec`, `null` for the index), `compare` (with `from`, `to`) or `feed`. `null` for what is no
  *     address of the site.
  * @public
@@ -449,6 +540,9 @@ module.exports.parseAddress = ( address ) => {
     }
     if ( segments[ 0 ] === "downloads" ) {
         return downloadPage( segments.slice( 1 ) );
+    }
+    if ( segments[ 0 ] === "schemas" ) {
+        return schemaPage( segments.slice( 1 ) );
     }
     const [ lang, section, ...rest ] = segments;
     if ( !LANGUAGES.includes( lang ) ) {
