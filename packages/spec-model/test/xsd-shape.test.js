@@ -135,6 +135,16 @@ describe( "messageShape", () => {
         assert.deepEqual( [ group.kind, group.min, group.max, group.attributes ], [ "group", 1, null, [] ] );
     } );
 
+    // Plan 8b, decision 3: a sample writes a coded value as a key of its list, so the shape says which list.
+    it( "names a coded attribute's list", () => {
+        const shape = messageShape( prescriptionMessage(), LISTS );
+        assert.deepEqual( find( shape, "contents/prescription/group/medication/medicationCode" ).attributes.map( ( attribute ) => [ attribute.name, attribute.codeList ] ),
+            [ [ "value", "CL009" ], [ "name", "CL009" ] ] );
+        assert.equal( find( shape, "contents/prescription/lrn" ).attributes[ 0 ].codeList, null );
+        // doseQuantityCode's variants are a string and a CL035 code: the loosest is a string of no list.
+        assert.equal( find( shape, "contents/prescription/group/medication/doseQuantityCode" ).attributes[ 0 ].codeList, null );
+    } );
+
     it( "makes one element of variants that share a tag, typed by the loosest", () => {
         const dose = find( messageShape( prescriptionMessage(), LISTS ), "contents/prescription/group/medication/doseQuantityCode" );
         assert.deepEqual( [ dose.kind, dose.min, dose.max, dose.attributes.map( ( attribute ) => [ attribute.name, attribute.value ] ) ],

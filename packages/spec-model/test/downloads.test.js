@@ -22,7 +22,8 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { codeListCsv, codeListJson } = require( "@health-dev-portal/spec-model/downloads" );
+const { changelogJson, codeListCsv, codeListJson, moduleModelJson, sampleMessage } = require( "@health-dev-portal/spec-model/downloads" );
+const { prescriptionMessage } = require( "./support/messages" );
 
 const SOURCE = { sheet: "CL007", row: 5 };
 const entry = ( key, overrides = {} ) => ( { key: key, description: { bg: `Запис ${ key }`, en: `Entry ${ key }` }, display: { bg: null, en: null },
@@ -69,4 +70,96 @@ describe( "codeListCsv", () => {
         assert.ok( csv.includes( "\"'=a\"" ) && csv.includes( "\"'+a\"" ) && csv.includes( "\"'-a\"" ) && csv.includes( "\"'@a\"" ) );
         assert.ok( csv.includes( "\"'\ta\"" ) && csv.includes( "\"'\ra\"" ) );
         assert.ok( csv.includes( "\"a=\"" ) && csv.includes( "\"say \"\"hi\"\"\"" ) );    } );
+} );
+
+// A module version's downloads (plan 8b, decisions 3 and 4).
+const LIST_TYPES = [ { id: "CL007", keyType: "string" }, { id: "CL009", keyType: "integer" }, { id: "CL011", keyType: "string" },
+    { id: "CL018", keyType: "integer" }, { id: "CL035", keyType: "integer" } ];
+const VERSION = Object.freeze( { spec: "e-prescription", number: "1.5.1" } );
+// Two sibling fields at one path: messageShape refuses the message with a RangeError.
+const brokenMessage = () => {
+    const twin = () => ( { identity: "contents/identifier@value", path: "contents/identifier", kind: "field", tag: "identifier", attribute: "value", requirement: "R",
+        cardinality: { min: 1, max: 1 }, dataType: "String", constraint: null, fixedValue: null, codeList: null, description: { bg: null, en: null }, children: [] } );
+    return { code: "P002", elements: [ { identity: "contents", path: "contents", kind: "group", tag: "contents", attribute: null, requirement: "R",
+        cardinality: { min: 1, max: 1 }, dataType: null, constraint: null, fixedValue: null, codeList: null, description: { bg: null, en: null }, children: [ twin(), twin() ] } ] };
+};
+const keysAtAnyDepth = ( value ) => Array.isArray( value ) ? value.flatMap( keysAtAnyDepth )
+    : value && typeof value === "object" ? Object.entries( value ).flatMap( ( [ key, inner ] ) => [ key, ...keysAtAnyDepth( inner ) ] ) : [];
+
+describe( "sampleMessage", () => {
+
+    it( "writes a message's sample, declared and commented in both languages", () => {
+        const text = sampleMessage( prescriptionMessage(), VERSION, LIST_TYPES, new Map( [ [ "CL009", "12" ] ] ) );
+        assert.ok( text.startsWith( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ) );
+        assert.match( text, /Синтетичен пример от e-prescription 1\.5\.1/ );
+        assert.match( text, /Synthetic example from e-prescription 1\.5\.1/ );
+        assert.match( text, /<medicationCode value="12" name="12"\/>/ );
+        assert.ok( text.endsWith( "</message>\n" ) );
+    } );
+
+    it( "notes where the signature goes, before the empty one", () => {
+        const message = prescriptionMessage();
+        // The workbook's Signature row is a group at the root, which messageShape makes a reference to xmldsig's.
+        message.elements.push( { identity: "Signature", path: "Signature", kind: "group", tag: "Signature", attribute: null, requirement: "R",
+            cardinality: { min: 1, max: 1 }, dataType: null, constraint: null, fixedValue: null, codeList: null, description: { bg: null, en: null }, children: [] } );
+        assert.match( sampleMessage( message, VERSION, LIST_TYPES, new Map() ), /The XML signature goes here \(xmldsig\)\. -->\n\s*<ds:Signature\/>/ );
+    } );
+
+    it( "throws the message's own RangeError, which the caller keeps to that message", () => {
+        assert.throws( () => sampleMessage( brokenMessage(), VERSION, LIST_TYPES, new Map() ), RangeError );
+    } );
+
+    // Plan 8b, decision 3 (CodeRabbit on #3): only a fixed value the XSD keeps wins. I006's senderId is fixed to "NHIS" on
+    // the integer list CL018; messageShape drops a fixed value its type refuses, and the sample writes the list's key.
+    it( "writes the list's key where the XSD drops a fixed value its type refuses", () => {
+        const message = prescriptionMessage();
+        const sender = message.elements[ 0 ].children[ 0 ];
+        Object.assign( sender, { fixedValue: "NHIS" } );
+        const text = sampleMessage( message, VERSION, LIST_TYPES, new Map( [ [ "CL018", "4" ] ] ) );
+        assert.match( text, /<sender value="4"\/>/ );
+        assert.doesNotMatch( text, /NHIS"/ );
+    } );
+} );
+
+describe( "moduleModelJson", () => {
+
+    it( "writes the model without workbook sources or the studio's bindings", () => {
+        const content = { kind: "module", spec: "e-prescription", version: "1.5.1", messages: [ { ...prescriptionMessage(), source: { sheet: "P001", row: 1 } } ],
+            conditions: [ { id: "CDP29", text: "…", source: { sheet: "Conditions", row: 4 } } ], conditionBindings: [ { identity: "x", condition: "CDP29" } ],
+            blueprintBindings: [ { identity: "contents/prescription", blueprint: "Prescription" } ], dictionary: [ { abbreviation: "ЛЗ", source: { sheet: "Dictionary", row: 2 } } ] };
+        const text = moduleModelJson( content );
+        const model = JSON.parse( text );
+        assert.deepEqual( Object.keys( model ), [ "format", "spec", "version", "messages", "conditions", "dictionary" ] );
+        assert.deepEqual( [ model.format, model.spec, model.version, model.messages[ 0 ].code ], [ "nhis-module/1", "e-prescription", "1.5.1", "P001" ] );
+        assert.equal( keysAtAnyDepth( model ).includes( "source" ), false );
+        assert.ok( text.startsWith( "{\n  \"format\"" ) && text.endsWith( "}\n" ) );
+    } );
+} );
+
+describe( "changelogJson", () => {
+
+    const version = ( number ) => ( { number: number, stage: "production", expiresOn: null, enteredTesting: "2026-01-02", enteredProduction: null, replacedBy: null,
+        abandoned: false, entries: { breaking: [], "dropped-plan": [], "non-breaking": [ { origin: "imported", target: null, aspect: null, before: null, after: null,
+            text: { bg: `Промяна ${ number }`, en: null } } ] } } );
+
+    it( "writes the changelog up to the version, newest first, without dates", () => {
+        const log = JSON.parse( changelogJson( "e-prescription", "1.5.1", [ version( "1.5.2" ), version( "1.5.0" ), version( "1.5.1" ) ] ) );
+        assert.deepEqual( [ log.format, log.spec, log.version ], [ "nhis-changelog/1", "e-prescription", "1.5.1" ] );
+        assert.deepEqual( log.versions.map( ( one ) => one.number ), [ "1.5.1", "1.5.0" ] );
+        assert.deepEqual( Object.keys( log.versions[ 0 ] ), [ "number", "entries" ] );
+        assert.equal( log.versions[ 0 ].entries[ "non-breaking" ][ 0 ].text.bg, "Промяна 1.5.1" );
+    } );
+
+    // Final review of plan 8b: an added or removed element's entry holds the whole element as `after` or `before`, workbook
+    // row included (e-Prescription 1.5.2's zip had `after.source: { sheet: "P001", row: 28 }`), in a file fixed forever.
+    it( "writes the changelog without the workbook rows in its entries' snapshots", () => {
+        const added = { origin: "detected", target: { kind: "element", identity: "contents/x@value" }, aspect: "added", before: null,
+            after: { identity: "contents/x@value", source: { sheet: "P001", row: 28 }, children: [ { identity: "contents/x@name", source: { sheet: "P001", row: 29 } } ] },
+            text: { bg: null, en: null } };
+        const removed = { ...added, aspect: "removed", before: added.after, after: null };
+        const one = { ...version( "1.5.1" ), entries: { breaking: [ removed ], "dropped-plan": [], "non-breaking": [ added ] } };
+        const log = JSON.parse( changelogJson( "e-prescription", "1.5.1", [ one ] ) );
+        assert.equal( keysAtAnyDepth( log ).includes( "source" ), false );
+        assert.equal( log.versions[ 0 ].entries[ "non-breaking" ][ 0 ].after.children[ 0 ].identity, "contents/x@name" );
+    } );
 } );

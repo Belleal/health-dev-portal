@@ -27,13 +27,14 @@
 const { html } = require( "@ti-engine/web-content/html" );
 const { SCRIPT, STYLESHEET, assetPath } = require( "#assets" );
 const { LANGUAGES, label, otherLanguage } = require( "#labels" );
-const { absolute, changes, errors, home, lists, other, specs } = require( "#paths" );
+const { absolute, changes, errors, home, lists, other, schemas, specs } = require( "#paths" );
 
-// The top bar's sections, in order; plan 8b adds schemas, guides and tools.
+// The top bar's sections, in §8.1's order; plan 8c adds guides, FAQ and tools.
 const SECTIONS = Object.freeze( [
     { section: "specs", address: specs, name: ( lang ) => label( lang, "sectionSpecs" ) },
     { section: "nomenclatures", address: lists, name: ( lang ) => label( lang, "sectionNomenclatures" ) },
     { section: "errors", address: errors, name: ( lang ) => label( lang, "sectionErrors" ) },
+    { section: "schemas", address: schemas, name: ( lang ) => label( lang, "sectionSchemas" ) },
     { section: "changes", address: changes, name: ( lang ) => label( lang, "sectionChanges" ) }
 ] );
 
@@ -62,7 +63,8 @@ ${ links }${ fallback === null ? null : html`<link rel="alternate" hreflang="x-d
  * @param {string} parts.path Its own address, which the language switch links in the other language.
  * @param {string|null} [parts.canonical] Its canonical address — a stage page's fixed one (decision 3) — written with
  *     its `hreflang` alternates; `null` for a page that should have none, such as a 404.
- * @param {string|null} [parts.section] The top bar's entry to mark: `specs`, `nomenclatures`, `errors` or `changes`.
+ * @param {string|null} [parts.section] The top bar's entry to mark: `specs`, `nomenclatures`, `errors`, `schemas` or
+ *     `changes`.
  * @param {import( "@ti-engine/web-content/html" ).SafeString|null} [parts.band] The mint band's content.
  * @param {import( "@ti-engine/web-content/html" ).SafeString|null} [parts.sidebar]
  * @param {import( "@ti-engine/web-content/html" ).SafeString} parts.main

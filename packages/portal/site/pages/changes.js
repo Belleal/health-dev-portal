@@ -184,21 +184,24 @@ ${ latest.map( ( one ) => html`<li><span class="muted">${ formatDate( one.on, la
 module.exports.changelogPage = async ( context, parts ) => {
     const { db, lang, request, response, nonce } = context;
     const { spec } = parts;
-    if ( !( await listPublished( db ) ).some( ( one ) => one.spec === spec ) ) {
+    const live = ( await listPublished( db ) ).some( ( one ) => one.spec === spec );
+    const changelog = await publishedChangelog( db, spec );
+    // A spec with public versions but none live — the combined nomenclatures, kept for the notes that name no list (§4.6,
+    // HEL-36) — has a changelog too. With no content left there is nothing to compare, and its feed is a 404.
+    if ( !live && changelog.length === 0 ) {
         notFound( request, response );
         return;
     }
-    const changelog = await publishedChangelog( db, spec );
     const name = specName( spec, lang );
     const main = html`<h1>${ name } · ${ label( lang, "changelog" ) }</h1>
-<p><a href="${ paths.feed( lang, spec ) }">${ label( lang, "changesFeedSpec" ) }</a></p>
+${ live ? html`<p><a href="${ paths.feed( lang, spec ) }">${ label( lang, "changesFeedSpec" ) }</a></p>
 <h2>${ label( lang, "compareLegend" ) }</h2>
-${ comparisonForm( lang, spec, keptVersions( changelog ) ) }
+${ comparisonForm( lang, spec, keptVersions( changelog ) ) }` : null }
 ${ changelog.length === 0 ? html`<p>${ label( lang, "changelogNoVersions" ) }</p>` : changelog.map( ( version ) => versionSection( lang, version, 2 ) ) }`;
     // The feed is named in the head as well as linked, so that a feed reader given the changelog finds it (final review M7).
     send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: `${ name } · ${ label( lang, "changelog" ) }`, path: paths.changes( lang, spec ),
-        canonical: paths.changes( lang, spec ), section: "changes", main: main, feed: { path: paths.feed( lang, spec ), title: `${ name } · ${ label( lang, "changesFeedSpec" ) }` },
-        nonce: nonce } ) } );
+        canonical: paths.changes( lang, spec ), section: "changes", main: main,
+        feed: live ? { path: paths.feed( lang, spec ), title: `${ name } · ${ label( lang, "changesFeedSpec" ) }` } : null, nonce: nonce } ) } );
 };
 
 // The structural differences between two contents, as one table per category: breaking first. A category with none is left

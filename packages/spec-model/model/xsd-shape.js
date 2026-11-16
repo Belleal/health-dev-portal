@@ -201,7 +201,7 @@ function attributeOf( element, codeLists, name, required ) {
     // list CL018). The type wins; linking reports the value as fixed-value-not-a-key.
     const given = element.fixedValue === null || element.fixedValue === undefined ? null : xmlCharacters( element.fixedValue );
     const fixed = given !== null && module.exports.fitsValueType( given, value ) ? given : null;
-    return { name: name, required: required, value: value, fixed: fixed, documentation: codedNote( element ) };
+    return { name: name, required: required, value: value, fixed: fixed, documentation: codedNote( element ), codeList: element.codeList || null };
 }
 
 // A field's attributes: its value, always required as in every published field type, then each attribute row under it,
@@ -227,7 +227,9 @@ function mergedAttributes( variants, codeLists ) {
             required: found.every( ( attribute ) => attribute && attribute.required ),
             value: sameAll( present.map( ( attribute ) => attribute.value ) ) ? present[ 0 ].value : plain( "string" ),
             fixed: sameAll( found.map( ( attribute ) => attribute && attribute.fixed ) ) ? present[ 0 ].fixed : null,
-            documentation: sameAll( found.map( ( attribute ) => attribute && attribute.documentation ) ) ? present[ 0 ].documentation : null
+            documentation: sameAll( found.map( ( attribute ) => attribute && attribute.documentation ) ) ? present[ 0 ].documentation : null,
+            // A list only when every variant reads it: a string variant beside a coded one takes no list's key.
+            codeList: sameAll( found.map( ( attribute ) => attribute && attribute.codeList ) ) ? present[ 0 ].codeList : null
         };
     } );
 }

@@ -21,18 +21,31 @@
 
 const { before, it, mock } = require( "node:test" );
 const assert = require( "node:assert/strict" );
+const JSZip = require( "jszip" );
 const { codeListCsv, codeListJson } = require( "@health-dev-portal/spec-model/downloads" );
+const { generateXsds } = require( "@health-dev-portal/spec-model/xsd-writer" );
 const { migrateSchema } = require( "#schema" );
-const { ensureSpec, storeVersion } = require( "#versions" );
+const { ensureSpec, freezeVersion, storeVersion } = require( "#versions" );
 const { memoryStore, storeFile } = require( "#files" );
 const { startDevelopment } = require( "#development" );
 const { submitRelease } = require( "#releases" );
 const { approveRelease } = require( "#review" );
 const { promoteReleases } = require( "#promotion" );
-const { FIXED_FILES, fixedFile, makeFixedFiles } = require( "#fixed-files" );
+const { recordResolution } = require( "#resolution" );
+const { fixedFile, fixedFilesOf, makeFixedFiles, xmldsigSchema } = require( "#fixed-files" );
 const { eachDatabase, interleaved } = require( "./support/databases" );
 const { ACTOR, APPROVER, NOW } = require( "./support/lifecycle" );
-const { codeListVersion } = require( "./support/models" );
+const { codeListVersion, moduleVersion } = require( "./support/models" );
+
+// The support model's P001 has two `note` siblings at one path, as e-Examination 1.3.10 has (HEL-19), so messageShape
+// refuses it: as P002 here it is the message that cannot be made. With one `note` it is sound.
+const soundP001 = () => {
+    const message = structuredClone( moduleVersion().messages[ 0 ] );
+    message.elements[ 0 ].children = message.elements[ 0 ].children.slice( 0, 3 );
+    return message;
+};
+const brokenP002 = () => ( { ...structuredClone( moduleVersion().messages[ 0 ] ), code: "P002" } );
+const withdrawnP011 = () => ( { ...structuredClone( moduleVersion().messages[ 1 ] ), code: "P011", lifecycle: "withdrawn" } );
 
 const BY_APPROVER = Object.freeze( { actor: APPROVER, now: NOW } );
 
@@ -51,10 +64,10 @@ eachDatabase( "Fixed files", ( db ) => {
         await migrateSchema( db() );
     } );
 
-    it( "has a JSON and a CSV file for a code list, and none for the other kinds yet", () => {
-        assert.deepEqual( FIXED_FILES[ "code-list" ].map( ( file ) => [ file.name, file.type ] ),
+    it( "has a JSON and a CSV file for a code list", () => {
+        assert.deepEqual( fixedFilesOf( { kind: "code-list", content: content }, null ).map( ( file ) => [ file.name, file.type ] ),
             [ [ "list.json", "application/json; charset=utf-8" ], [ "list.csv", "text/csv; charset=utf-8" ] ] );
-        assert.equal( FIXED_FILES.module, undefined );
+        assert.deepEqual( fixedFilesOf( { kind: "rules", content: {} }, null ), [] );
     } );
 
     it( "makes a frozen version's files on first request and keeps them", async () => {
@@ -159,5 +172,136 @@ eachDatabase( "Fixed files", ( db ) => {
         assert.equal( loser.bytes.toString( "utf8" ), "winner" );
         assert.equal( ( await fixedFile( db(), store, id, "list.json" ) ).hash, winner );
         assert.deepEqual( await db().get( "SELECT COUNT(*) AS n FROM fixed_files WHERE version_id = ? AND name = 'list.json'", [ id ] ), { n: 1 } );
+    } );
+
+    // A module version's files (plan 8b, decision 2): what it read is recorded before it freezes, as the migration does.
+    const frozenModule = async ( spec, number, messages ) => {
+        await ensureSpec( db(), spec, "module" );
+        const id = await storeVersion( db(), { spec: spec, kind: "module", number: number, stage: "production", content: { ...moduleVersion( number ), spec: spec, messages: messages } } );
+        await recordResolution( db(), id );
+        await freezeVersion( db(), id );
+        return id;
+    };
+    // Each failure the console's error stream gets while `run` runs.
+    const loggedDuring = async ( run ) => {
+        const error = mock.method( console, "error", () => {} );
+        try {
+            await run();
+            return error.mock.calls.map( ( call ) => String( call.arguments[ 0 ] ) );
+        } finally {
+            error.mock.restore();
+        }
+    };
+    let sound = null;
+    let broken = null;
+
+    before( async () => {
+        // CL009 is an integer list. "1" stopped being valid at the very version the modules read, so it is expired there
+        // (plan 8a, decision 9) and "2" is the first valid key.
+        const list = codeListVersion( "CL009", [ "1", "2", "3" ], "1.5.33" );
+        list.list.entries[ 0 ].validUntil = "1.5.33";
+        await ensureSpec( db(), "CL009", "code-list" );
+        await storeVersion( db(), { spec: "CL009", kind: "code-list", number: "1.5.33", stage: "production", frozen: true, content: list } );
+        sound = await frozenModule( "e-prescription", "1.5.1", [ soundP001(), withdrawnP011() ] );
+        broken = await frozenModule( "e-dental", "1.0.0", [ soundP001(), brokenP002() ] );
+    } );
+
+    it( "makes a module version's XSDs from the key types it recorded", async () => {
+        const file = await fixedFile( db(), store, sound, "NHIS-P001.xsd" );
+        const expected = generateXsds( { ...moduleVersion( "1.5.1" ), messages: [ soundP001(), withdrawnP011() ] }, { codeLists: [ { id: "CL009", keyType: "integer" } ] } );
+        assert.deepEqual( expected.map( ( one ) => one.code ), [ "P001" ] );
+        assert.equal( file.bytes.toString( "utf8" ), expected[ 0 ].text );
+        assert.equal( file.type, "application/xml; charset=utf-8" );
+        // lrn reads CL009, so its value is CL009's key type, xs:int (§4.10): the recorded resolution was read.
+        assert.match( file.bytes.toString( "utf8" ), /type="xs:int"/ );
+    } );
+
+    it( "writes a sample's coded value as the first key not expired", async () => {
+        const text = ( await fixedFile( db(), store, sound, "P001.xml" ) ).bytes.toString( "utf8" );
+        assert.equal( ( await fixedFile( db(), store, sound, "P001.xml" ) ).type, "application/xml; charset=utf-8" );
+        assert.match( text, /<lrn value="2"/ );
+        assert.match( text, /Synthetic example from e-prescription 1\.5\.1/ );
+    } );
+
+    it( "gives a withdrawn message no files", async () => {
+        assert.equal( await fixedFile( db(), store, sound, "NHIS-P011.xsd" ), null );
+        assert.equal( await fixedFile( db(), store, sound, "P011.xml" ), null );
+    } );
+
+    it( "zips every file under the version's folder, with xmldsig beside the XSDs", async () => {
+        const file = await fixedFile( db(), store, sound, "all.zip" );
+        assert.equal( file.type, "application/zip" );
+        const zip = await JSZip.loadAsync( file.bytes );
+        assert.deepEqual( Object.keys( zip.files ).filter( ( name ) => !name.endsWith( "/" ) ).sort(), [
+            "e-prescription-1.5.1/changelog.json", "e-prescription-1.5.1/model.json", "e-prescription-1.5.1/samples/P001.xml",
+            "e-prescription-1.5.1/xsd/NHIS-P001.xsd", "e-prescription-1.5.1/xsd/xmldsig-core-schema.xsd" ] );
+        assert.deepEqual( await zip.file( "e-prescription-1.5.1/xsd/xmldsig-core-schema.xsd" ).async( "nodebuffer" ), xmldsigSchema() );
+        assert.equal( await zip.file( "e-prescription-1.5.1/xsd/NHIS-P001.xsd" ).async( "string" ), ( await fixedFile( db(), store, sound, "NHIS-P001.xsd" ) ).bytes.toString( "utf8" ) );
+        assert.equal( JSON.parse( await zip.file( "e-prescription-1.5.1/model.json" ).async( "string" ) ).format, "nhis-module/1" );
+        assert.equal( JSON.parse( await zip.file( "e-prescription-1.5.1/changelog.json" ).async( "string" ) ).format, "nhis-changelog/1" );
+    } );
+
+    it( "logs a file it cannot make, stores nothing, and answers null", async () => {
+        let answer;
+        const logged = await loggedDuring( async () => {
+            answer = await fixedFile( db(), store, broken, "NHIS-P002.xsd" );
+        } );
+        assert.equal( answer, null );
+        assert.equal( logged.length, 1 );
+        assert.match( logged[ 0 ], new RegExp( `${ broken }.*NHIS-P002\\.xsd|NHIS-P002\\.xsd.*${ broken }` ) );
+        assert.equal( await db().get( "SELECT 1 AS one FROM fixed_files WHERE version_id = ? AND name = ?", [ broken, "NHIS-P002.xsd" ] ), null );
+    } );
+
+    it( "keeps the other messages' files when one cannot be made, and makes no zip", async () => {
+        await loggedDuring( async () => {
+            assert.notEqual( await fixedFile( db(), store, broken, "NHIS-P001.xsd" ), null );
+            assert.notEqual( await fixedFile( db(), store, broken, "P001.xml" ), null );
+            assert.equal( await fixedFile( db(), store, broken, "all.zip" ), null );
+        } );
+        assert.equal( await db().get( "SELECT 1 AS one FROM fixed_files WHERE version_id = ? AND name = ?", [ broken, "all.zip" ] ), null );
+    } );
+
+    it( "makes every file a module version can have at once, and leaves out the ones it cannot", async () => {
+        await loggedDuring( () => makeFixedFiles( db(), store, broken ) );
+        assert.deepEqual( await names( broken ), [ "NHIS-P001.xsd", "P001.xml", "changelog.json", "model.json" ] );
+    } );
+
+    // Final review of plan 8b: a database that fails while a file's inputs are read is no generator's failure. Caught as
+    // one, it was a 404 cached for a minute, and the message's tab said the file could not be made.
+    it( "lets a failure to read a version's inputs propagate, storing and logging nothing", async () => {
+        const fresh = await frozenModule( "e-immunization", "1.0.0", [ soundP001() ] );
+        const failing = { ...interleaved( db(), null ), all: ( sql, params ) => /FROM resolutions/.test( sql )
+            ? Promise.reject( new Error( "connection lost" ) ) : db().all( sql, params ) };
+        for ( const name of [ "NHIS-P001.xsd", "P001.xml", "changelog.json", "all.zip" ] ) {
+            const logged = await loggedDuring( () => assert.rejects( fixedFile( failing, store, fresh, name ), /connection lost/, name ) );
+            assert.deepEqual( logged, [], name );
+        }
+        await assert.rejects( loggedDuring( () => makeFixedFiles( failing, store, fresh ) ), /connection lost/ );
+        assert.deepEqual( await names( fresh ), [] );
+        // Once the database answers again, the files are made.
+        assert.notEqual( await fixedFile( db(), store, fresh, "NHIS-P001.xsd" ), null );
+    } );
+
+    // CodeRabbit on #4: a message its generator refuses stays refused until a deploy, yet each request for its files read
+    // every list the module reads, CL011's 39,005 entries among them, and logged again: anyone could make the site do it.
+    it( "remembers a file its generator could not make, and reads nothing for it again", async () => {
+        const twice = await frozenModule( "e-referral", "2.0.0", [ soundP001(), brokenP002() ] );
+        let reads = 0;
+        const counting = { ...interleaved( db(), null ), all: ( sql, params ) => {
+            reads += /FROM resolutions/.test( sql ) ? 1 : 0;
+            return db().all( sql, params );
+        } };
+        const first = await loggedDuring( async () => assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null ) );
+        assert.equal( first.length, 1 );
+        assert.ok( reads > 0 );
+        reads = 0;
+        const again = await loggedDuring( async () => {
+            assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null );
+            assert.equal( await fixedFile( counting, store, twice, "NHIS-P002.xsd" ), null );
+        } );
+        assert.deepEqual( [ again, reads ], [ [], 0 ] );
+        // The version's sound files are still made, and the zip, which needs P002, is not.
+        assert.notEqual( await fixedFile( counting, store, twice, "NHIS-P001.xsd" ), null );
+        assert.equal( await loggedDuring( async () => assert.equal( await fixedFile( counting, store, twice, "all.zip" ), null ) ).then( ( logged ) => logged.length ), 1 );
     } );
 } );

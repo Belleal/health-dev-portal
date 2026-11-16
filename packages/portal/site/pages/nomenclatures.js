@@ -103,8 +103,10 @@ module.exports.listsPage = async ( context, parts ) => {
         return forms.some( ( form ) => text.includes( form ) );
     } );
     const title = label( lang, "sectionNomenclatures" );
+    // The combined notes that name no list are shown on the nomenclatures pages (§4.6, HEL-36): their changelog is linked here.
     const main = html`<h1>${ title }</h1>
 <p>${ label( lang, "listsLede" ) }</p>
+<p><a href="${ paths.changes( lang, "nomenclatures" ) }">${ label( lang, "combinedHistoryLink" ) }</a></p>
 ${ filterForm( lang, { action: paths.lists( lang ), q: q } ) }
 <p>${ label( lang, "listsCount", { count: shown.length } ) }</p>
 ${ shown.length === 0 ? html`<p>${ label( lang, "listsNone" ) }</p>` : html`<table class="rows">

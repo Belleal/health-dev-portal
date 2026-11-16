@@ -118,7 +118,7 @@ describe( "Addresses", () => {
             "/bg/specs/e-prescription/development", "/bg/specs/e-prescription/implementation", "/bg/specs/e-prescription/retired",
             "/bg/specs/e-prescription/1.5.", "/bg/specs/e-prescription/v1.5.1", "/bg/specs/CL007/production", "/bg/nomenclatures/e-prescription/production",
             "/bg/specs/e-prescription/1.5.1/p001", "/bg/specs/e-prescription/1.5.1/P001/elements", "/bg/specs/e-prescription/1.5.1/P001/elements/",
-            "/bg/specs/e-prescription/1.5.1/P001/elements/a//b", "/bg/specs/e-prescription/1.5.1/P001/xsd", "/bg/specs/%3Cscript%3E/production",
+            "/bg/specs/e-prescription/1.5.1/P001/elements/a//b", "/bg/specs/e-prescription/1.5.1/P001/model", "/bg/specs/%3Cscript%3E/production",
             "/bg/specs/e-prescription/1.5.1/P001/elements/%E0%A4%A", "/bg/changes/e-prescription/compare?from=../1.5.1&to=1.5.2",
             "/bg/changes/e-prescription/compare?from=1.5.1", "/bg/nomenclatures/CL007/production?page=0", "/bg/nomenclatures/CL007/production?page=2x",
             "/downloads/nomenclatures/CL007/1.5.34.xml", "/downloads/nomenclatures/CL007/development.json", "/downloads/nomenclatures/e-prescription/1.5.1.json",
