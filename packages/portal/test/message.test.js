@@ -22,8 +22,11 @@
  * element and has no number with more than one digit.
  */
 
-const { after, before, describe, it } = require( "node:test" );
+const { after, before, describe, it, mock } = require( "node:test" );
 const assert = require( "node:assert/strict" );
+const crypto = require( "node:crypto" );
+const fs = require( "node:fs" );
+const path = require( "node:path" );
 const { SEED, SEEDED, assertPublic, get, rowOf, rowsOf, seedContent, startPortal } = require( "./support/server" );
 const { escapeHtml } = require( "@ti-engine/web-content/html" );
 const { describeConstraint, spellConstraint } = require( "#format" );
@@ -293,5 +296,62 @@ describe( "The message page", { skip: !SEEDED && "build the seed first: npm run 
         const response = await get( "/bg/specs/e-prescription/1.5.1/P001" );
         assert.match( rowOf( response.text, "contents/prescription/allowedRepeatsNumber" ), /<td>до 1 цифра<\/td>/ );
         assert.match( rowOf( ( await get( "/en/specs/e-prescription/1.5.1/P001" ) ).text, "contents/prescription/allowedRepeatsNumber" ), /<td>up to 1 digit<\/td>/ );
+    } );
+
+    // Plan 8b, decision 9: the two tabs plan 8a left out, in §8.3's order.
+    const tabsOf = ( text ) => [ .../<ul class="tabs">([\s\S]*?)<\/ul>/.exec( text )[ 1 ].matchAll( /<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g ) ]
+        .map( ( found ) => [ found[ 1 ], found[ 2 ] ] );
+
+    it( "orders the tabs as §8.3 does", async () => {
+        assert.deepEqual( tabsOf( ( await get( "/en/specs/e-prescription/1.5.1/P001" ) ).text ), [
+            [ "/en/specs/e-prescription/1.5.1/P001", "Elements" ], [ "/en/specs/e-prescription/1.5.1/P001/sample", "Sample message" ],
+            [ "/en/specs/e-prescription/1.5.1/P001/conditions", "Conditions" ], [ "/en/specs/e-prescription/1.5.1/P001/xsd", "XSD" ],
+            [ "/en/specs/e-prescription/1.5.1/P001/changes", "Changes" ] ] );
+    } );
+
+    it( "shows a message's XSD, escaped, with its download link", async () => {
+        const response = await get( "/bg/specs/e-prescription/1.5.1/P001/xsd" );
+        assert.equal( response.status, 200 );
+        assertPublic( response, BRIEF );
+        assert.match( response.text, /<pre><code id="[^"]+">&lt;\?xml version=/ );
+        assert.match( response.text, /href="\/schemas\/e-prescription\/1\.5\.1\/NHIS-P001\.xsd"/ );
+        assert.match( response.text, /<a href="\/bg\/specs\/e-prescription\/1\.5\.1\/P001\/xsd" aria-current="page">XSD<\/a>/ );
+        // A stage's page shows the version at that stage, and links its file by number.
+        assert.match( ( await get( "/bg/specs/e-prescription/testing/P001/xsd" ) ).text, /href="\/schemas\/e-prescription\/1\.5\.2\/NHIS-P001\.xsd"/ );
+    } );
+
+    it( "shows a message's sample, and says it is synthetic", async () => {
+        const response = await get( "/en/specs/e-prescription/1.5.1/P001/sample" );
+        assert.equal( response.status, 200 );
+        assert.match( response.text, /<pre><code id="[^"]+">&lt;\?xml version=[\s\S]*?&lt;message xmlns=/ );
+        assert.match( response.text, /href="\/downloads\/specs\/e-prescription\/1\.5\.1\/P001\.xml"/ );
+        assert.match( response.text, /<p>A synthetic sample: every element once, with values the XSD accepts\. It is not a real message\.<\/p>/ );
+    } );
+
+    it( "says a withdrawn message has no XSD and no sample", async () => {
+        for ( const tab of [ "xsd", "sample" ] ) {
+            const response = await get( `/en/specs/e-prescription/1.5.1/P011/${ tab }` );
+            assert.equal( response.status, 200, tab );
+            assert.doesNotMatch( response.text, /<pre>/, tab );
+            assert.match( response.text, /This message is withdrawn: it has no XSD and no sample\./, tab );
+        }
+    } );
+
+    it( "says when a file could not be made", async () => {
+        // P002's XSD, made, then its bytes taken from this server's copy of the file store: the data layer then answers no
+        // file, and reports it on the error stream (plan 8a, final review).
+        const made = await fetch( `${ portal.url }/schemas/e-prescription/1.5.1/NHIS-P002.xsd` );
+        const hash = crypto.createHash( "sha256" ).update( Buffer.from( await made.arrayBuffer() ) ).digest( "hex" );
+        fs.rmSync( path.join( portal.files, hash.slice( 0, 2 ), hash ) );
+        const error = mock.method( console, "error", () => {} );
+        let response;
+        try {
+            response = await get( "/en/specs/e-prescription/1.5.1/P002/xsd" );
+        } finally {
+            error.mock.restore();
+        }
+        assert.equal( response.status, 200 );
+        assert.doesNotMatch( response.text, /<pre>/ );
+        assert.match( response.text, /The file could not be made\./ );
     } );
 } );

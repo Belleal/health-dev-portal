@@ -36,7 +36,7 @@ const MODULE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LIST = /^CL[A-Z0-9]+$/;
 // A message's code, as the module workbooks name their sheets (importer's module-importer.js).
 const CODE = /^[A-Z]\d{3}$/;
-const TABS = Object.freeze( [ "elements", "conditions", "changes" ] );
+const TABS = Object.freeze( [ "elements", "sample", "conditions", "xsd", "changes" ] );
 const MODULE_PAGES = Object.freeze( [ "conditions", "dictionary" ] );
 const EXTENSIONS = Object.freeze( [ "json", "csv" ] );
 // A module version's downloads (plan 8b, decision 7): its zip and its model, and each message's sample.
