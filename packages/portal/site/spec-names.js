@@ -39,10 +39,17 @@ module.exports.SPEC_NAMES = Object.freeze( [
     { spec: "rules", name: { bg: "Бизнес правила", en: "Business rules" } }
 ].map( ( one ) => Object.freeze( { spec: one.spec, name: Object.freeze( one.name ) } ) ) );
 
-const BY_SPEC = new Map( module.exports.SPEC_NAMES.map( ( one ) => [ one.spec, one.name ] ) );
+// Named, but in no list the home page shows: the combined nomenclatures, kept for the notes of their versions that name
+// no list (design record §4.6; plan 8b, decision 10; HEL-36).
+const UNLISTED = Object.freeze( [
+    { spec: "nomenclatures", name: Object.freeze( { bg: "Номенклатури преди разделянето", en: "Nomenclatures before the split" } ) }
+] );
+
+const BY_SPEC = new Map( [ ...module.exports.SPEC_NAMES, ...UNLISTED ].map( ( one ) => [ one.spec, one.name ] ) );
 
 /**
- * A module's or the rules' name in a language; a spec not named here shows its ID, so a new module is never nameless.
+ * A module's or the rules' name in a language, or the combined nomenclatures'; a spec not named here shows its ID, so
+ * a new module is never nameless.
  *
  * @method
  * @param {string} spec
