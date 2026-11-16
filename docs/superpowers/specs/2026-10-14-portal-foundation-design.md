@@ -247,8 +247,8 @@ Each message has a tree of elements. An element has:
 
 - a **kind**: `group`, `field`, `polymorphic` (its variants as children), `attribute`;
 - required / conditional / optional, and cardinality (min, max);
-- a data type and a **structured** constraint (length, character class, format) instead of the text
-  `min=1, max=255, chars=an`;
+- a data type and a **structured** constraint (length, a number's digits, character class, format) instead of the
+  text `min=1, max=255, chars=an`;
 - fixed and default values;
 - references to rules, conditions and a code list;
 - its XML tag and attribute, and its order;
@@ -550,11 +550,15 @@ against (§4.8), so any kept version's XSDs can be generated again.
 
     `ans` has no definition there and adds no pattern. The shared header's `senderISName` may be Cyrillic (Boris,
     2026-11-06, HEL-26), so its `chars=an` is a defect of the sources, which drop it; `an` itself keeps its meaning.
-  - A number gets no bounds, for now.
-    - `max=` on a number is a digit count (Boris, 2026-11-06, HEL-26): sick-leave `days max=2`, `daysAfter max=3`.
-    - The import still takes it as a value, and as `maxInclusive` it refused a 14-day sick leave. Reading it as digits
-      and writing `xs:totalDigits` is HEL-34, which changes this point with it.
-    - Today's XSDs bound none of these fields.
+  - A number's one restriction is its count of digits.
+    - `max=` on a number counts its digits (Boris, 2026-11-06, HEL-26) and becomes `xs:totalDigits` (HEL-34). So
+      sick-leave `days max=2` allows 14 days. Read as a value, as the import did until HEL-34, `maxInclusive 2`
+      refused them.
+    - Where today's XSDs bound such a field, they agree: `NHIS-Fields` writes `allowedRepeatsNumber` (`max=1`) as
+      `totalDigits 1`. They bound none of the sick-leave fields, so there the generated XSD is stricter on purpose, and
+      the drift report calls it `deliberate`.
+    - No workbook writes `min=` on a number: none of the 15 numeric constraints of the eight production modules
+      does (measured 2026-11-16). The import reports one rather than give it a meaning.
   - A constraint the importer could not read adds nothing, since the import has already reported it.
 
   Today's XSDs already enforce these classes on most fields. In e-Dental 1.0.5, 93 of the 101 fields with a class
@@ -1546,7 +1550,6 @@ analytics; forum migration (a side task — "Project Space" may not be migratabl
 | Before generated XSDs are published (HEL-26, answered 2026-11-06, §4.10): whether D001, D006 and H005 keep the workbook's field order or the workbook takes today's | Boris |
 | `senderISName`'s `chars=an` dropped from the module sources (HEL-26) | Spec team |
 | e-Dental 1.0.7's change note puts `patientSignature` in `dentalTreatment`; it goes beside `contents`, where the rows have it (HEL-26) | Spec team |
-| `max=` on a number read as a digit count and written as `xs:totalDigits` (HEL-34) | Portal |
 | Writing the guides (§8.1) | Solution architect, who may delegate to a business analyst |
 | Today's message XSDs reference `ds:Signature` without importing xmldsig, and their `messageType` pattern leaves out D and L (HEL-27) | his.bg |
 | Announcing the new XSDs: classes change shape, `dataType` is dropped, code lists stay unenforced (§4.10) | Solution architect |

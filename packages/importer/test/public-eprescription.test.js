@@ -89,7 +89,7 @@ describe( "e-Prescription 1.5.1, the published workbook", { skip: PRESENT ? fals
         assert.equal( unit.kind, "polymorphic" );
         assert.deepEqual( unit.children.map( ( variant ) => variant.dataType ), [ "String", "Codeable Concept" ] );
         assert.equal( unit.children[ 1 ].codeList, "CL035" );
-        assert.equal( element( "P001", "contents/prescription/allowedRepeatsNumber@value" ).constraint.maxValue, 1 );
+        assert.equal( element( "P001", "contents/prescription/allowedRepeatsNumber@value" ).constraint.maxDigits, 1 );
     } );
 
     it( "reports the known source defects as warnings", () => {

@@ -384,8 +384,17 @@
       "attribute": "value",
       "kind": "value-type",
       "published": "positiveInteger",
-      "generated": "unsignedInt",
+      "generated": "unsignedInt, totalDigits 2",
       "cause": "unexplained"
+    },
+    {
+      "message": "H005",
+      "path": "contents/hospitalization/sickLeave/daysAfter",
+      "attribute": "value",
+      "kind": "value-type",
+      "published": "positiveInteger",
+      "generated": "positiveInteger, totalDigits 2",
+      "cause": "deliberate"
     },
     {
       "message": "H006",

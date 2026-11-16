@@ -79,9 +79,13 @@ describe( "valueTypeOf", () => {
             type( "string", { maxLength: 255 } ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "see the note" } } ), LISTS ), type( "string" ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "YYMMDD", format: "yymmdd" } } ), LISTS ), type( "string", { patterns: [ "[0-9]{6}" ] } ) );
-        // On a number, the workbooks' max= is evidently a digit count — sick-leave days max=2, daysAfter max=3 — though the
-        // import reads it as a value. Written as maxInclusive it refused a 14-day sick leave; today's XSDs bound none.
-        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "max=2", maxValue: 2 } } ), LISTS ), type( "positiveInteger" ) );
+        // On a number, max= counts digits (HEL-34): sick-leave days max=2 is xs:totalDigits 2, so a 14-day leave fits.
+        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "max=2", maxDigits: 2 } } ), LISTS ),
+            type( "positiveInteger", { totalDigits: 2 } ) );
+        assert.deepEqual( valueTypeOf( element( { dataType: "Unsigned Int", constraint: { raw: "max=1", maxDigits: 1 } } ), LISTS ),
+            type( "unsignedInt", { totalDigits: 1 } ) );
+        // A min= on a number is reported at import and split into nothing, so it adds no facet.
+        assert.deepEqual( valueTypeOf( element( { dataType: "Positive Int", constraint: { raw: "min=1" } } ), LISTS ), type( "positiveInteger" ) );
         assert.deepEqual( valueTypeOf( element( { dataType: "String", constraint: { raw: "base64", format: "base64" } } ), LISTS ), type( "base64Binary" ) );
         // A code-list value is typed by its list alone: its key, not its length, is what the list defines.
         assert.deepEqual( valueTypeOf( element( { dataType: "Codeable Concept", codeList: "CL007", constraint: { raw: "max=2, chars=an", maxLength: 2, charset: "an" } } ), LISTS ),
@@ -96,7 +100,15 @@ describe( "valueTypeOf", () => {
             [ "2026-01-02", type( "date" ), true ], [ "02.01.2026", type( "date" ), false ], [ "2026-01-02T03:04:05", type( "dateTime" ), true ],
             [ "P001", type( "string", { minLength: 4, maxLength: 4, patterns: [ CHARSET_PATTERNS.an ] } ), true ],
             [ "Р001", type( "string", { patterns: [ CHARSET_PATTERNS.an ] } ), false ], [ "Русе", type( "string", { patterns: [ CHARSET_PATTERNS.a ] } ), true ],
-            [ "12", type( "string", { minLength: 3 } ), false ], [ "5", type( "int", { minInclusive: "1", maxInclusive: "4" } ), false ]
+            [ "12", type( "string", { minLength: 3 } ), false ], [ "5", type( "int", { minInclusive: "1", maxInclusive: "4" } ), false ],
+            // totalDigits counts significant digits, as libxml2 does (measured with xmllint-wasm, 2026-11-16): a sign and
+            // leading zeros do not count, nor a fraction's trailing zeros, but a fraction's leading zeros do.
+            [ "14", type( "positiveInteger", { totalDigits: 2 } ), true ], [ "100", type( "positiveInteger", { totalDigits: 2 } ), false ],
+            [ "0014", type( "positiveInteger", { totalDigits: 2 } ), true ], [ "+7", type( "positiveInteger", { totalDigits: 1 } ), true ],
+            [ "0", type( "unsignedInt", { totalDigits: 1 } ), true ], [ "10", type( "unsignedInt", { totalDigits: 1 } ), false ],
+            [ "-5", type( "int", { totalDigits: 1 } ), true ], [ "-15", type( "int", { totalDigits: 1 } ), false ],
+            [ "1.250", type( "decimal", { totalDigits: 3 } ), true ], [ "12.34", type( "decimal", { totalDigits: 3 } ), false ],
+            [ "0.05", type( "decimal", { totalDigits: 2 } ), true ], [ "0.05", type( "decimal", { totalDigits: 1 } ), false ]
         ];
         assert.deepEqual( cases.map( ( [ value, valueType ] ) => fitsValueType( value, valueType ) ), cases.map( ( [ , , fits ] ) => fits ) );
     } );

@@ -99,7 +99,7 @@ const narrows = ( before, after ) => {
     const a = after || {};
     const tighter = ( field, lower ) => a[ field ] !== undefined && ( b[ field ] === undefined || ( lower ? a[ field ] < b[ field ] : a[ field ] > b[ field ] ) );
     const changed = ( field ) => a[ field ] !== undefined && a[ field ] !== b[ field ];
-    return tighter( "maxLength", true ) || tighter( "maxValue", true ) || tighter( "minLength", false ) || tighter( "minValue", false ) || changed( "charset" ) || changed( "format" );
+    return tighter( "maxLength", true ) || tighter( "maxDigits", true ) || tighter( "minLength", false ) || changed( "charset" ) || changed( "format" );
 };
 const added = ( before, after ) => ( after || [] ).some( ( value ) => !( before || [] ).includes( value ) );
 

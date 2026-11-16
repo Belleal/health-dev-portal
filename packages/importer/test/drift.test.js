@@ -61,13 +61,16 @@ if ( !PRESENT && process.env.CI ) {
 // a change no note names, so these counts are a baseline for review, not a verdict. Since the final review, a note
 // explains only its own message and quoted path, never an order difference, and a field today's shared type requires
 // is no looseness.
+// HEL-34 (2026-11-16): a number's max= became xs:totalDigits. Sick-leave days and daysAfter gained a deliberate entry each
+// in e-Referral (1), e-Examination (1) and e-Hospitalization (2). e-Prescription lost two unexplained entries: today's
+// NHIS-Fields already writes allowedRepeatsNumber as totalDigits 1, so P001 and P004 now agree with it.
 const ACROSS_VERSIONS = Object.freeze( {
-    "e-prescription": { "deliberate": 136, "unexplained": 91, "change-note": 33, "shared-type": 21, "choice": 13 },
+    "e-prescription": { "deliberate": 136, "unexplained": 89, "change-note": 33, "shared-type": 21, "choice": 13 },
     "common-services": { "deliberate": 94, "unexplained": 94, "shared-type": 11, "change-note": 9, "choice": 3 },
-    "e-referral": { "deliberate": 256, "unexplained": 183, "choice": 34, "change-note": 2, "shared-type": 19 },
+    "e-referral": { "deliberate": 257, "unexplained": 183, "choice": 34, "change-note": 2, "shared-type": 19 },
     "e-dental": { "deliberate": 97, "unexplained": 55, "shared-type": 1 },
-    "e-examination": { "deliberate": 128, "unexplained": 83, "change-note": 7, "shared-type": 16 },
-    "e-hospitalization": { "deliberate": 163, "unexplained": 107, "choice": 3, "shared-type": 21, "change-note": 6 },
+    "e-examination": { "deliberate": 129, "unexplained": 83, "change-note": 7, "shared-type": 16 },
+    "e-hospitalization": { "deliberate": 165, "unexplained": 107, "choice": 3, "shared-type": 21, "change-note": 6 },
     "e-immunization": { "deliberate": 68, "unexplained": 46, "change-note": 18, "shared-type": 6 }
 } );
 

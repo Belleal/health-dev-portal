@@ -102,6 +102,10 @@ describe( "compareContents", () => {
         assert.equal( one( { raw: "max=20", maxLength: 20 }, { raw: "max=36", maxLength: 36 } ), "non-breaking" );
         assert.equal( one( null, { raw: "chars=n", charset: "n" } ), "breaking" );
         assert.equal( one( { raw: "chars=n", charset: "n" }, null ), "non-breaking" );
+        // On a number, max= counts digits (HEL-34): fewer digits refuses what was valid, more accepts what was not.
+        assert.equal( one( { raw: "max=3", maxDigits: 3 }, { raw: "max=2", maxDigits: 2 } ), "breaking" );
+        assert.equal( one( { raw: "max=2", maxDigits: 2 }, { raw: "max=3", maxDigits: 3 } ), "non-breaking" );
+        assert.equal( one( null, { raw: "max=2", maxDigits: 2 } ), "breaking" );
     } );
 
     // XSDs are sequences in the workbook's row order (design record §4.10): an element moved changes the wire.

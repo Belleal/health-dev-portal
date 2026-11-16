@@ -43,6 +43,9 @@ const BASES = Object.freeze( {
     "Unsigned Int": "unsignedInt"
 } );
 
+// The built-ins that take xs:totalDigits; on any other a generated XSD with the facet would not compile.
+const NUMBERS = new Set( [ "decimal", "int", "positiveInteger", "unsignedInt" ] );
+
 const YYMMDD = "[0-9]{6}";
 
 const plain = ( base ) => ( { base: base, minLength: null, maxLength: null, patterns: [], minInclusive: null, maxInclusive: null, enumeration: [],
@@ -67,7 +70,7 @@ module.exports.typeNameOf = ( path ) => path === ""
  * or `xs:string`, and never enumerated: an enumeration would tie a message to one nomenclatures version, and a vendor's
  * generated `enum` would break on the next code. Otherwise the "Data types" name gives the built-in — a `base64` string
  * is `xs:base64Binary` — and the structured constraint a string's facets: lengths, the character class, and `[0-9]{6}`
- * for `YYMMDD`. A number gets none (design record §4.10).
+ * for `YYMMDD`. A number's one facet is `xs:totalDigits`, from its `max=` (design record §4.10).
  *
  * @method
  * @param {import( "#definitions" ).ElementNode} element
@@ -83,9 +86,12 @@ module.exports.valueTypeOf = ( element, codeLists ) => {
     const constraint = element.constraint;
     // A string the workbook marks base64 (e-Hospitalization's epicrisis fileData) is xs:base64Binary, as today.
     const value = plain( constraint && constraint.format === "base64" ? "base64Binary" : BASES[ element.dataType ] || "string" );
+    if ( constraint && NUMBERS.has( value.base ) ) {
+        // A number's max= counts its digits (Boris, 2026-11-06, HEL-34). As maxInclusive it refused a 14-day sick leave.
+        value.totalDigits = constraint.maxDigits ?? null;
+        return value;
+    }
     if ( !constraint || value.base !== "string" ) {
-        // A number gets no bounds: the workbooks' max= on one is evidently a digit count (sick-leave days max=2,
-        // daysAfter max=3), not a value, and as maxInclusive it refused a 14-day sick leave. Today's XSDs bound none.
         return value;
     }
     value.minLength = constraint.minLength ?? null;
@@ -111,9 +117,16 @@ const LEXICAL = Object.freeze( {
 } );
 const RANGES = Object.freeze( { int: [ -2147483648, 2147483647 ], positiveInteger: [ 1, Infinity ], unsignedInt: [ 0, 4294967295 ] } );
 
+// The digits xs:totalDigits counts, as libxml2 counts them (measured with xmllint-wasm, 2026-11-16): not a sign, not the
+// whole part's leading zeros, not the fraction's trailing zeros, but the fraction's leading zeros, so 0.05 has two.
+const significantDigits = ( value ) => {
+    const [ whole, fraction = "" ] = value.replace( /^[+-]/, "" ).split( "." );
+    return whole.replace( /^0+/, "" ).length + fraction.replace( /0+$/, "" ).length;
+};
+
 /**
- * Whether a value is valid for a value type: its base's lexical form and range, its lengths, every pattern, its bounds
- * and its enumeration. The generator writes no fixed value its own type would refuse — an XSD with one does not
+ * Whether a value is valid for a value type: its base's lexical form and range, its lengths, every pattern, its bounds,
+ * its digits and its enumeration. The generator writes no fixed value its own type would refuse — an XSD with one does not
  * compile — and the synthetic messages pick their values by it. Patterns are read as JavaScript regular expressions over
  * the whole value, which the NHIS patterns are written as.
  *
@@ -141,6 +154,9 @@ module.exports.fitsValueType = ( value, valueType ) => {
     }
     if ( ( valueType.minInclusive !== null && Number( value ) < Number( valueType.minInclusive ) )
         || ( valueType.maxInclusive !== null && Number( value ) > Number( valueType.maxInclusive ) ) ) {
+        return false;
+    }
+    if ( typeof valueType.totalDigits === "number" && significantDigits( value ) > valueType.totalDigits ) {
         return false;
     }
     return valueType.enumeration.length === 0 || valueType.enumeration.includes( value );
