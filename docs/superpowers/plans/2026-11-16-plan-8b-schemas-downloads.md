@@ -72,8 +72,9 @@ Reject any at review, before Task 1.
 3. **The sample message** (§8.3, a design call this plan records there). `synthesizeMessage` of the message's shape, the shape its XSD is written from:
    - **Elements:** each `max( min, 1 )` times, so an optional one appears once.
    - **Coded values:**
-     - **A fixed value wins,** since its XSD requires it. 242 of the 1,500 coded elements in the eight production modules have one, among them every header's sender and recipient (measured 2026-11-16, CodeRabbit on #3).
-     - **A fixed value that is no key of its list is still written.** The XSD requires it, and linking already reports it as `fixed-value-not-a-key`.
+     - **A fixed value the XSD keeps wins,** since the XSD then requires it. 242 of the 1,500 coded elements in the eight production modules have one, among them every header's sender and recipient (measured 2026-11-16, CodeRabbit on #3).
+     - **A kept fixed value that is no key of its list is still written.** The XSD requires it, and linking already reports it as `fixed-value-not-a-key`.
+     - **A fixed value the XSD drops is not written.** `messageShape` drops one its own type refuses, such as I006's `senderId`, fixed to `NHIS` on the integer list CL018, so the XSD holds no fixed value there. The sample then writes the list's key, as for any other coded value; written, `NHIS` would fail the XSD (CodeRabbit on #3).
      - **Any other coded value** is the first key of its list that has not expired, so the message tester (plan 11) will accept it.
    - **Other values:** `synthesizeMessage`'s own, which fit the XSD.
    - **Layout:**
@@ -264,6 +265,11 @@ it( "writes a coded value as the key it is given for its list", () => {
 it( "keeps a field's fixed value over its list's key", () => {
     // header/recipient: codeList "CL018", fixed "4", as every common-services message has it
     assert.match( synthesizeMessage( header, { keys: new Map( [ [ "CL018", "1" ] ] ) } ), /<recipient value="4"\/>/ );
+} );
+// downloads.test.js
+it( "writes the list's key where the XSD drops a fixed value its type refuses", () => {
+    // I006's senderId: fixed to "NHIS" on the integer list CL018; messageShape keeps no fixed value there
+    assert.match( sampleMessage( i006, version, [ { id: "CL018", keyType: "integer" } ], new Map( [ [ "CL018", "1" ] ] ) ), /<senderId value="1"\/>/ );
 } );
 it( "puts each element on its own line, indented, when asked", () => {
     const lines = synthesizeMessage( shape, { indent: "  " } ).split( "\n" );
