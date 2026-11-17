@@ -151,8 +151,8 @@ Plan 8c (design record §3.4, §3.5, §8.1, §8.2, §8.7).
   nothing set, an environment is "not reported", never shown as working. Who made a change is kept for staff and never
   shown. Run the migrations (`hdp-migrate`, or `hdp-status` itself) on a database made before plan 8c.
 - **The search index** belongs to each server instance and lives in memory. It is built on the first search and again
-  on the first search after the published set changes, which a fingerprint of the testing and production versions' IDs
-  tells. On the seed it takes about 0.7 s, and a query about 5 ms. It reads testing and production only: previous
+  on the first search after the published set changes, which a fingerprint of each testing and production version's
+  stage and ID tells: a promotion keeps a version's ID, so the stage has to be in it. On the seed it takes about 0.7 s, and a query about 5 ms. It reads testing and production only: previous
   production expires by date with nothing to rebuild the index then, and a list's entries are searched on its own page.
 
 ## Fonts

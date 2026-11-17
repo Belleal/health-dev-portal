@@ -210,7 +210,9 @@ As built *(design call, plan 8c)*:
 
   The look-alike folding has a price: a Latin word can fold into another's letters ("alpha" holds "lrn").
 - **The index.** Each server process holds its own in memory. It is built on the first search, and again on the first
-  search after the set of testing and production versions changes, which a fingerprint of their IDs tells.
+  search after the set of testing and production versions changes, which a fingerprint of each one's stage and ID
+  tells. The stage is in it because a promotion keeps a version's ID, so a spec's first promotion to production left the
+  IDs alone.
   - **Measured on the seed:** about 0.7 s to build, about 5 ms a query.
   - **Not a stored file:** a file would need a rule for when a code change makes it stale, while memory starts empty
     after every deploy.

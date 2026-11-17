@@ -23,7 +23,7 @@
 
 const { html } = require( "@ti-engine/web-content/html" );
 const { STAGE } = require( "@health-dev-portal/spec-model/kinds" );
-const { label } = require( "#labels" );
+const { label, otherLanguage } = require( "#labels" );
 const { page } = require( "#layout" );
 const paths = require( "#paths" );
 const { CACHE, send } = require( "#responses" );
@@ -89,9 +89,14 @@ const contextOf = ( lang, entry ) => {
     return parts.length === 0 ? null : html` <span class="muted">${ parts.join( " · " ) }</span>`;
 };
 
+// An entry's text, cut short. Text in the other language says so (`lang`), as the title does through `localText`: on
+// an English page every question's answer is Bulgarian, and unmarked a screen reader read it with an English voice
+// (WCAG 2.1 3.1.2; final review).
 const excerptOf = ( lang, entry ) => {
+    const own = entry.text !== null && typeof entry.text[ lang ] === "string" && entry.text[ lang ].trim() !== "";
     const text = plainText( entry.text, lang ).replace( /\s+/g, " " ).trim();
-    return text === "" ? null : html`<br><span class="excerpt">${ text.length > EXCERPT ? `${ text.slice( 0, EXCERPT ).trimEnd() }…` : text }</span>`;
+    const shown = text.length > EXCERPT ? `${ text.slice( 0, EXCERPT ).trimEnd() }…` : text;
+    return text === "" ? null : html`<br><span class="excerpt"${ own ? null : html` lang="${ otherLanguage( lang ) }"` }>${ shown }</span>`;
 };
 
 const groupOf = ( lang, group ) => html`<h2>${ label( lang, GROUP_LABELS[ group.kind ] ) } (${ group.total })</h2>

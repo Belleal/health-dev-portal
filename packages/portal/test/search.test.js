@@ -25,7 +25,8 @@ const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { directoryStore } = require( "@health-dev-portal/data/files" );
-const { abandonRelease } = require( "@health-dev-portal/data/releases" );
+const { promoteReleases } = require( "@health-dev-portal/data/promotion" );
+const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { SEED, SEEDED, assertPublic, get, startPortal } = require( "./support/server" );
 
 const BRIEF = "public, max-age=60";
@@ -91,6 +92,8 @@ describe( "The site's search", { skip: !SEEDED && "build the seed first: npm run
         // In English too, the Bulgarian-only question is found and marked.
         const english = ( await search( "en", "auth.his.bg" ) ).text;
         assert.match( english, /href="\/en\/faq#token-method"><span lang="bg">/ );
+        // Its excerpt is Bulgarian as well, and says so, as the title does (WCAG 2.1 3.1.2; final review).
+        assert.match( english, /href="\/en\/faq#token-method">[\s\S]*?<span class="excerpt" lang="bg">Заявката е GET/ );
     } );
 
     it( "answers short, long and hostile queries", async () => {
@@ -116,14 +119,20 @@ describe( "The site's search", { skip: !SEEDED && "build the seed first: npm run
         assert.match( form, /<input id="site-search" type="search" name="q"/ );
     } );
 
-    it( "finds what a change to the published set made, on the next search", async () => {
+    it( "finds what a promotion made public on the next search", async () => {
         // exampleNote is added in e-Prescription's testing version (SEED.ePrescriptionChanges): found there, before.
         const before = linksOf( ( await search( "bg", "exampleNote" ) ).text );
         assert.ok( before.some( ( link ) => link.startsWith( "/bg/specs/e-prescription/testing/P001/elements/" ) ), before.join( " " ) );
-        // The release is abandoned, as staff would: its version leaves testing, and the next search no longer finds it.
+        // The release is promoted to production, as staff would, once its planned date has come, and production's version
+        // moves to previous production. The next search finds the element at production, with no restart. A spec's first
+        // promotion, with no production to move, is the fingerprint's unit test: the seed has no such spec.
         const { release_id: release } = await db.get( "SELECT release_id FROM versions WHERE spec_id = ? AND number = ?", [ SEED.ePrescription.spec, SEED.ePrescription.testing ] );
-        await abandonRelease( db, directoryStore( portal.files ), release, { actor: "approver@example.test", now: new Date( SEED.now ) } );
+        const previous = await findVersion( db, SEED.ePrescription.spec, { number: SEED.ePrescription.production } );
+        await promoteReleases( db, directoryStore( portal.files ), [ release ], { to: "production", previous: { [ previous.id ]: "2027-06-30" },
+            actor: "approver@example.test", now: new Date( `${ SEED.ePrescription.plannedOn }T12:00:00Z` ) } );
         const after = linksOf( ( await search( "bg", "exampleNote" ) ).text );
-        assert.deepEqual( after, [] );
+        assert.ok( after.length > 0 );
+        assert.ok( after.every( ( link ) => link.startsWith( "/bg/specs/e-prescription/production/" ) ), after.join( " " ) );
+        assert.equal( ( await get( after[ 0 ] ) ).status, 200 );
     } );
 } );

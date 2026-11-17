@@ -22,7 +22,7 @@
 
 const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { indexEntries, matchEntries } = require( "#search" );
+const { fingerprintOf, indexEntries, matchEntries } = require( "#search" );
 
 const text = ( bg, en = bg ) => ( { bg: bg, en: en } );
 const element = ( path, extra = {} ) => ( { path: path, kind: "element", tag: path.split( "/" ).at( -1 ), attribute: null, name: text( "Поле", "Field" ),
@@ -113,6 +113,17 @@ describe( "Search", () => {
             assert.equal( results.state, "done", query );
             assert.equal( results.query, query );
         }
+    } );
+
+    it( "changes its fingerprint when a version moves stage under the same ID", () => {
+        // A spec's first promotion to production keeps its version's ID and replaces nothing, so a fingerprint of the IDs
+        // alone stayed the same, and the index kept linking the testing address (final review, CodeRabbit on #6).
+        const at = ( testing, production ) => [ { spec: "e-new", kind: "module", testing: testing && { id: testing }, production: production && { id: production },
+            previousProduction: null } ];
+        assert.notEqual( fingerprintOf( at( "v1", null ) ), fingerprintOf( at( null, "v1" ) ) );
+        assert.equal( fingerprintOf( at( "v2", "v1" ) ), fingerprintOf( at( "v2", "v1" ) ) );
+        // Previous production is not indexed, so a version moving there from production changes the set as it leaves it.
+        assert.notEqual( fingerprintOf( at( null, "v1" ) ), fingerprintOf( at( null, null ) ) );
     } );
 
     it( "shows twenty of a group at most, with the group's total", () => {

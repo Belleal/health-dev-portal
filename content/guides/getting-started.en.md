@@ -26,9 +26,9 @@ in each environment, are in the [Environments](/en/guides/environments) guide.
 You need a valid certificate for a qualified electronic signature (QES; in Bulgarian, КЕП). Your system uses it to get
 an access token (the next step), and it signs the messages.
 
-Requests that need a signature are signed with the QES of the employee who sends them — see
-[the question about laboratory staff](/en/faq#lab-staff). Some requests need no signature, such as C001, which
-retrieves code lists.
+Requests that search for and retrieve e-documents, such as R003, expect the signature of the employee who sends them,
+whether or not they are a doctor — see [the question about laboratory staff](/en/faq#lab-staff). Some requests need no
+signature, such as C001, which retrieves code lists.
 
 ## Access token {#token}
 
@@ -44,7 +44,7 @@ answer is an XML message:
   <nhis:contents>
     <nhis:accessToken value="…" dataType="[string]"/>
     <nhis:tokenType value="bearer" dataType="[string]"/>
-    <nhis:expiresIn value="7200" dataType="[positiveInt]"/>
+    <nhis:expiresIn value="…" dataType="[positiveInt]"/>
     <nhis:issuedOn value="…" dataType="[dateTime]"/>
     <nhis:expiresOn value="…" dataType="[dateTime]"/>
   </nhis:contents>
@@ -85,7 +85,7 @@ The signature's schema, `xmldsig-core-schema.xsd`, is beside the XSDs of every v
 
 Every new version of a specification runs first in the test environment, then in production. When a version enters
 testing, it is announced with its integration period and its planned production date. The production version it
-replaces stays on as previous production, backward compatible until an announced date.
+replaces may stay on as previous production, backward compatible until an announced date.
 
 What changes and when is in [Changes](/en/changes): each version's notes, a comparison of any two versions, and feeds
 (Atom).

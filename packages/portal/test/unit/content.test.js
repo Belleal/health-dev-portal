@@ -190,10 +190,14 @@ describe( "The content register and its loader", () => {
         // Every *.his.bg host in either guide, in either language, is one the sources name (plan 8c, Task 2): a host the
         // drafts made up would send a vendor's software somewhere that is not NHIS.
         const KNOWN = new Set( [ "auth", "api", "ptest-auth", "ptest-api", "hospital-auth", "hospital-api", "hospital-cc", "www" ].map( ( one ) => `${ one }.his.bg` ) );
+        // Whole host names: `auth.his.bg.example.com` is read as itself, which is no host the sources name. Cut at
+        // `.his.bg`, it read as `auth.his.bg` and passed (CodeRabbit on #6). A sentence's closing dot is not a label.
+        const hostsIn = ( text ) => text.match( /[a-z0-9-]+(?:\.[a-z0-9-]+)*\.his\.bg(?:\.[a-z0-9-]+)*/g ) || [];
+        assert.deepEqual( hostsIn( "https://auth.his.bg.example.com/token and api.his.bg." ), [ "auth.his.bg.example.com", "api.his.bg" ] );
         const named = new Set();
         for ( const guide of loadContent( CONTENT_DIRECTORY ).guides ) {
             for ( const text of [ guide.texts.bg, guide.texts.en ] ) {
-                for ( const host of text.plain.match( /[a-z0-9-]+(?:\.[a-z0-9-]+)*\.his\.bg/g ) || [] ) {
+                for ( const host of hostsIn( text.plain ) ) {
                     assert.ok( KNOWN.has( host ), `${ guide.slug }: ${ host }` );
                     named.add( host );
                 }

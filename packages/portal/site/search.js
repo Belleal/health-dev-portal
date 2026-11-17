@@ -185,9 +185,21 @@ module.exports.matchEntries = ( entries, query ) => {
     return { query: shown, state: "done", groups: groups };
 };
 
-// The published set an index stands for: the IDs of every testing and production version.
-const fingerprintOf = ( published ) => crypto.createHash( "sha256" )
-    .update( published.flatMap( ( one ) => [ one.testing, one.production ].filter( Boolean ).map( ( version ) => version.id ) ).sort().join( "\n" ) ).digest( "hex" );
+/**
+ * The published set an index stands for: every testing and production version, each by its stage and its ID. The stage
+ * is part of it because a promotion keeps a version's ID: a spec's first promotion to production replaces nothing, so
+ * by the IDs alone the set looked unchanged and the index kept linking the testing address, which then answered 404
+ * (final review, reproduced; CodeRabbit on #6).
+ *
+ * @method
+ * @param {import( "@health-dev-portal/data/definitions" ).PublishedSpec[]} published As `listPublished` gives it.
+ * @returns {string} SHA-256, in hex.
+ * @public
+ */
+module.exports.fingerprintOf = ( published ) => crypto.createHash( "sha256" ).update( published.flatMap( ( one ) => [
+    one.testing ? `${ STAGE.TESTING }:${ one.testing.id }` : null,
+    one.production ? `${ STAGE.PRODUCTION }:${ one.production.id }` : null
+].filter( Boolean ) ).sort().join( "\n" ) ).digest( "hex" );
 
 // The versions an index is built from, with what each kind needs: a module's and the rules' content, a list's name, and
 // CL999's and CL998's entries.
@@ -231,7 +243,7 @@ module.exports.createSearch = ( content, nameOf ) => {
     let building = null;
     const indexFor = async ( db ) => {
         const published = await listPublished( db );
-        const fingerprint = fingerprintOf( published );
+        const fingerprint = module.exports.fingerprintOf( published );
         if ( built.fingerprint === fingerprint ) {
             return built.entries;
         }
