@@ -39,6 +39,7 @@ Object.assign( process.env, {
 
 const assert = require( "node:assert/strict" );
 const fs = require( "node:fs" );
+const http = require( "node:http" );
 const os = require( "node:os" );
 const path = require( "node:path" );
 const { escapeHtml } = require( "@ti-engine/web-content/html" );
@@ -109,12 +110,15 @@ module.exports.createPortal = ( environment = {} ) => {
  * Starts the portal on a copy of the seed, its database and its files, so a test may change both.
  *
  * @method
+ * @param {Object} [options]
+ * @param {string} [options.contentDirectory] The guides and questions to load (`HDP_CONTENT_DIR`); the repository's own
+ *     `content/` without it.
  * @returns {Promise<{url: string, database: string, files: string, stop: function(): Promise<void>}>} `database` is the
  *     copy's SQLite file and `files` its file store, for a test that moves a spec on through the data layer, as staff
  *     would; `stop` stops the server and removes the copy.
  * @public
  */
-module.exports.startPortal = async () => {
+module.exports.startPortal = async ( { contentDirectory } = {} ) => {
     const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-portal-" ) );
     const database = path.join( directory, "seed.sqlite" );
     const files = path.join( directory, "files" );
@@ -124,7 +128,8 @@ module.exports.startPortal = async () => {
     try {
         fs.copyFileSync( SEED_DATABASE, database );
         fs.cpSync( SEED_FILES, files, { recursive: true } );
-        server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files } );
+        // An undefined value is deleted from the environment, so a file that names no folder gets the repository's own.
+        server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files, HDP_CONTENT_DIR: contentDirectory } );
         await server.start();
     } catch ( error ) {
         // A stop after a refused start may fail too; the start's error is the one worth reporting.
@@ -160,6 +165,29 @@ module.exports.get = async ( path ) => {
     const response = await fetch( `${ address }${ path }`, { redirect: "manual", headers: { accept: "text/html" } } );
     return { status: response.status, headers: response.headers, text: await response.text() };
 };
+
+/**
+ * The status of a GET whose path goes out exactly as written, as a hand-made request's would. `fetch` resolves `%2e%2e`
+ * to `..` and drops a segment before sending (WHATWG URL, measured in plan 8b), so through `get` a dot-segment never
+ * reaches the server in the form an attacker can send it.
+ *
+ * @method
+ * @param {string} path
+ * @returns {Promise<number>}
+ * @public
+ */
+module.exports.rawStatus = ( path ) => new Promise( ( resolve, reject ) => {
+    if ( address === null ) {
+        reject( new Error( "No portal is started: call startPortal() in before()." ) );
+        return;
+    }
+    const url = new URL( address );
+    const request = http.get( { host: url.hostname, port: url.port, path: path }, ( response ) => {
+        response.resume();
+        resolve( response.statusCode );
+    } );
+    request.on( "error", reject );
+} );
 
 /**
  * Asserts what every public response is (decision 4; design record §10.1): no cookie, the cache it should carry, and its

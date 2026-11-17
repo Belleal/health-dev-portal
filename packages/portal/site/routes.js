@@ -27,6 +27,8 @@ const { CACHE, failed, notFound, redirect } = require( "#responses" );
 const { changelogPage, changesIndexPage, comparePage } = require( "#pages/changes" );
 const { schemaFile, specDownload } = require( "#pages/downloads" );
 const { errorsPage } = require( "#pages/errors" );
+const { faqPage } = require( "#pages/faq" );
+const { guidePage, guidesIndexPage } = require( "#pages/guides" );
 const { schemaSetPage, schemasIndexPage } = require( "#pages/schemas" );
 const { feedPage } = require( "#pages/feeds" );
 const { homePage } = require( "#pages/home" );
@@ -58,7 +60,10 @@ const PAGES = Object.freeze( {
     // One kind, two pages: `spec` is null for the index and a spec's key for its changelog.
     changes: ( context, parts ) => parts.spec === null ? changesIndexPage( context ) : changelogPage( context, parts ),
     compare: comparePage,
-    feed: feedPage
+    feed: feedPage,
+    guides: guidesIndexPage,
+    guide: guidePage,
+    faq: faqPage
 } );
 
 /**
@@ -77,8 +82,9 @@ module.exports.rootRedirect = ( request, response ) => redirect( response, { sta
  * hands both to the page; an address that is none is the 404 page, and a page that throws is the 500 page.
  *
  * @method
- * @param {function(): {db: import( "@health-dev-portal/data/definitions" ).Database, store: import( "@health-dev-portal/data/definitions" ).FileStore}} resources
- *     Read on each request: the server opens both as it starts, and the framework holds every request until it has.
+ * @param {function(): {db: import( "@health-dev-portal/data/definitions" ).Database, store: import( "@health-dev-portal/data/definitions" ).FileStore,
+ *     content: import( "#definitions" ).Content}} resources Read on each request: the server opens them as it starts, and the
+ *     framework holds every request until it has.
  * @returns {function( Object, Object ): Promise<void>} An Express handler.
  * @public
  */
@@ -89,9 +95,9 @@ module.exports.pageHandler = ( resources ) => async ( request, response ) => {
             notFound( request, response );
             return;
         }
-        const { db, store } = resources();
-        await PAGES[ parts.page ]( { db: db, store: store, lang: parts.lang, request: request, response: response, nonce: response.locals.nonce,
-            today: sofiaDate( new Date() ) }, parts );
+        const { db, store, content } = resources();
+        await PAGES[ parts.page ]( { db: db, store: store, content: content, lang: parts.lang, request: request, response: response,
+            nonce: response.locals.nonce, today: sofiaDate( new Date() ) }, parts );
     } catch ( error ) {
         failed( request, response, error );
     }

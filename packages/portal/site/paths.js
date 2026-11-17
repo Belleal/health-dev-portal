@@ -47,6 +47,8 @@ const XMLDSIG = "xmldsig-core-schema.xsd";
 const SCHEMA_FILE = /^NHIS-[A-Z]\d{3}\.xsd$/;
 const isSchemaName = ( name ) => name === XMLDSIG || SCHEMA_FILE.test( name );
 const PAGE_NUMBER = /^[1-9]\d*$/;
+// A guide's slug, as the content register holds one (site/content.js).
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 let publicUrl = null;
 
@@ -63,6 +65,7 @@ const anySpec = ( spec ) => checked( spec, ( value ) => MODULE.test( value ) || 
 const atSegment = ( at ) => checked( at, ( value ) => module.exports.parseAt( value ) !== null, "a public stage or a number" );
 const number = ( value ) => checked( value, ( one ) => NUMBER.test( one ), "a version number" );
 const messageCode = ( code ) => checked( code, ( value ) => CODE.test( value ), "a message code" );
+const guideSlug = ( slug ) => checked( slug, ( value ) => SLUG.test( value ), "a guide's slug" );
 
 // One segment as an address writes it: the canonical percent-encoding of what it says, so a browser's other spellings
 // of it (lower-case hex, a raw Cyrillic letter) name the same thing.
@@ -384,6 +387,38 @@ module.exports.compare = ( lang, spec, from, to ) => `${ module.exports.changes(
 module.exports.feed = ( lang, spec = null ) => `${ module.exports.changes( lang, spec ) }/feed.atom`;
 
 /**
+ * The Guides section (plan 8c, decision 4).
+ *
+ * @method
+ * @param {string} lang
+ * @returns {string}
+ * @public
+ */
+module.exports.guides = ( lang ) => `/${ language( lang ) }/guides`;
+
+/**
+ * One guide, by its slug in the content register.
+ *
+ * @method
+ * @param {string} lang
+ * @param {string} slug
+ * @returns {string}
+ * @throws {RangeError} For a slug the register could not hold.
+ * @public
+ */
+module.exports.guide = ( lang, slug ) => `${ module.exports.guides( lang ) }/${ guideSlug( slug ) }`;
+
+/**
+ * The FAQ (plan 8c, decision 5). A question's address is the page's, at its slug.
+ *
+ * @method
+ * @param {string} lang
+ * @returns {string}
+ * @public
+ */
+module.exports.faq = ( lang ) => `/${ language( lang ) }/faq`;
+
+/**
  * The same address in the other language, its query kept: the language switch's link. Any address under a language
  * has one, even one that answers 404, which then answers 404 in the other language too.
  *
@@ -538,8 +573,8 @@ const downloadPage = ( rest ) => {
  *     slash, `/bg`), `home`, `specs`, `spec`, `conditions`, `dictionary`, `message` (with `code`, `tab`, `slug`),
  *     `lists`, `list` (with `query: { q, expired, page }`), `download`, `schema-file` (with `spec`, `null` at a stage, and
  *     `name`) and `spec-download` (with `ext` and `code`, a sample's), all three with `lang: null`, `errors` (with `testing`),
- *     `changes` (with `spec`, `null` for the index), `compare` (with `from`, `to`) or `feed`. `null` for what is no
- *     address of the site.
+ *     `changes` (with `spec`, `null` for the index), `compare` (with `from`, `to`), `feed`, `schemas`, `schema-set` (with
+ *     `spec`, `at`), `guides`, `guide` (with `slug`) or `faq`. `null` for what is no address of the site.
  * @public
  */
 module.exports.parseAddress = ( address ) => {
@@ -597,6 +632,13 @@ module.exports.parseAddress = ( address ) => {
         }
         return rest.length === 2 && MODULE.test( rest[ 0 ] ) && module.exports.parseAt( rest[ 1 ] ) !== null
             ? { lang: lang, page: "schema-set", spec: rest[ 0 ], at: rest[ 1 ] } : null;
+    }
+    if ( section === "guides" ) {
+        return rest.length === 0 ? { lang: lang, page: "guides" }
+            : rest.length === 1 && SLUG.test( rest[ 0 ] ) ? { lang: lang, page: "guide", slug: rest[ 0 ] } : null;
+    }
+    if ( section === "faq" ) {
+        return rest.length === 0 ? { lang: lang, page: "faq" } : null;
     }
     return null;
 };

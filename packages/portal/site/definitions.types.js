@@ -19,6 +19,7 @@
  * @typedef {Object} PageContext What every page is given (plan 8a, ruling P3).
  * @property {import( "@health-dev-portal/data/definitions" ).Database} db
  * @property {import( "@health-dev-portal/data/definitions" ).FileStore} store
+ * @property {Content} content The guides and the questions, read at start (plan 8c).
  * @property {string|null} lang The page's language; `null` for a download, which has none.
  * @property {Object} request Express's.
  * @property {Object} response Express's; a page sends through responses.js.

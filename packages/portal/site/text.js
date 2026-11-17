@@ -86,3 +86,34 @@ module.exports.plainText = ( value, lang ) => {
     }
     return value && present( value[ other ] ) ? value[ other ] : "";
 };
+
+/**
+ * A guide's or a question's text in the page's language, or the Bulgarian, which every one of them has (plan 8c,
+ * decision 2), when there is none in that language.
+ *
+ * @method
+ * @template T
+ * @param {{bg: T, en: T|null}} texts
+ * @param {string} lang
+ * @returns {{text: T, own: boolean}} `own` is whether the text is in the page's language.
+ * @throws {RangeError} For a language the site does not have.
+ * @public
+ */
+module.exports.contentText = ( texts, lang ) => {
+    otherLanguage( lang );
+    return texts[ lang ] ? { text: texts[ lang ], own: true } : { text: texts.bg, own: false };
+};
+
+/**
+ * A short text of the content folder, such as a title: as it is when it is in the page's language, otherwise in
+ * `<span lang="bg">` with a visible "not yet translated" (§8.4), as `localText` marks a model's text.
+ *
+ * @method
+ * @param {string} value
+ * @param {boolean} own Whether it is in the page's language, as `contentText` says.
+ * @param {string} lang
+ * @returns {import( "@ti-engine/web-content/html" ).SafeString} Escaped.
+ * @public
+ */
+module.exports.contentLine = ( value, own, lang ) => own ? html`${ value }`
+    : html`<span lang="bg">${ value }</span> <span class="untranslated">${ label( lang, "untranslated" ) }</span>`;

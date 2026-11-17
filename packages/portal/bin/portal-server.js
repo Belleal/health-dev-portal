@@ -26,6 +26,7 @@ const TiWebServer = require( "@ti-engine/web-framework/web-server" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { directoryStore } = require( "@health-dev-portal/data/files" );
 const { PUBLIC_DIRECTORY } = require( "#assets" );
+const { CONTENT_DIRECTORY, loadContent } = require( "#content" );
 const { setPublicUrl } = require( "#paths" );
 const { notFound } = require( "#responses" );
 const { pageHandler, rootRedirect } = require( "#routes" );
@@ -42,6 +43,7 @@ class PortalServer extends TiWebServer {
 
     #db = null;
     #store = null;
+    #content = null;
 
     /**
      * @constructor
@@ -62,9 +64,10 @@ class PortalServer extends TiWebServer {
     }
 
     /**
-     * Opens the database and the file store, then starts the web server. Both are open before the framework's start
-     * resolves, so its start-up gate holds every request until they are. Nothing listens when either is missing, nor
-     * without the public URL every absolute link is written from.
+     * Reads the guides and the questions, opens the database and the file store, then starts the web server. All are
+     * ready before the framework's start resolves, so its start-up gate holds every request until they are. Nothing
+     * listens when any is missing, when the content cannot be read, or without the public URL every absolute link is
+     * written from.
      *
      * @method
      * @returns {Promise<void>}
@@ -144,10 +147,12 @@ class PortalServer extends TiWebServer {
             this.registerRoute( "post", route, notFound );
         }
         super.defineWebApplicationRoutes();
-        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store } ) ) );
+        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content } ) ) );
     }
 
-    // HDP_DATABASE_URL is required; HDP_FILES_DIR defaults to `.files` under the working directory.
+    // HDP_DATABASE_URL is required; HDP_FILES_DIR defaults to `.files` under the working directory, and HDP_CONTENT_DIR
+    // to the repository's content/. The content is read first: a file it cannot read is a broken build, refused before
+    // anything else is opened (plan 8c), and its error names every file to fix.
     async #open() {
         try {
             setPublicUrl( this.serviceConfig.publicUrl );
@@ -155,6 +160,7 @@ class PortalServer extends TiWebServer {
             throw new Error( "TI_WEB_PUBLIC_URL must be the portal's public origin, such as https://developers.his.bg: canonical addresses, "
                 + `hreflang and feeds are written from it. ${ error.message }`, { cause: error } );
         }
+        this.#content = loadContent( process.env.HDP_CONTENT_DIR ? path.resolve( process.env.HDP_CONTENT_DIR ) : CONTENT_DIRECTORY );
         const url = process.env.HDP_DATABASE_URL;
         if ( !url ) {
             throw new Error( "HDP_DATABASE_URL is not set: every page is read from the portal's database (sqlite:<path> or postgres://…)." );

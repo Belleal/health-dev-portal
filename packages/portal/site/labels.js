@@ -260,7 +260,24 @@ module.exports.LABELS = Object.freeze( {
         schemaSetDownloads: "Изтегляне",
         schemaSetZip: "Всичко в един архив: XSD, примери, модел и история на промените (zip)",
         schemaSetModel: "Моделът на версията (JSON)",
-        schemaSetXmldsig: "xmldsig-core-schema.xsd на W3C, който всяка XSD импортира"
+        schemaSetXmldsig: "xmldsig-core-schema.xsd на W3C, който всяка XSD импортира",
+        sectionGuides: "Ръководства",
+        sectionFaq: "Въпроси и отговори",
+        guidesLede: "Как да свържете своя софтуер с НЗИС, стъпка по стъпка.",
+        guidesPlanned: "Предстоящи",
+        guidePlanned: "Предстои.",
+        guidePlannedMeanwhile: "Дотогава:",
+        legacyDocument: "PDF, his.bg",
+        guideDraft: "Чернова",
+        guideDraftNotice: "Чернова, изготвена с помощта на изкуствен интелект. Архитектът на решението още не я е прегледал: проверявайте всичко в нея срещу спецификациите.",
+        guideReviewedNotice: "Изготвено с помощта на изкуствен интелект; прегледано на {date}.",
+        guideSources: "Източници",
+        guideUpdated: "Обновено на {date}",
+        guideContents: "Съдържание",
+        contentLicence: "Текстът е под лиценз",
+        faqTitle: "Въпроси и отговори",
+        faqNotice: "Въпросите и отговорите са пренесени без промяна от his.bg, където са без дати и са главно от въвеждането на е-направлението. Предстои преглед.",
+        faqCategories: "Теми"
     } ),
     en: Object.freeze( {
         siteName: "NHIS · Developers",
@@ -486,7 +503,24 @@ module.exports.LABELS = Object.freeze( {
         schemaSetDownloads: "Downloads",
         schemaSetZip: "Everything in one archive: XSDs, samples, model and changelog (zip)",
         schemaSetModel: "The version's model (JSON)",
-        schemaSetXmldsig: "W3C's xmldsig-core-schema.xsd, which every XSD imports"
+        schemaSetXmldsig: "W3C's xmldsig-core-schema.xsd, which every XSD imports",
+        sectionGuides: "Guides",
+        sectionFaq: "FAQ",
+        guidesLede: "How to connect your software to NHIS, step by step.",
+        guidesPlanned: "Coming",
+        guidePlanned: "Coming.",
+        guidePlannedMeanwhile: "Meanwhile:",
+        legacyDocument: "PDF in Bulgarian, his.bg",
+        guideDraft: "Draft",
+        guideDraftNotice: "A draft written with the help of artificial intelligence. The solution architect has not yet reviewed it: check everything in it against the specifications.",
+        guideReviewedNotice: "Written with the help of artificial intelligence; reviewed on {date}.",
+        guideSources: "Sources",
+        guideUpdated: "Updated {date}",
+        guideContents: "Contents",
+        contentLicence: "This text is licensed under",
+        faqTitle: "Frequently asked questions",
+        faqNotice: "These questions and answers were moved unchanged from his.bg, where they are undated and mostly from the e-Referral rollout, and they are in Bulgarian only. A review is planned.",
+        faqCategories: "Topics"
     } )
 } );
 

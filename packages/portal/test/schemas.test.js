@@ -53,7 +53,8 @@ describe( "The Schemas section", { skip: !SEEDED && "build the seed first: npm r
     it( "lists Schemas in the top bar after Errors, marked on its own pages", async () => {
         const page = await get( "/en/schemas" );
         const nav = /<nav class="sections"[\s\S]*?<\/nav>/.exec( page.text )[ 0 ];
-        assert.deepEqual( [ ...nav.matchAll( /href="([^"]+)"/g ) ].map( ( found ) => found[ 1 ] ), [ "/en/specs", "/en/nomenclatures", "/en/errors", "/en/schemas", "/en/changes" ] );
+        assert.deepEqual( [ ...nav.matchAll( /href="([^"]+)"/g ) ].map( ( found ) => found[ 1 ] ),
+            [ "/en/specs", "/en/nomenclatures", "/en/errors", "/en/schemas", "/en/changes", "/en/guides", "/en/faq" ] );
         assert.match( nav, /<a href="\/en\/schemas" aria-current="true">/ );
         assert.doesNotMatch( /<nav class="sections"[\s\S]*?<\/nav>/.exec( ( await get( "/en/specs" ) ).text )[ 0 ], /href="\/en\/schemas" aria-current/ );
     } );

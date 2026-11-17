@@ -23,12 +23,8 @@
 
 const { after, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const fs = require( "node:fs" );
-const os = require( "node:os" );
-const path = require( "node:path" );
 const { CONTENT_DIRECTORY, ContentError, loadContent } = require( "#content" );
-
-const folders = [];
+const { CODE_FRONT_MATTER, contentFolder: folder, removeContentFolders } = require( "../support/content" );
 
 // The ContentError a load throws: `assert.throws` checks an error but does not hand it back.
 const refusal = ( files ) => {
@@ -39,17 +35,6 @@ const refusal = ( files ) => {
         return error;
     }
     return assert.fail( "the content was loaded" );
-};
-
-// A content folder holding exactly these files, by their path under it.
-const folder = ( files ) => {
-    const root = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-content-" ) );
-    folders.push( root );
-    for ( const [ name, text ] of Object.entries( files ) ) {
-        fs.mkdirSync( path.dirname( path.join( root, name ) ), { recursive: true } );
-        fs.writeFileSync( path.join( root, name ), text );
-    }
-    return root;
 };
 
 const REGISTER = `guides:
@@ -107,11 +92,7 @@ const FILES = Object.freeze( {
 
 describe( "The content register and its loader", () => {
 
-    after( () => {
-        for ( const root of folders ) {
-            fs.rmSync( root, { recursive: true, force: true } );
-        }
-    } );
+    after( removeContentFolders );
 
     it( "loads the register's guides, planned guides and questions in its order", () => {
         const content = loadContent( folder( FILES ) );
@@ -140,12 +121,17 @@ describe( "The content register and its loader", () => {
 
     it( "refuses front matter that does not open with a plain --- line, without running it", () => {
         globalThis.__contentRan = false;
-        const error = refusal( { ...FILES, "faq/one.bg.md": "---js\n{ question: ( globalThis.__contentRan = true, \"x\" ) }\n---\nОтговор." } );
+        const error = refusal( { ...FILES, "faq/one.bg.md": CODE_FRONT_MATTER } );
         // gray-matter's JavaScript engine evaluates a `---js` block (measured, plan 8c decision 3): the loader must refuse
         // it before parsing, or the assignment above would have run.
         assert.equal( globalThis.__contentRan, false );
         assert.match( error.message, /faq[\\/]one\.bg\.md/ );
         assert.ok( error.problems.some( ( problem ) => /faq[\\/]one\.bg\.md/.test( problem ) ) );
+    } );
+
+    it( "refuses a category whose key is a question's slug, since both are anchors on the FAQ page", () => {
+        const error = refusal( { ...FILES, "content.yml": REGISTER.replace( "key: messages", "key: one" ) } );
+        assert.match( error.problems.join( "\n" ), /"one".*more than once/ );
     } );
 
     it( "refuses a heading without an id, a missing Bulgarian file, a repeated slug and a malformed one, naming each", () => {
@@ -170,7 +156,7 @@ describe( "The content register and its loader", () => {
     } );
 
     it( "reads no file the register does not name", () => {
-        const content = loadContent( folder( { ...FILES, "faq/stray.bg.md": "---js\n{ question: ( globalThis.__contentRan = true, \"x\" ) }\n---\n" } ) );
+        const content = loadContent( folder( { ...FILES, "faq/stray.bg.md": CODE_FRONT_MATTER } ) );
         assert.equal( content.faq.categories.flatMap( ( one ) => one.questions ).length, 2 );
     } );
 

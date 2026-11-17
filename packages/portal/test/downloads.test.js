@@ -23,9 +23,8 @@
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const crypto = require( "node:crypto" );
-const http = require( "node:http" );
 const JSZip = require( "jszip" );
-const { SEED, SEEDED, assertPublic, get, startPortal } = require( "./support/server" );
+const { SEED, SEEDED, assertPublic, get, rawStatus, startPortal } = require( "./support/server" );
 
 const BRIEF = "public, max-age=60";
 const GONE = "public, max-age=86400";
@@ -39,14 +38,6 @@ describe( "A module version's XSDs and downloads", { skip: !SEEDED && "build the
     let portal;
     // A download's bytes: `get` reads text, and a zip is not text.
     const bytesOf = async ( path ) => Buffer.from( await ( await fetch( `${ portal.url }${ path }`, { redirect: "manual" } ) ).arrayBuffer() );
-    // The status of a GET whose path goes out exactly as written, as a hand-made request's would.
-    const rawStatus = ( path ) => new Promise( ( resolve, reject ) => {
-        const request = http.get( { host: new URL( portal.url ).hostname, port: new URL( portal.url ).port, path: path }, ( response ) => {
-            response.resume();
-            resolve( response.statusCode );
-        } );
-        request.on( "error", reject );
-    } );
 
     before( async () => {
         portal = await startPortal();
@@ -131,8 +122,7 @@ describe( "A module version's XSDs and downloads", { skip: !SEEDED && "build the
             "/schemas/e-prescription/1.5.1/..%2fNHIS-P001.xsd", "/schemas/e-prescription/1.5.1/model.json", "/schemas/e-prescription/1.5.1/all.zip",
             "/downloads/specs/CL007/1.5.34.zip", "/downloads/specs/e-prescription/1.5.1.csv", "/downloads/specs/e-prescription/1.5.1/NHIS-P001.xsd",
             "/schemas/rules/1.1.1/NHIS-P001.xsd", "/downloads/specs/rules/1.1.1.zip", "/schemas/e-prescription/9.9.9/NHIS-P001.xsd" ] ) {
-            // Sent as written: fetch resolves `%2e%2e` to `..` and drops a segment before sending (WHATWG URL, measured), so
-            // through `get` the dot-segment case never reached the server in the form an attacker can send it.
+            // Sent as written (`rawStatus`), since `fetch` would resolve the dot-segment before sending.
             assert.equal( await rawStatus( address ), 404, address );
         }
     } );

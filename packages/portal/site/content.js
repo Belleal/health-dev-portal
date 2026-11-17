@@ -251,15 +251,15 @@ module.exports.loadContent = ( directory ) => {
     if ( typeof faq.source !== "string" || !faq.source.startsWith( "https://" ) || retrieved === null ) {
         problems.push( `${ REGISTER }: faq needs its source, an https:// address, and the date it was retrieved` );
     }
-    const questionSlug = slugChecker( problems );
-    const categorySlug = slugChecker( problems );
-    const categories = listOf( faq.categories, "faq.categories", problems ).filter( ( one ) => categorySlug( one && one.key, "category" ) ).map( ( one ) => {
+    // A category's key and a question's slug are both anchors on the one FAQ page, so no two of them may be the same.
+    const faqSlug = slugChecker( problems );
+    const categories = listOf( faq.categories, "faq.categories", problems ).filter( ( one ) => faqSlug( one && one.key, "category" ) ).map( ( one ) => {
         const name = localText( one.name );
         if ( name === null ) {
             problems.push( `${ REGISTER }: the category "${ one.key }" needs a name in bg and en` );
         }
         return { key: one.key, name: name, questions: listOf( one.questions, `the category "${ one.key }"'s questions`, problems )
-            .filter( ( slug ) => questionSlug( slug, "question" ) )
+            .filter( ( slug ) => faqSlug( slug, "question" ) )
             .map( ( slug ) => ( { slug: slug, texts: { bg: questionText( directory, slug, "bg", problems ), en: questionText( directory, slug, "en", problems ) } } ) ) };
     } );
     if ( problems.length > 0 ) {

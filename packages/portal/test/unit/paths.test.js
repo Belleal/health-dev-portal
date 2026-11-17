@@ -24,8 +24,8 @@ const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const paths = require( "#paths" );
 
-const { changes, compare, conditions, dictionary, download, element, elementSlugs, errors, feed, home, list, lists, message, other, parseAddress,
-    parseAt, spec, specs } = paths;
+const { changes, compare, conditions, dictionary, download, element, elementSlugs, errors, faq, feed, guide, guides, home, list, lists, message, other,
+    parseAddress, parseAt, spec, specs } = paths;
 
 // A Cyrillic path segment, as an element's path may hold one, encoded the way a browser sends it.
 const NOTE = encodeURIComponent( "бележка" );
@@ -64,7 +64,10 @@ const ROUND_TRIPS = [
     [ () => changes( "bg", "CL007" ), { lang: "bg", page: "changes", spec: "CL007" } ],
     [ () => compare( "bg", "e-prescription", "1.5.1", "1.5.2" ), { lang: "bg", page: "compare", spec: "e-prescription", from: "1.5.1", to: "1.5.2" } ],
     [ () => feed( "bg" ), { lang: "bg", page: "feed", spec: null } ],
-    [ () => feed( "en", "CL007" ), { lang: "en", page: "feed", spec: "CL007" } ]
+    [ () => feed( "en", "CL007" ), { lang: "en", page: "feed", spec: "CL007" } ],
+    [ () => guides( "bg" ), { lang: "bg", page: "guides" } ],
+    [ () => guide( "en", "getting-started" ), { lang: "en", page: "guide", slug: "getting-started" } ],
+    [ () => faq( "bg" ), { lang: "bg", page: "faq" } ]
 ];
 
 describe( "Addresses", () => {
@@ -122,7 +125,8 @@ describe( "Addresses", () => {
             "/bg/specs/e-prescription/1.5.1/P001/elements/%E0%A4%A", "/bg/changes/e-prescription/compare?from=../1.5.1&to=1.5.2",
             "/bg/changes/e-prescription/compare?from=1.5.1", "/bg/nomenclatures/CL007/production?page=0", "/bg/nomenclatures/CL007/production?page=2x",
             "/downloads/nomenclatures/CL007/1.5.34.xml", "/downloads/nomenclatures/CL007/development.json", "/downloads/nomenclatures/e-prescription/1.5.1.json",
-            "/bg/errors/production", "/bg/changes/feed.rss", "/app/x"
+            "/bg/errors/production", "/bg/changes/feed.rss", "/app/x", "/bg/guides/", "/bg/guides/Getting-Started", "/bg/guides/getting-started/more",
+            "/bg/guides/..", "/bg/guides/%2e%2e", "/bg/guides/getting_started", "/bg/faq/", "/bg/faq/token-method"
         ] ) {
             assert.equal( parseAddress( path ), null, path );
         }

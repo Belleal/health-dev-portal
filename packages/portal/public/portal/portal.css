@@ -595,6 +595,47 @@ button.copy {
     background: var(--mint-tint);
 }
 
+/* A guide's or an answer's Markdown (plan 8c, decision 8). Its tables look like the reference tables. Its code blocks
+   wrap rather than scroll: a scrolling block must be focusable (axe's scrollable-region-focusable, measured in plan 8b),
+   and a Markdown block cannot carry tabindex. */
+.prose table {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+}
+
+.prose th {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 2px solid var(--line);
+    text-align: left;
+    font-weight: 600;
+}
+
+.prose td {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+.prose pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* The guides, and those still to come. */
+.guides {
+    padding-left: 1.2rem;
+}
+
+.guides li {
+    margin: 0 0 0.6rem;
+}
+
+/* A guide still a draft: mint, as notices are, since red is kept for the specifications' changes (design record §9). */
+.badge.draft {
+    background: var(--mint);
+    color: var(--green-dark);
+}
+
 .releases {
     margin: 0 0 1.25rem;
     padding: 0;
