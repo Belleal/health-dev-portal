@@ -16,13 +16,14 @@
  */
 
 /*
- * The home page, `/{lang}/` (design record §8.2, option H1): the versions by stage in the main column, and in the right
- * one what is upcoming in production and what was published last, with the feed of every change. The environments'
- * status band and the newcomer's link come with plan 8b.
+ * The home page, `/{lang}/` (design record §8.2, option H1): the environments' status and the newcomer's link in the
+ * band (plan 8c), the versions by stage in the main column, and in the right one what is upcoming in production and what
+ * was published last, with the feed of every change.
  */
 
 const { html } = require( "@ti-engine/web-content/html" );
 const { listPublished, publications, upcoming } = require( "@health-dev-portal/data/published" );
+const { currentStatus, maintenanceWindows } = require( "@health-dev-portal/data/status" );
 const { SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { formatDate } = require( "#format" );
 const { label } = require( "#labels" );
@@ -31,6 +32,7 @@ const { compare, feed, home, lists } = require( "#paths" );
 const { CACHE, send } = require( "#responses" );
 const { specName } = require( "#spec-names" );
 const { aheadLegend, isAhead, modulesAndRules, stageTable } = require( "./stages" );
+const { statusBand } = require( "./status" );
 
 // How many publications the right column lists.
 const LATEST = 10;
@@ -72,10 +74,11 @@ ${ release.versions.map( ( version ) => version.production === null
  * @public
  */
 module.exports.homePage = async ( context ) => {
-    const { db, lang, response, nonce } = context;
+    const { db, content, lang, response, nonce } = context;
     const published = await listPublished( db );
     const due = await upcoming( db );
     const latest = await publications( db, { limit: LATEST } );
+    const band = statusBand( lang, { status: await currentStatus( db ), windows: await maintenanceWindows( db, { now: new Date() } ), content: content } );
     const main = html`<h1>${ label( lang, "versionsByStage" ) }</h1>
 ${ stageTable( { lang: lang, specs: modulesAndRules( published ), link: false, extra: module.exports.nomenclaturesRow( lang, published ) } ) }
 ${ aheadLegend( lang ) }`;
@@ -87,6 +90,6 @@ ${ due.map( ( release ) => dueRelease( lang, release ) ) }</ul>` }
 ${ latest.length === 0 ? html`<p class="muted">${ label( lang, "latestNone" ) }</p>` : html`<ul class="releases">
 ${ latest.map( ( one ) => html`<li><span class="muted">${ formatDate( one.on, lang ) }</span> ${ specName( one.spec, lang ) } ${ one.number } · ${ label( lang, one.stage === STAGE.TESTING ? "stageTesting" : "stageProduction" ) }</li>\n` ) }</ul>` }`;
     // The latest releases come with a feed (design record §8.2), linked beside them and named in the head.
-    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: label( lang, "homeTitle" ), path: home( lang ), canonical: home( lang ), main: main, panel: panel,
-        feed: { path: feed( lang ), title: label( lang, "changesFeedAll" ) }, nonce: nonce } ) } );
+    send( response, { cache: CACHE.BRIEF, body: page( { lang: lang, title: label( lang, "homeTitle" ), path: home( lang ), canonical: home( lang ), band: band, main: main,
+        panel: panel, feed: { path: feed( lang ), title: label( lang, "changesFeedAll" ) }, nonce: nonce } ) } );
 };

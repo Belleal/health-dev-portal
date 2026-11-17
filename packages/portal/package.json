@@ -14,6 +14,7 @@
     "imports": {
         "#assets": "./site/assets.js",
         "#copy-fonts": "./scripts/copy-fonts.js",
+        "#content": "./site/content.js",
         "#definitions": "./site/definitions.types.js",
         "#fold": "./site/fold.js",
         "#format": "./site/format.js",
@@ -24,6 +25,7 @@
         "#portal-server": "./bin/portal-server.js",
         "#responses": "./site/responses.js",
         "#routes": "./site/routes.js",
+        "#search": "./site/search.js",
         "#spec-names": "./site/spec-names.js",
         "#text": "./site/text.js"
     },

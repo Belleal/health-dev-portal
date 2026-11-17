@@ -89,7 +89,7 @@ Each step is one implementation plan in `docs/superpowers/plans/`.
 | 5 | Data layer and migration: one SQL subset on SQLite and PostgreSQL (§3.2), the stored model with one spec per code list (§4.6), files by content hash (§3.3), loading today's published workbooks, and copying a database from one driver to the other (§7.11) | Done |
 | 6 | Lifecycle: editing a version with its changelog written as it changes, review rounds, releases, promotion and its rules, freezing, changes in implementation reaching development (§7) | Done |
 | 7 | ti-engine SQL and file gateways (§13) | — |
-| 8 | Public site (§8) | 8a (the reference pages) and 8b (schemas and downloads) done; 8c (guides, FAQ, environment status, search) next |
+| 8 | Public site (§8): 8a the reference pages, 8b schemas and downloads, 8c guides, FAQ, environment status and search | Done |
 | 9 | Staff area: sign-in, roles, the review queue, review and promotion screens | — |
 | 10 | Editing screens, after their own design session | — |
 | 11 | Message tester and the XSD-equivalence corpus (§8.6) | — |
@@ -127,7 +127,7 @@ Plan 7 is independent of the others and is needed only before plan 12; the porta
 | Server logs | 90-day retention, **assumption pending DPO** | — |
 | Data layer | SQL over D1 for development, PostgreSQL at launch, Redis for sessions | §3 |
 | Files | S3-compatible storage (R2 via the Worker; an S3-compatible service in the data centre) | — |
-| Search | Self-hosted, built at publish time | — |
+| Search | Self-hosted, built from the published data on the first search after it changes, in each server's memory (§3.4; plan 8c) | Rejected: an index file stored at publish time, which would need a rule for when a code change makes it stale |
 | Hosting | Cloudflare account for development; Information Services' data centre (Kubernetes) at launch | — |
 | Email | From the his.bg domain in production; Cloudflare's facilities during development | — |
 | Visual direction | C · hybrid; home H1 · status first; message page M1 · tree table | §9 |
@@ -187,10 +187,35 @@ file gateway beside the SQL gateway, same ti-engine feature), an **S3-compatible
 
 ### 3.4 Search
 
-Built when a release reaches testing or production, from the frozen data, into an index file the application loads — no database full-text search, so
-D1 and PostgreSQL behave alike. Bulgarian matching is the portal's own normalisation: case, Latin transliteration
+Built from the frozen data of the versions in testing and production — no database full-text search, so D1 and
+PostgreSQL behave alike. Bulgarian matching is the portal's own normalisation: case, Latin transliteration
 (`web-content`'s `transliterate`), and **look-alike letters folded together**, so "E-рецепта" with a Latin E (HEL-10)
 matches the Cyrillic spelling.
+
+As built *(design call, plan 8c)*:
+- **What is found:**
+  - guides and questions;
+  - each module and the rules;
+  - messages not withdrawn and their elements;
+  - conditions and rules;
+  - code lists by ID and name;
+  - CL999's errors and CL998's warnings.
+
+  Production comes first, and testing adds only what production lacks. Previous production is left out: it expires by
+  date, with nothing to rebuild the index then. A code list's entries are searched by its own filter.
+- **Matching:**
+  - every word must be found, in either language;
+  - within a group, an entry whose own code is a word comes first, then one whose title has every word, then the rest;
+  - 20 per group, with the total.
+
+  The look-alike folding has a price: a Latin word can fold into another's letters ("alpha" holds "lrn").
+- **The index.** Each server process holds its own in memory. It is built on the first search, and again on the first
+  search after the set of testing and production versions changes, which a fingerprint of each one's stage and ID
+  tells. The stage is in it because a promotion keeps a version's ID, so a spec's first promotion to production left the
+  IDs alone.
+  - **Measured on the seed:** about 0.7 s to build, about 5 ms a query.
+  - **Not a stored file:** a file would need a rule for when a code change makes it stale, while memory starts empty
+    after every deploy.
 
 ### 3.5 Repository layout
 
@@ -204,7 +229,7 @@ on everything exported):
 | `packages/data` | The SQL data layer and migrations |
 | `packages/portal` | The web application |
 | `deploy/cloudflare` | The Worker, from ti-engine's `cloudflare` template |
-| `content/` | Guides and FAQ in Markdown (CC BY 4.0) |
+| `content/` | Guides and FAQ in Markdown (CC BY 4.0), each file named in `content.yml`, the register; nothing else in the folder is read. A file must open with a line that is exactly `---`: web-content's front-matter parser runs a `---js` block as code (measured, plan 8c; CA-582 in ti-engine) |
 
 ---
 
@@ -1347,8 +1372,8 @@ Every address starts with `/bg/` or `/en/`; `/` goes to `/bg/`.
 | Errors | CL999 errors and CL998 warnings, explained |
 | Schemas | XSD sets per stage and version; `/api/v1/` obsolete notice |
 | Changes | Changelogs, comparison, feeds |
-| Guides | Getting started, environments, authentication, signing, NRN generation, 2D barcode, secure network, dosage parser, error handling — written fresh from the obsolete PDFs, drafted with AI assistance, marked as such, reviewed by the solution architect, who owns them and may delegate the writing to a business analyst (Boris, 2026-11-06) |
-| FAQ | The 11 questions migrated as they are (review later), categorised, searchable |
+| Guides | Getting started, environments, authentication, signing, NRN generation, 2D barcode, secure network, dosage parser, error handling — written fresh from the obsolete PDFs, drafted with AI assistance, marked as such, reviewed by the solution architect, who owns them and may delegate the writing to a business analyst (Boris, 2026-11-06). Getting started and Environments are drafted (plan 8c); a guide not yet written is listed as coming, with the old his.bg PDF that covers it meanwhile *(design call)* |
+| FAQ | The 11 questions migrated as they are (review later), categorised, searchable. In Bulgarian only, so the English page shows them marked as not yet translated. For the review: question 1's GET beside the POST of the authentication PDF's alternative, question 2's namespace given as the schema's address, a typo in question 6 |
 | Tools | Message tester (§8.6) |
 
 ### 8.2 Home (H1 · status first)
@@ -1405,6 +1430,14 @@ The staff area uses the framework's application shell. Accessibility target WCAG
 
 Per environment (test, production): operational / degraded / maintenance / outage, a message in both languages, planned
 maintenance windows, who updated it and when; a feed. Set by staff; automation later.
+
+As built (plan 8c):
+- **Where it shows:** `/{lang}/status`, its Atom feed, and the home page's band.
+- **Not reported.** An environment nobody has set is shown as "not reported", never as working.
+- **States in words.** A state is always written in words; its colour only adds (WCAG 1.4.1).
+- **Who and when.** "Who" is kept for staff and never shown on a page or in the feed (§10.2); the public sees when.
+- **Times** are shown in Sofia time, and given with their offset.
+- **Setting it.** Until plan 9's form, staff set it with `hdp-status`, whose `--by` names who made the change.
 
 ---
 

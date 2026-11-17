@@ -255,4 +255,18 @@
  *     Without the entries an editor dropped.
  */
 
+/**
+ * @typedef {Object} StatusEvent What a status feed lists (plan 8c, decision 6): a status update, or a maintenance window
+ *     as announced or cancelled. It never names who made the change (design record §10.2).
+ * @property {string} kind `status` or `maintenance`.
+ * @property {string} id The update's or the window's; a window keeps its ID when it is cancelled.
+ * @property {string} environment
+ * @property {string} at The update's time, or the window's announcement or, once cancelled, its cancellation: UTC ISO.
+ * @property {string} [state] An update's.
+ * @property {string} [startsAt] A window's.
+ * @property {string} [endsAt] A window's.
+ * @property {boolean} [cancelled] A window's.
+ * @property {{bg: string, en: string}|null} message
+ */
+
 module.exports = {};

@@ -300,8 +300,59 @@ pre,
     border-bottom-color: #FFFFFF;
 }
 
+/* The search box (plan 8c, decision 7): pushed to the right with the language switch after it. A GET form, so it works
+   without the script. */
+.search {
+    display: flex;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+
+.search input {
+    width: 12rem;
+    max-width: 50vw;
+    border-color: #FFFFFF;
+}
+
+.search button {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #FFFFFF;
+    border-radius: 4px;
+    background: transparent;
+    color: #FFFFFF;
+    cursor: pointer;
+}
+
 .language {
     margin-left: auto;
+}
+
+.search + .language {
+    margin-left: 0;
+}
+
+/* Read by a screen reader, not shown: the search box's label, which its button and placement already make plain. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* A search result's excerpt, beside its title. */
+.results-list {
+    padding-left: 1.2rem;
+}
+
+.results-list li {
+    margin: 0 0 0.5rem;
+}
+
+.excerpt {
+    color: var(--muted);
+    font-size: 0.9rem;
 }
 
 /* The mint band: the stage switcher on a specification's pages, the environments' status on the home page. */
@@ -595,6 +646,47 @@ button.copy {
     background: var(--mint-tint);
 }
 
+/* A guide's or an answer's Markdown (plan 8c, decision 8). Its tables look like the reference tables. Its code blocks
+   wrap rather than scroll: a scrolling block must be focusable (axe's scrollable-region-focusable, measured in plan 8b),
+   and a Markdown block cannot carry tabindex. */
+.prose table {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+}
+
+.prose th {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 2px solid var(--line);
+    text-align: left;
+    font-weight: 600;
+}
+
+.prose td {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+.prose pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* The guides, and those still to come. */
+.guides {
+    padding-left: 1.2rem;
+}
+
+.guides li {
+    margin: 0 0 0.6rem;
+}
+
+/* A guide still a draft: mint, as notices are, since red is kept for the specifications' changes (design record §9). */
+.badge.draft {
+    background: var(--mint);
+    color: var(--green-dark);
+}
+
 .releases {
     margin: 0 0 1.25rem;
     padding: 0;
@@ -625,6 +717,36 @@ button.copy {
 
 .band p {
     margin: 0;
+}
+
+/* An environment's state (plan 8c, decision 6): its words carry it and the colour only adds (WCAG 1.4.1). A white pill,
+   so each colour is read against white wherever it stands, the band's mint included: on white the amber is 5.9:1 and the
+   red 5.4:1. An outage is the one red outside the specifications' changes (design record §9): it is the warning a
+   developer most needs to see. */
+.state {
+    padding: 0 0.45rem;
+    border-radius: 0.7rem;
+    background: #FFFFFF;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.state-operational {
+    color: var(--green-dark);
+}
+
+.state-degraded,
+.state-maintenance {
+    color: var(--amber);
+}
+
+.state-outage {
+    color: var(--red);
+}
+
+.state-none {
+    color: var(--muted);
+    font-weight: 600;
 }
 
 /* A tag, a path or an endpoint keeps its case in a heading: XML is case-sensitive, and an upper-cased /doctor is no

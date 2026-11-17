@@ -16,6 +16,7 @@
  */
 
 const { CHANGE_ORIGIN, RELEASE_EVENT, RELEASE_STATUS, ROUND_DECISION, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
+const { ENVIRONMENT, STATE } = require( "#status" );
 
 // The SQL subset of design record §3.2: TEXT and INTEGER only, booleans as 0/1, no word either database reserves.
 const oneOf = ( column, values ) => `CHECK ( ${ column } IN ( ${ Object.values( values ).map( ( value ) => `'${ value }'` ).join( ", " ) } ) )`;
@@ -227,11 +228,39 @@ const FILES = [
     )`
 ];
 
+const STATUS = [
+    // What staff say of each environment (plan 8c, decision 6; design record §8.7). Who made each change is kept for
+    // staff (§10.1) and never read by a public page (§10.2).
+    `CREATE TABLE status_updates (
+        id TEXT PRIMARY KEY,
+        environment TEXT NOT NULL ${ oneOf( "environment", ENVIRONMENT ) },
+        state TEXT NOT NULL ${ oneOf( "state", STATE ) },
+        message_bg TEXT,
+        message_en TEXT,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )`,
+    "CREATE INDEX status_updates_environment ON status_updates ( environment )",
+    `CREATE TABLE maintenance_windows (
+        id TEXT PRIMARY KEY,
+        environment TEXT NOT NULL ${ oneOf( "environment", ENVIRONMENT ) },
+        starts_at TEXT NOT NULL,
+        ends_at TEXT NOT NULL,
+        message_bg TEXT,
+        message_en TEXT,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        cancelled_by TEXT,
+        cancelled_at TEXT
+    )`
+];
+
 const MIGRATIONS = Object.freeze( [
     Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ),
     Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } ),
     Object.freeze( { id: "0003-review", statements: Object.freeze( REVIEW ) } ),
-    Object.freeze( { id: "0004-files", statements: Object.freeze( FILES ) } )
+    Object.freeze( { id: "0004-files", statements: Object.freeze( FILES ) } ),
+    Object.freeze( { id: "0005-status", statements: Object.freeze( STATUS ) } )
 ] );
 
 /**
@@ -242,7 +271,8 @@ const MIGRATIONS = Object.freeze( [
  * @public
  */
 module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "approved_items", "anomalies", "changelog_entries",
-    "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "fixed_files", "settings" ] );
+    "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "fixed_files", "settings", "status_updates",
+    "maintenance_windows" ] );
 
 /**
  * The statement that makes a batch fail when its version is frozen (design record §7.7). It inserts into
