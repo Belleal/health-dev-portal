@@ -1,0 +1,71 @@
+# The register of the portal's guides and questions (design record §3.5; plan 8c, decision 2). Nothing in this folder is
+# served unless it is named here. See README.md for how to add or change a guide or a question.
+#
+# The text in this folder is licensed under CC BY 4.0 (LICENSE-CONTENT at the repository's root).
+
+# The guides, in the order the Guides section lists them. Each has guides/{slug}.bg.md and, optionally, {slug}.en.md.
+guides: []
+
+# The guides not yet written, listed as coming. Where an old his.bg document covers one, it is linked meanwhile.
+planned:
+  - slug: getting-started
+    title: { bg: "Първи стъпки", en: "Getting started" }
+    legacy:
+  - slug: environments
+    title: { bg: "Среди", en: "Environments" }
+    legacy:
+  - slug: authentication
+    title: { bg: "Автентикация", en: "Authentication" }
+    legacy:
+      title: "НЗИС Автентикация за Достъп до API"
+      version: "1.0.2"
+      url: "https://www.his.bg/upload/32/%D0%9D%D0%97%D0%98%D0%A1+%D0%90%D0%B2%D1%82%D0%B5%D0%BD%D1%82%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+%D0%B7%D0%B0+%D0%94%D0%BE%D1%81%D1%82%D1%8A%D0%BF+%D0%B4%D0%BE+API+v1.0.2.pdf"
+  - slug: signing
+    title: { bg: "Подписване", en: "Signing" }
+    legacy:
+      title: "НЗИС Подписване на е-документи с pen tablet"
+      version: "1.0.2"
+      url: "https://www.his.bg/upload/357/%D0%9D%D0%97%D0%98%D0%A1+%D0%9F%D0%BE%D0%B4%D0%BF%D0%B8%D1%81%D0%B2%D0%B0%D0%BD%D0%B5+%D0%BD%D0%B0+%D0%B5-%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B8+%D1%81+pen+tablet+v1.0.2.pdf"
+  - slug: nrn-generation
+    title: { bg: "Генериране на НРН", en: "NRN generation" }
+    legacy:
+      title: "НЗИС Спецификация за Генериране на НРН"
+      version: "1.0.1"
+      url: "https://www.his.bg/upload/48/%D0%9D%D0%97%D0%98%D0%A1+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+%D0%B7%D0%B0+%D0%93%D0%B5%D0%BD%D0%B5%D1%80%D0%B8%D1%80%D0%B0%D0%BD%D0%B5+%D0%BD%D0%B0+%D0%9D%D0%A0%D0%9D+v1.0.1.pdf"
+  - slug: barcode
+    title: { bg: "2D баркод", en: "2D barcode" }
+    legacy:
+      title: "НЗИС Спецификация на 2D Баркод"
+      version: "1.0.1"
+      url: "https://www.his.bg/upload/56/%D0%9D%D0%97%D0%98%D0%A1+%D0%A1%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+%D0%BD%D0%B0+2D+%D0%91%D0%B0%D1%80%D0%BA%D0%BE%D0%B4+v1.0.1.pdf"
+  - slug: secure-network
+    title: { bg: "Сигурна мрежа", en: "Secure network" }
+    legacy:
+      title: "Инструкции за сигурна информационна мрежа"
+      version: "1.0.0"
+      url: "https://www.his.bg/upload/285/%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8+%D0%B7%D0%B0+%D1%81%D0%B8%D0%B3%D1%83%D1%80%D0%BD%D0%B0+%D0%B8%D0%BD%D1%84%D0%BE%D1%80%D0%BC%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%B0+%D0%BC%D1%80%D0%B5%D0%B6%D0%B0+v.1.0.0.pdf"
+  - slug: dosage-parser
+    title: { bg: "Разчитане на дозировката", en: "Dosage parser" }
+    legacy:
+  - slug: error-handling
+    title: { bg: "Обработка на грешки", en: "Error handling" }
+    legacy:
+
+# The questions, moved unchanged from his.bg (plan 8c, decision 5), by category in the order the FAQ shows them, each
+# category's questions in his.bg's order. Each has faq/{slug}.bg.md and, once translated, {slug}.en.md.
+faq:
+  source: "https://www.his.bg/bg/dev/faq"
+  retrieved: "2026-11-17"
+  categories:
+    - key: authentication
+      name: { bg: "Автентикация и подпис", en: "Authentication and signing" }
+      questions: [ token-method, signature-schema, signature-format ]
+    - key: messages
+      name: { bg: "Съобщения", en: "Messages" }
+      questions: [ repeated-elements, lrn, patient-names ]
+    - key: e-referral
+      name: { bg: "Е-направление", en: "e-Referral" }
+      questions: [ lab-staff, nhif-number, cdr07-country, pmi-deputy ]
+    - key: nomenclatures
+      name: { bg: "Номенклатури", en: "Code lists" }
+      questions: [ qualification-gp ]

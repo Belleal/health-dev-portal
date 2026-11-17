@@ -14,6 +14,7 @@
     "imports": {
         "#assets": "./site/assets.js",
         "#copy-fonts": "./scripts/copy-fonts.js",
+        "#content": "./site/content.js",
         "#definitions": "./site/definitions.types.js",
         "#fold": "./site/fold.js",
         "#format": "./site/format.js",

@@ -69,4 +69,58 @@
  *     from production's, in `compareContents`' order.
  */
 
+/**
+ * @typedef {Object} ContentSource An old document a guide was written from, or the one a planned guide links meanwhile.
+ * @property {string} title
+ * @property {string} version
+ * @property {string} url An https:// address.
+ */
+
+/**
+ * @typedef {Object} GuideText A guide in one language (plan 8c, decision 2).
+ * @property {string} title
+ * @property {string} summary
+ * @property {string} updated `yyyy-mm-dd`.
+ * @property {import( "@ti-engine/web-content/html" ).SafeString} html The body, rendered.
+ * @property {Array<{id: string, title: string}>} contents Its level-two headings, in order, each with its id.
+ * @property {string} plain The body's Markdown without the heading ids' marks, for search.
+ */
+
+/**
+ * @typedef {Object} Guide A guide in the register, with its text in each language.
+ * @property {string} slug
+ * @property {boolean} aiAssisted
+ * @property {string|null} reviewed The date the solution architect reviewed it, `yyyy-mm-dd`; `null` for a draft.
+ * @property {ContentSource[]} sources
+ * @property {{bg: GuideText, en: GuideText|null}} texts
+ */
+
+/**
+ * @typedef {Object} PlannedGuide A guide not yet written (plan 8c, decision 4).
+ * @property {string} slug
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).LocalText} title
+ * @property {ContentSource|null} legacy The old his.bg document that covers it meanwhile.
+ */
+
+/**
+ * @typedef {Object} FaqEntry A question and its answer, in each language (plan 8c, decision 5).
+ * @property {string} slug Its anchor on the FAQ page.
+ * @property {{bg: {question: string, html: import( "@ti-engine/web-content/html" ).SafeString, plain: string},
+ *     en: {question: string, html: import( "@ti-engine/web-content/html" ).SafeString, plain: string}|null}} texts
+ */
+
+/**
+ * @typedef {Object} FaqCategory
+ * @property {string} key
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).LocalText} name
+ * @property {FaqEntry[]} questions In the register's order.
+ */
+
+/**
+ * @typedef {Object} Content Everything `content/` holds, as `content.loadContent` reads it.
+ * @property {Guide[]} guides In the register's order.
+ * @property {PlannedGuide[]} planned
+ * @property {{source: string, retrieved: string, categories: FaqCategory[]}} faq Where the questions came from, when.
+ */
+
 module.exports = {};
