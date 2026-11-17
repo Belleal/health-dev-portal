@@ -419,6 +419,26 @@ module.exports.guide = ( lang, slug ) => `${ module.exports.guides( lang ) }/${ 
 module.exports.faq = ( lang ) => `/${ language( lang ) }/faq`;
 
 /**
+ * The environments' status (plan 8c, decision 6).
+ *
+ * @method
+ * @param {string} lang
+ * @returns {string}
+ * @public
+ */
+module.exports.status = ( lang ) => `/${ language( lang ) }/status`;
+
+/**
+ * The Atom feed of the environments' status and maintenance windows.
+ *
+ * @method
+ * @param {string} lang
+ * @returns {string}
+ * @public
+ */
+module.exports.statusFeed = ( lang ) => `${ module.exports.status( lang ) }/feed.atom`;
+
+/**
  * The same address in the other language, its query kept: the language switch's link. Any address under a language
  * has one, even one that answers 404, which then answers 404 in the other language too.
  *
@@ -574,7 +594,8 @@ const downloadPage = ( rest ) => {
  *     `lists`, `list` (with `query: { q, expired, page }`), `download`, `schema-file` (with `spec`, `null` at a stage, and
  *     `name`) and `spec-download` (with `ext` and `code`, a sample's), all three with `lang: null`, `errors` (with `testing`),
  *     `changes` (with `spec`, `null` for the index), `compare` (with `from`, `to`), `feed`, `schemas`, `schema-set` (with
- *     `spec`, `at`), `guides`, `guide` (with `slug`) or `faq`. `null` for what is no address of the site.
+ *     `spec`, `at`), `guides`, `guide` (with `slug`), `faq`, `status` or `status-feed`. `null` for what is no
+ *     address of the site.
  * @public
  */
 module.exports.parseAddress = ( address ) => {
@@ -639,6 +660,10 @@ module.exports.parseAddress = ( address ) => {
     }
     if ( section === "faq" ) {
         return rest.length === 0 ? { lang: lang, page: "faq" } : null;
+    }
+    if ( section === "status" ) {
+        return rest.length === 0 ? { lang: lang, page: "status" }
+            : rest.length === 1 && rest[ 0 ] === "feed.atom" ? { lang: lang, page: "status-feed" } : null;
     }
     return null;
 };

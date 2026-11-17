@@ -30,6 +30,7 @@ const { errorsPage } = require( "#pages/errors" );
 const { faqPage } = require( "#pages/faq" );
 const { guidePage, guidesIndexPage } = require( "#pages/guides" );
 const { schemaSetPage, schemasIndexPage } = require( "#pages/schemas" );
+const { statusFeedPage, statusPage } = require( "#pages/status" );
 const { feedPage } = require( "#pages/feeds" );
 const { homePage } = require( "#pages/home" );
 const { messagePage } = require( "#pages/message" );
@@ -63,7 +64,9 @@ const PAGES = Object.freeze( {
     feed: feedPage,
     guides: guidesIndexPage,
     guide: guidePage,
-    faq: faqPage
+    faq: faqPage,
+    status: statusPage,
+    "status-feed": statusFeedPage
 } );
 
 /**

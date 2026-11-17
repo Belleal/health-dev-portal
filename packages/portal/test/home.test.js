@@ -117,6 +117,16 @@ describe( "The home page and the specifications index", { skip: !SEEDED && "buil
         }
     } );
 
+    it( "shows each environment's state in the band, and the newcomer's link to Getting started", async () => {
+        // The seed has no status set: the band says so, and never that an environment works (plan 8c, decision 6).
+        const response = await get( "/bg/" );
+        const band = /<div class="band">[\s\S]*?\n<\/div>/.exec( response.text )[ 0 ];
+        assert.match( band, /<a href="\/bg\/status">Продукционна среда<\/a>: <span class="state state-none">Няма данни<\/span>/ );
+        assert.match( band, /<a href="\/bg\/status">Тестова среда<\/a>: <span class="state state-none">Няма данни<\/span>/ );
+        assert.match( band, /<a href="\/bg\/guides\/getting-started">Нов разработчик\? Започнете оттук<\/a>/ );
+        assert.match( ( await get( "/en/" ) ).text, /<a href="\/en\/guides\/getting-started">New developer\? Start here<\/a>/ );
+    } );
+
     it( "is the same page in English, linked both ways with hreflang", async () => {
         const response = await get( "/en/" );
         assertPublic( response, "public, max-age=60" );

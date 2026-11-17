@@ -25,7 +25,7 @@ const assert = require( "node:assert/strict" );
 const paths = require( "#paths" );
 
 const { changes, compare, conditions, dictionary, download, element, elementSlugs, errors, faq, feed, guide, guides, home, list, lists, message, other,
-    parseAddress, parseAt, spec, specs } = paths;
+    parseAddress, parseAt, spec, specs, status, statusFeed } = paths;
 
 // A Cyrillic path segment, as an element's path may hold one, encoded the way a browser sends it.
 const NOTE = encodeURIComponent( "бележка" );
@@ -67,7 +67,9 @@ const ROUND_TRIPS = [
     [ () => feed( "en", "CL007" ), { lang: "en", page: "feed", spec: "CL007" } ],
     [ () => guides( "bg" ), { lang: "bg", page: "guides" } ],
     [ () => guide( "en", "getting-started" ), { lang: "en", page: "guide", slug: "getting-started" } ],
-    [ () => faq( "bg" ), { lang: "bg", page: "faq" } ]
+    [ () => faq( "bg" ), { lang: "bg", page: "faq" } ],
+    [ () => status( "en" ), { lang: "en", page: "status" } ],
+    [ () => statusFeed( "bg" ), { lang: "bg", page: "status-feed" } ]
 ];
 
 describe( "Addresses", () => {
@@ -126,7 +128,8 @@ describe( "Addresses", () => {
             "/bg/changes/e-prescription/compare?from=1.5.1", "/bg/nomenclatures/CL007/production?page=0", "/bg/nomenclatures/CL007/production?page=2x",
             "/downloads/nomenclatures/CL007/1.5.34.xml", "/downloads/nomenclatures/CL007/development.json", "/downloads/nomenclatures/e-prescription/1.5.1.json",
             "/bg/errors/production", "/bg/changes/feed.rss", "/app/x", "/bg/guides/", "/bg/guides/Getting-Started", "/bg/guides/getting-started/more",
-            "/bg/guides/..", "/bg/guides/%2e%2e", "/bg/guides/getting_started", "/bg/faq/", "/bg/faq/token-method"
+            "/bg/guides/..", "/bg/guides/%2e%2e", "/bg/guides/getting_started", "/bg/faq/", "/bg/faq/token-method",
+            "/bg/status/", "/bg/status/feed.rss", "/bg/status/production"
         ] ) {
             assert.equal( parseAddress( path ), null, path );
         }

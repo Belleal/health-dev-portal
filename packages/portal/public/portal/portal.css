@@ -668,6 +668,36 @@ button.copy {
     margin: 0;
 }
 
+/* An environment's state (plan 8c, decision 6): its words carry it and the colour only adds (WCAG 1.4.1). A white pill,
+   so each colour is read against white wherever it stands, the band's mint included: on white the amber is 5.9:1 and the
+   red 5.4:1. An outage is the one red outside the specifications' changes (design record §9): it is the warning a
+   developer most needs to see. */
+.state {
+    padding: 0 0.45rem;
+    border-radius: 0.7rem;
+    background: #FFFFFF;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.state-operational {
+    color: var(--green-dark);
+}
+
+.state-degraded,
+.state-maintenance {
+    color: var(--amber);
+}
+
+.state-outage {
+    color: var(--red);
+}
+
+.state-none {
+    color: var(--muted);
+    font-weight: 600;
+}
+
 /* A tag, a path or an endpoint keeps its case in a heading: XML is case-sensitive, and an upper-cased /doctor is no
    address anyone can call. */
 h1 code,

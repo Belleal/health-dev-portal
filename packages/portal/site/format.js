@@ -175,6 +175,38 @@ module.exports.formatDate = ( date, lang ) => {
     return lang === "bg" ? `${ parts[ 3 ] }.${ parts[ 2 ] }.${ parts[ 1 ] }` : ENGLISH.format( moment );
 };
 
+// A moment in Sofia's own time, whatever the server's zone, on both sides of a clock change. Measured with Node 26 (ICU
+// 78.3): English gives "20 Nov 2026, 22:00", "1 Jan 2027, 00:30" and "5 Sept 2026, 11:05"; the numeric parts of
+// 2026-10-24T23:30Z are 25, 10, 2026, 02 and 30, summer time still in force.
+const ENGLISH_MOMENT = new Intl.DateTimeFormat( "en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    timeZone: "Europe/Sofia" } );
+const SOFIA_PARTS = new Intl.DateTimeFormat( "en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    timeZone: "Europe/Sofia" } );
+
+/**
+ * A moment as a reader expects it, in Sofia time (§7.12): `dd.mm.yyyy HH:mm` in Bulgarian, en-GB's date and a 24-hour time
+ * in English (`20 Nov 2026, 22:00`). For the environments' status and its maintenance windows (plan 8c, decision 6).
+ *
+ * @method
+ * @param {string|Date} moment An ISO moment, or a Date.
+ * @param {string} lang
+ * @returns {string}
+ * @throws {RangeError} For anything that is not a moment, or a language the site does not have.
+ * @public
+ */
+module.exports.formatDateTime = ( moment, lang ) => {
+    otherLanguage( lang );
+    const date = moment instanceof Date ? moment : new Date( typeof moment === "string" ? moment : NaN );
+    if ( Number.isNaN( date.getTime() ) ) {
+        throw new RangeError( `${ JSON.stringify( moment ) } is not a moment such as 2026-11-20T20:00:00Z.` );
+    }
+    if ( lang !== "bg" ) {
+        return ENGLISH_MOMENT.format( date );
+    }
+    const part = Object.fromEntries( SOFIA_PARTS.formatToParts( date ).map( ( one ) => [ one.type, one.value ] ) );
+    return `${ part.day }.${ part.month }.${ part.year } ${ part.hour }:${ part.minute }`;
+};
+
 /**
  * How many times an element may appear, as the workbooks write it: `1..1`, `0..*`. Empty for an element with none.
  *
