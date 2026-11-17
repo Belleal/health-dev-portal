@@ -4,16 +4,34 @@
 # The text in this folder is licensed under CC BY 4.0 (LICENSE-CONTENT at the repository's root).
 
 # The guides, in the order the Guides section lists them. Each has guides/{slug}.bg.md and, optionally, {slug}.en.md.
-guides: []
+#
+# The two drafts were written with the help of artificial intelligence from the documents listed as their sources, the
+# FAQ and the portal's own pages (plan 8c, decision 4). They stay drafts until the solution architect reviews them and
+# sets `reviewed` to that date.
+guides:
+  - slug: getting-started
+    aiAssisted: true
+    reviewed:
+    sources:
+      - title: "НЗИС Автентикация за Достъп до API"
+        version: "1.0.2"
+        url: "https://www.his.bg/upload/32/%D0%9D%D0%97%D0%98%D0%A1+%D0%90%D0%B2%D1%82%D0%B5%D0%BD%D1%82%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+%D0%B7%D0%B0+%D0%94%D0%BE%D1%81%D1%82%D1%8A%D0%BF+%D0%B4%D0%BE+API+v1.0.2.pdf"
+      - title: "НЗИС Общи услуги — Инструкции за употреба"
+        version: "1.0.3"
+        url: "https://www.his.bg/upload/239/%D0%9D%D0%97%D0%98%D0%A1+%D0%9E%D0%B1%D1%89%D0%B8+%D1%83%D1%81%D0%BB%D1%83%D0%B3%D0%B8+-+%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8+%D0%B7%D0%B0+%D1%83%D0%BF%D0%BE%D1%82%D1%80%D0%B5%D0%B1%D0%B0+v1.0.3.pdf"
+  - slug: environments
+    aiAssisted: true
+    reviewed:
+    sources:
+      - title: "НЗИС Автентикация за Достъп до API"
+        version: "1.0.2"
+        url: "https://www.his.bg/upload/32/%D0%9D%D0%97%D0%98%D0%A1+%D0%90%D0%B2%D1%82%D0%B5%D0%BD%D1%82%D0%B8%D0%BA%D0%B0%D1%86%D0%B8%D1%8F+%D0%B7%D0%B0+%D0%94%D0%BE%D1%81%D1%82%D1%8A%D0%BF+%D0%B4%D0%BE+API+v1.0.2.pdf"
+      - title: "Инструкции за сигурна информационна мрежа"
+        version: "1.0.0"
+        url: "https://www.his.bg/upload/285/%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8+%D0%B7%D0%B0+%D1%81%D0%B8%D0%B3%D1%83%D1%80%D0%BD%D0%B0+%D0%B8%D0%BD%D1%84%D0%BE%D1%80%D0%BC%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%B0+%D0%BC%D1%80%D0%B5%D0%B6%D0%B0+v.1.0.0.pdf"
 
 # The guides not yet written, listed as coming. Where an old his.bg document covers one, it is linked meanwhile.
 planned:
-  - slug: getting-started
-    title: { bg: "Първи стъпки", en: "Getting started" }
-    legacy:
-  - slug: environments
-    title: { bg: "Среди", en: "Environments" }
-    legacy:
   - slug: authentication
     title: { bg: "Автентикация", en: "Authentication" }
     legacy:
@@ -67,5 +85,5 @@ faq:
       name: { bg: "Е-направление", en: "e-Referral" }
       questions: [ lab-staff, nhif-number, cdr07-country, pmi-deputy ]
     - key: nomenclatures
-      name: { bg: "Номенклатури", en: "Code lists" }
+      name: { bg: "Номенклатури", en: "Nomenclatures" }
       questions: [ qualification-gp ]

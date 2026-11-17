@@ -180,6 +180,53 @@ describe( "The content register and its loader", () => {
             [ [ "authentication", 3 ], [ "messages", 3 ], [ "e-referral", 4 ], [ "nomenclatures", 1 ] ] );
         assert.equal( content.faq.categories[ 0 ].questions[ 0 ].texts.bg.question,
             "При обръщението към https://auth.his.bg кой метод се използва – POST или GET?" );
-        assert.equal( content.planned.length, 9 );
+        assert.equal( content.planned.length, 7 );
+    } );
+
+    it( "has the two guide drafts, in both languages, marked as unreviewed", () => {
+        const content = loadContent( CONTENT_DIRECTORY );
+        assert.deepEqual( content.guides.map( ( one ) => one.slug ), [ "getting-started", "environments" ] );
+        for ( const guide of content.guides ) {
+            assert.equal( guide.aiAssisted, true, guide.slug );
+            assert.equal( guide.reviewed, null, guide.slug );
+            assert.ok( guide.texts.en, guide.slug );
+            assert.ok( guide.sources.length > 0, guide.slug );
+            // The two languages are the same guide, section by section, so a heading's address is the same in both.
+            assert.deepEqual( guide.texts.en.contents.map( ( one ) => one.id ), guide.texts.bg.contents.map( ( one ) => one.id ), guide.slug );
+        }
+        assert.deepEqual( content.guides[ 0 ].texts.bg.contents.map( ( one ) => one.id ),
+            [ "what", "environments", "certificate", "token", "signing", "first-message", "changes", "questions" ] );
+        assert.deepEqual( content.guides[ 1 ].texts.bg.contents.map( ( one ) => one.id ), [ "overview", "versions", "status", "hospital-network" ] );
+        assert.deepEqual( content.planned.map( ( one ) => one.slug ).includes( "getting-started" ), false );
+    } );
+
+    it( "names no host the sources do not", () => {
+        // Every *.his.bg host in either guide, in either language, is one the sources name (plan 8c, Task 2): a host the
+        // drafts made up would send a vendor's software somewhere that is not NHIS.
+        const KNOWN = new Set( [ "auth", "api", "ptest-auth", "ptest-api", "hospital-auth", "hospital-api", "hospital-cc", "www" ].map( ( one ) => `${ one }.his.bg` ) );
+        const named = new Set();
+        for ( const guide of loadContent( CONTENT_DIRECTORY ).guides ) {
+            for ( const text of [ guide.texts.bg, guide.texts.en ] ) {
+                for ( const host of text.plain.match( /[a-z0-9-]+(?:\.[a-z0-9-]+)*\.his\.bg/g ) || [] ) {
+                    assert.ok( KNOWN.has( host ), `${ guide.slug }: ${ host }` );
+                    named.add( host );
+                }
+            }
+        }
+        // The Environments guide names every host of every environment.
+        for ( const host of [ "auth", "api", "ptest-auth", "ptest-api", "hospital-auth", "hospital-api", "hospital-cc" ] ) {
+            assert.ok( named.has( `${ host }.his.bg` ), host );
+        }
+    } );
+
+    it( "writes no token-like value and names no person", () => {
+        for ( const guide of loadContent( CONTENT_DIRECTORY ).guides ) {
+            for ( const text of [ guide.texts.bg, guide.texts.en ] ) {
+                // The authentication PDF's sample token is abbreviated as "imSXTs…"; the drafts use "…" instead.
+                assert.doesNotMatch( text.plain, /accessToken value="[^"…]{4,}/, guide.slug );
+                assert.doesNotMatch( text.plain, /Authorization: Bearer [A-Za-z0-9]{4,}/, guide.slug );
+                assert.doesNotMatch( text.plain, /Костадинов|Kostadinov/, guide.slug );
+            }
+        }
     } );
 } );
