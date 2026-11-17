@@ -30,6 +30,7 @@ const { errorsPage } = require( "#pages/errors" );
 const { faqPage } = require( "#pages/faq" );
 const { guidePage, guidesIndexPage } = require( "#pages/guides" );
 const { schemaSetPage, schemasIndexPage } = require( "#pages/schemas" );
+const { searchPage } = require( "#pages/search" );
 const { statusFeedPage, statusPage } = require( "#pages/status" );
 const { feedPage } = require( "#pages/feeds" );
 const { homePage } = require( "#pages/home" );
@@ -66,7 +67,8 @@ const PAGES = Object.freeze( {
     guide: guidePage,
     faq: faqPage,
     status: statusPage,
-    "status-feed": statusFeedPage
+    "status-feed": statusFeedPage,
+    search: searchPage
 } );
 
 /**
@@ -86,8 +88,8 @@ module.exports.rootRedirect = ( request, response ) => redirect( response, { sta
  *
  * @method
  * @param {function(): {db: import( "@health-dev-portal/data/definitions" ).Database, store: import( "@health-dev-portal/data/definitions" ).FileStore,
- *     content: import( "#definitions" ).Content}} resources Read on each request: the server opens them as it starts, and the
- *     framework holds every request until it has.
+ *     content: import( "#definitions" ).Content, search: {find: function( Object, string|null ): Promise<import( "#definitions" ).SearchResults>}}} resources
+ *     Read on each request: the server opens them as it starts, and the framework holds every request until it has.
  * @returns {function( Object, Object ): Promise<void>} An Express handler.
  * @public
  */
@@ -98,9 +100,9 @@ module.exports.pageHandler = ( resources ) => async ( request, response ) => {
             notFound( request, response );
             return;
         }
-        const { db, store, content } = resources();
-        await PAGES[ parts.page ]( { db: db, store: store, content: content, lang: parts.lang, request: request, response: response,
-            nonce: response.locals.nonce, today: sofiaDate( new Date() ) }, parts );
+        const { db, store, content, search } = resources();
+        await PAGES[ parts.page ]( { db: db, store: store, content: content, search: ( query ) => search.find( db, query ), lang: parts.lang,
+            request: request, response: response, nonce: response.locals.nonce, today: sofiaDate( new Date() ) }, parts );
     } catch ( error ) {
         failed( request, response, error );
     }

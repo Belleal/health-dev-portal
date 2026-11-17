@@ -20,6 +20,8 @@
  * @property {import( "@health-dev-portal/data/definitions" ).Database} db
  * @property {import( "@health-dev-portal/data/definitions" ).FileStore} store
  * @property {Content} content The guides and the questions, read at start (plan 8c).
+ * @property {function( string|null ): Promise<SearchResults>} search The server's search (`search.createSearch`), on this
+ *     request's database.
  * @property {string|null} lang The page's language; `null` for a download, which has none.
  * @property {Object} request Express's.
  * @property {Object} response Express's; a page sends through responses.js.
@@ -122,6 +124,30 @@
  * @property {Guide[]} guides In the register's order.
  * @property {PlannedGuide[]} planned
  * @property {{source: string, retrieved: string, categories: FaqCategory[]}} faq Where the questions came from, when.
+ */
+
+/**
+ * @typedef {Object} SearchEntry One thing the site's search can find (plan 8c, decision 7), with what its link is made of.
+ * @property {string} kind One of `search.KINDS`.
+ * @property {string|null} spec A spec's key or a code list's ID; `null` for a guide or a question.
+ * @property {string|null} stage `testing` or `production`, the stage it was indexed at.
+ * @property {string|null} code A message's code (an element's message's too), a condition's or a rule's ID, a list's ID,
+ *     or an error's key.
+ * @property {string|null} slug A guide's or a question's slug, or an element's.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).LocalText} title A language may be `null`.
+ * @property {import( "@health-dev-portal/spec-model/definitions" ).LocalText|null} text
+ * @property {string} terms What is the same in both languages: an element's path, a condition's text.
+ * @property {string} folded Everything above that is searched, folded.
+ * @property {string} foldedTitle The code and the title, folded.
+ * @property {string|null} foldedCode
+ */
+
+/**
+ * @typedef {Object} SearchResults
+ * @property {string} query The query as searched: trimmed, its spaces collapsed.
+ * @property {string} state `empty`, `short`, `long` or `done`.
+ * @property {Array<{kind: string, total: number, entries: SearchEntry[]}>} groups In `search.KINDS` order, each with 20
+ *     entries at most.
  */
 
 module.exports = {};

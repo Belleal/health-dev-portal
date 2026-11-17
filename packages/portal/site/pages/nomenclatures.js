@@ -52,7 +52,17 @@ const fileName = ( id, number, ext ) => `${ id }-${ number }.${ ext }`;
 // Keyed by database as well, so that one database's ids are never taken for another's.
 const NAMES = new WeakMap();
 
-const nameOf = async ( db, version ) => {
+/**
+ * A code list's name, by the version it is read from: read once for a frozen version, as the index and the site's
+ * search (plan 8c) both read every list's.
+ *
+ * @method
+ * @param {import( "@health-dev-portal/data/definitions" ).Database} db
+ * @param {{id: string, frozen: boolean}} version
+ * @returns {Promise<import( "@health-dev-portal/spec-model/definitions" ).LocalText|null>}
+ * @public
+ */
+module.exports.nameOf = async ( db, version ) => {
     if ( !NAMES.has( db ) ) {
         NAMES.set( db, new Map() );
     }
@@ -94,7 +104,7 @@ module.exports.listsPage = async ( context, parts ) => {
     const { db, lang, response, nonce } = context;
     const { q } = parts.query;
     const published = ( await listPublished( db ) ).filter( ( one ) => one.kind === SPEC_KIND.CODE_LIST );
-    const named = await Promise.all( published.map( async ( one ) => ( { published: one, name: await nameOf( db, nameSource( one ) ) } ) ) );
+    const named = await Promise.all( published.map( async ( one ) => ( { published: one, name: await module.exports.nameOf( db, nameSource( one ) ) } ) ) );
     // The text is folded; the query is searched in both of its forms (`needles`). The name in each language is searched,
     // as the reader may know either.
     const forms = q === null ? null : needles( q );

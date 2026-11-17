@@ -25,6 +25,7 @@
         "#portal-server": "./bin/portal-server.js",
         "#responses": "./site/responses.js",
         "#routes": "./site/routes.js",
+        "#search": "./site/search.js",
         "#spec-names": "./site/spec-names.js",
         "#text": "./site/text.js"
     },

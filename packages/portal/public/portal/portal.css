@@ -300,8 +300,59 @@ pre,
     border-bottom-color: #FFFFFF;
 }
 
+/* The search box (plan 8c, decision 7): pushed to the right with the language switch after it. A GET form, so it works
+   without the script. */
+.search {
+    display: flex;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+
+.search input {
+    width: 12rem;
+    max-width: 50vw;
+    border-color: #FFFFFF;
+}
+
+.search button {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #FFFFFF;
+    border-radius: 4px;
+    background: transparent;
+    color: #FFFFFF;
+    cursor: pointer;
+}
+
 .language {
     margin-left: auto;
+}
+
+.search + .language {
+    margin-left: 0;
+}
+
+/* Read by a screen reader, not shown: the search box's label, which its button and placement already make plain. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* A search result's excerpt, beside its title. */
+.results-list {
+    padding-left: 1.2rem;
+}
+
+.results-list li {
+    margin: 0 0 0.5rem;
+}
+
+.excerpt {
+    color: var(--muted);
+    font-size: 0.9rem;
 }
 
 /* The mint band: the stage switcher on a specification's pages, the environments' status on the home page. */

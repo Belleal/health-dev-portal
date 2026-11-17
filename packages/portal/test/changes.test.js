@@ -138,7 +138,8 @@ describe( "The changes pages and the feeds", { skip: !SEEDED && "build the seed 
 
     it( "carries a comparison form that works without JavaScript", async () => {
         const page = ( await get( "/bg/changes/e-prescription" ) ).text;
-        const form = page.match( /<form\b[^>]*>[\s\S]*?<\/form>/ )[ 0 ];
+        // The comparison's form, not the top bar's search box, which every page has before it (plan 8c).
+        const form = page.match( /<form\b[^>]*\/compare"[^>]*>[\s\S]*?<\/form>/ )[ 0 ];
         assert.match( form, /method="get"/ );
         assert.match( form, /action="\/bg\/changes\/e-prescription\/compare"/ );
         const selects = [ ...form.matchAll( /<select\b[^>]*name="(from|to)"[^>]*>([\s\S]*?)<\/select>/g ) ];

@@ -27,9 +27,11 @@ const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { directoryStore } = require( "@health-dev-portal/data/files" );
 const { PUBLIC_DIRECTORY } = require( "#assets" );
 const { CONTENT_DIRECTORY, loadContent } = require( "#content" );
+const { nameOf } = require( "#pages/nomenclatures" );
 const { setPublicUrl } = require( "#paths" );
 const { notFound } = require( "#responses" );
 const { pageHandler, rootRedirect } = require( "#routes" );
+const { createSearch } = require( "#search" );
 
 /**
  * The public website: every published specification version by stage, its messages, the code lists, the errors and the
@@ -44,6 +46,7 @@ class PortalServer extends TiWebServer {
     #db = null;
     #store = null;
     #content = null;
+    #search = null;
 
     /**
      * @constructor
@@ -147,7 +150,7 @@ class PortalServer extends TiWebServer {
             this.registerRoute( "post", route, notFound );
         }
         super.defineWebApplicationRoutes();
-        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content } ) ) );
+        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content, search: this.#search } ) ) );
     }
 
     // HDP_DATABASE_URL is required; HDP_FILES_DIR defaults to `.files` under the working directory, and HDP_CONTENT_DIR
@@ -161,6 +164,8 @@ class PortalServer extends TiWebServer {
                 + `hreflang and feeds are written from it. ${ error.message }`, { cause: error } );
         }
         this.#content = loadContent( process.env.HDP_CONTENT_DIR ? path.resolve( process.env.HDP_CONTENT_DIR ) : CONTENT_DIRECTORY );
+        // The instance's own search: its index is built on the first search, not here, so a start never waits on it.
+        this.#search = createSearch( this.#content, nameOf );
         const url = process.env.HDP_DATABASE_URL;
         if ( !url ) {
             throw new Error( "HDP_DATABASE_URL is not set: every page is read from the portal's database (sqlite:<path> or postgres://…)." );

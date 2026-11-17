@@ -27,7 +27,7 @@
 const { html } = require( "@ti-engine/web-content/html" );
 const { SCRIPT, STYLESHEET, assetPath } = require( "#assets" );
 const { LANGUAGES, label, otherLanguage } = require( "#labels" );
-const { absolute, changes, errors, faq, guides, home, lists, other, schemas, specs } = require( "#paths" );
+const { absolute, changes, errors, faq, guides, home, lists, other, schemas, search, specs } = require( "#paths" );
 
 // The top bar's sections, in §8.1's order; plan 11 adds Tools.
 const SECTIONS = Object.freeze( [
@@ -101,6 +101,7 @@ ${ alternates( lang, canonical ) }${ feed ? html`<link rel="alternate" type="app
 <nav class="sections" aria-label="${ label( lang, "mainSections" ) }"><ul>
 ${ sections }
 </ul></nav>
+<form class="search" role="search" method="get" action="${ search( lang ) }"><label for="site-search" class="visually-hidden">${ label( lang, "searchLabel" ) }</label><input id="site-search" type="search" name="q"><button type="submit">${ label( lang, "searchButton" ) }</button></form>
 <div class="language"><a href="${ other( path ) || home( switchTo ) }" hreflang="${ switchTo }" lang="${ switchTo }">${ label( switchTo, "languageName" ) }</a></div>
 </header>
 ${ band ? html`<div class="band">
