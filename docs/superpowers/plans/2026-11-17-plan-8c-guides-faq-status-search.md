@@ -213,7 +213,7 @@ Reject any at review, before Task 1.
      - both answer 200, and the query is shown escaped.
    - **The index** (refining §3.4's "built at publish time … into an index file"):
      - **Built** in memory by each server process, on its first search, and again on the first search after the published set changes.
-     - **The change** is noticed through a fingerprint: SHA-256 of the sorted IDs of every testing and production version that `listPublished` gives, read on each search.
+     - **The change** is noticed through a fingerprint: SHA-256 of the sorted `stage:id` pairs of every testing and production version that `listPublished` gives, read on each search. The stage is in it because a promotion keeps a version's ID: a spec's first promotion to production leaves the IDs alone (CodeRabbit on #6; reproduced by the final review).
      - **One build at a time** per fingerprint.
      - **Why not a stored file:** it would need a rule for when a code change makes it stale, whereas memory starts empty after every deploy. Task 6 records the build's time on the seed.
      - **Each portal has its own index,** held by the server instance, never by the module, so two portals in one test process never share one.
@@ -360,7 +360,8 @@ it( "renders a guide's headings with their ids and lists them as its contents", 
 } );
 it( "refuses front matter that does not open with a plain --- line, without running it", () => {
     globalThis.__contentRan = false;
-    const error = assert.throws( () => loadContent( folder( { …, "faq/one.bg.md": "---js\n{ question: ( globalThis.__contentRan = true, \"x\" ) }\n---\nО" } ) ), ContentError );
+    // `assert.throws` checks the error but returns nothing (CodeRabbit on #6): a helper catches the ContentError and returns it.
+    const error = refusal( { …, "faq/one.bg.md": "---js\n{ question: ( globalThis.__contentRan = true, \"x\" ) }\n---\nО" } );
     assert.equal( globalThis.__contentRan, false );
     assert.match( error.problems.join( "\n" ), /faq[\\/]one\.bg\.md/ );
 } );
@@ -377,7 +378,7 @@ it( "loads the repository's own content", () => {
         [ [ "authentication", 3 ], [ "messages", 3 ], [ "e-referral", 4 ], [ "nomenclatures", 1 ] ] );
     assert.equal( content.faq.categories[ 0 ].questions[ 0 ].texts.bg.question,
         "При обръщението към https://auth.his.bg кой метод се използва – POST или GET?" );
-    assert.equal( content.planned.length, 9 );
+    assert.equal( content.planned.length, 9 );   // 7 once Task 2 moves two guides out of `planned`
 } );
 ```
 
@@ -444,8 +445,10 @@ it( "names no host the sources do not", () => {
     // Every *.his.bg host in either guide, in either language, is one the sources name: a host the drafts made up would
     // send a vendor's software somewhere that is not NHIS.
     const KNOWN = new Set( [ "auth", "api", "ptest-auth", "ptest-api", "hospital-auth", "hospital-api", "hospital-cc", "www" ].map( ( one ) => `${ one }.his.bg` ) );
+    // Whole host names, so `auth.his.bg.example.com` is read as itself and fails, never as `auth.his.bg` (CodeRabbit on #6).
+    const hostsIn = ( text ) => text.match( /[a-z0-9-]+(?:\.[a-z0-9-]+)*\.his\.bg(?:\.[a-z0-9-]+)*/g ) || [];
     for ( … every text's plain … ) {
-        for ( const host of text.match( /[a-z0-9-]+\.his\.bg/g ) || [] ) {
+        for ( const host of hostsIn( text ) ) {
             assert.ok( KNOWN.has( host ), host );
         }
     }
@@ -455,7 +458,8 @@ it( "names no host the sources do not", () => {
 - [ ] **Step 2: Run it and watch it fail.**
   - Run: `node --test packages/portal/test/unit/content.test.js`
   - Expected: the first test fails, since there are no guides yet.
-- [ ] **Step 3: Write the drafts.**
+- [ ] **Step 3: Write the drafts,** and move both guides from `planned` to `guides` in the register. Task 1's "loads the
+  repository's own content" then expects 7 planned guides, not 9: change its assertion in this step (CodeRabbit on #6).
   - Plain, short sentences, with the heading ids above.
   - The token's example is the S001 answer with `value="…"`, never the PDF's sample string.
   - No author, no document history, no person's name.
