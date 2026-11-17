@@ -10,7 +10,8 @@
     },
     "bin": {
         "hdp-copy": "./bin/copy.js",
-        "hdp-migrate": "./bin/migrate.js"
+        "hdp-migrate": "./bin/migrate.js",
+        "hdp-status": "./bin/status.js"
     },
     "exports": {
         "./carry": "./store/carry.js",
@@ -32,6 +33,7 @@
         "./resolution": "./store/resolution.js",
         "./review": "./store/review.js",
         "./schema": "./store/schema.js",
+        "./status": "./store/status.js",
         "./targets": "./store/targets.js",
         "./versions": "./store/versions.js"
     },
@@ -59,6 +61,7 @@
         "#resolution": "./store/resolution.js",
         "#review": "./store/review.js",
         "#schema": "./store/schema.js",
+        "#status": "./store/status.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
         "#targets": "./store/targets.js",
         "#versions": "./store/versions.js"
