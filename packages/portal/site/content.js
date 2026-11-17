@@ -91,8 +91,8 @@ const frozen = ( value ) => {
 };
 
 // Reads one registered file. Its first line must be exactly `---`: gray-matter's JavaScript engine evaluates a `---js`
-// block, and web-content's `parseRecord` hands it every engine (measured 2026-11-17, plan 8c decision 3), so a Markdown
-// file could otherwise run code when the portal starts. The check comes before any parsing.
+// block, and web-content's `parseRecord` hands it every engine (measured 2026-11-17, plan 8c decision 3; CA-582 in
+// ti-engine), so a Markdown file could otherwise run code when the portal starts. The check comes before any parsing.
 const readRecord = ( root, name, problems, { required } ) => {
     const file = path.join( root, ...name.split( "/" ) );
     if ( !fs.existsSync( file ) ) {

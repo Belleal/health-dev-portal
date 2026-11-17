@@ -127,3 +127,24 @@ centre's PostgreSQL at launch.
 - **A copy that fails part-way** leaves the target partly filled. Drop the target and copy again.
 - **The URLs** come from `HDP_COPY_FROM_URL` and `HDP_COPY_TO_URL`, or `--from` and `--to`, and neither is ever
   printed. A URL with a password belongs in the environment, and the command warns when one is given as an argument.
+
+### Setting the environments' status
+
+Staff set what the portal says of the production and test environments, and announce maintenance windows, with
+`hdp-status` (design record §8.7), until the staff area's form replaces it:
+
+```bash
+HDP_DATABASE_URL=sqlite:portal.db npx hdp-status show
+HDP_DATABASE_URL=sqlite:portal.db npx hdp-status set --environment production --state degraded --bg "Бавни отговори" --en "Slow answers" --by "<who>"
+HDP_DATABASE_URL=sqlite:portal.db npx hdp-status window add --environment test --from 2026-11-20T22:00+02:00 --to 2026-11-20T23:30+02:00 --by "<who>"
+HDP_DATABASE_URL=sqlite:portal.db npx hdp-status window cancel --id <window id> --by "<who>"
+```
+
+- **States:** `operational`, `degraded`, `maintenance` or `outage`. An environment nobody has set is shown as not
+  reported, never as working.
+- **A message** is given in both languages, `--bg` and `--en`, or not at all.
+- **A time** carries its offset (`+02:00`, `+03:00` in summer, or `Z`). A bare local time is refused: one hour each
+  October happens twice in Sofia.
+- **`--by`** names who made the change. It is kept for staff and never shown on the site or in its feed.
+- **The command runs the schema's migrations first**, so it works on a database made before the status tables existed.
+- A refused argument exits 2; a cancel that finds no window exits 1.

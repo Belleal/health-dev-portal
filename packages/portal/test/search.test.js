@@ -75,6 +75,15 @@ describe( "The site's search", { skip: !SEEDED && "build the seed first: npm run
         }
     } );
 
+    it( "names a result's spec only where its group does not already say it", async () => {
+        const page = ( await search( "bg", "CL009" ) ).text;
+        // A list's own ID is its title: repeated after it, it said nothing ("CL009 · … CL009").
+        const list = /<li><a href="\/bg\/nomenclatures\/CL009\/production">[\s\S]*?<\/li>/.exec( page )[ 0 ];
+        assert.doesNotMatch( list, /<span class="muted">/ );
+        // A message's module is named, since the group holds every module's.
+        assert.match( ( await search( "bg", "p001" ) ).text, /P001<\/code> · [^<]*<\/a> <span class="muted">Е-рецепта<\/span>/ );
+    } );
+
     it( "finds the FAQ and the guides", async () => {
         const links = linksOf( ( await search( "bg", "токен" ) ).text );
         assert.ok( links.includes( "/bg/faq#token-method" ), links.join( " " ) );

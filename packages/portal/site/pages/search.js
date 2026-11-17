@@ -78,9 +78,13 @@ const titleOf = ( lang, entry ) => {
     }
 };
 
-// Where a result stands: its spec, the stage when it is testing, and an element's message.
+// The kinds whose group already names their spec: a list's ID is its own title, and the rules, the errors and the
+// warnings each come from one spec only. Named again, it said nothing ("CL009 · … CL009").
+const OWN_SPEC = Object.freeze( [ "spec", "list", "rule", "error", "warning" ] );
+
+// Where a result stands: its spec where the group does not say it, an element's message, and the stage when it is testing.
 const contextOf = ( lang, entry ) => {
-    const parts = [ entry.spec === null || entry.kind === "spec" ? null : specName( entry.spec, lang ), entry.kind === "element" ? entry.code : null,
+    const parts = [ entry.spec === null || OWN_SPEC.includes( entry.kind ) ? null : specName( entry.spec, lang ), entry.kind === "element" ? entry.code : null,
         entry.stage === STAGE.TESTING ? label( lang, "searchTesting" ) : null ].filter( Boolean );
     return parts.length === 0 ? null : html` <span class="muted">${ parts.join( " · " ) }</span>`;
 };

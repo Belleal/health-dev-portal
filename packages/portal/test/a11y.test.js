@@ -25,6 +25,8 @@ const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 // A missing browser skips locally and fails in CI, as a missing seed does: a skipped check looks exactly like a passing one.
 const { IN_CI, SEED, SEEDED, get, startPortal } = require( "./support/server" );
+const { openDatabase } = require( "@health-dev-portal/data/database" );
+const { addMaintenance, setStatus } = require( "@health-dev-portal/data/status" );
 const paths = require( "#paths" );
 
 const TAGS = [ "wcag2a", "wcag2aa", "wcag21a", "wcag21aa" ];
@@ -63,7 +65,15 @@ function pagesToCheck( element ) {
             paths.schemaSet( lang, SPEC, SEED.ePrescription.production ),
             paths.message( lang, SPEC, "testing", "P001", "sample" ),
             paths.message( lang, SPEC, "testing", "P001", "xsd" ),
-            paths.changes( lang, "nomenclatures" )
+            paths.changes( lang, "nomenclatures" ),
+            // Plan 8c: the guides, the FAQ, the status page with every state shown, and search, its results and a query too short.
+            paths.guides( lang ),
+            paths.guide( lang, "getting-started" ),
+            paths.guide( lang, "environments" ),
+            paths.faq( lang ),
+            paths.status( lang ),
+            paths.search( lang, "P001" ),
+            paths.search( lang, "a" )
         ].map( ( address ) => [ address, 200 ] ) );
         // Nothing is in testing as far as errors go, so that address is the 404 page in its language.
         addresses.push(
@@ -96,6 +106,18 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
             return;
         }
         portal = await startPortal();
+        // Every state, so that axe measures each one's colour: the latest two in the band and the table, all four in the
+        // history; and a window to come, in the band and on the status page (plan 8c, decision 6).
+        const db = await openDatabase( `sqlite:${ portal.database }` );
+        const update = ( environment, state, at ) => setStatus( db, { environment: environment, state: state, message: { bg: "Съобщение", en: "Message" },
+            by: "a11y-test", at: new Date( at ) } );
+        await update( "production", "maintenance", "2026-11-17T07:00:00Z" );
+        await update( "test", "operational", "2026-11-17T07:30:00Z" );
+        await update( "production", "degraded", "2026-11-17T08:00:00Z" );
+        await update( "test", "outage", "2026-11-17T08:30:00Z" );
+        await addMaintenance( db, { environment: "production", startsAt: new Date( "2099-11-20T20:00:00Z" ), endsAt: new Date( "2099-11-20T21:30:00Z" ),
+            message: { bg: "Обновяване", en: "Upgrade" }, by: "a11y-test" } );
+        await db.close();
         page = await ( await browser.newContext() ).newPage(); // axe opens a page of its own from the page's context
     } );
 

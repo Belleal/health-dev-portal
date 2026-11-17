@@ -1,8 +1,9 @@
 # @health-dev-portal/portal
 
-The portal's public website (plans 8a and 8b; design record §8): every published specification version by stage, each
-message element by element with its XSD and a sample, the code lists, the errors, the changes, and the generated XSDs and
-downloads of every module version, in Bulgarian at `/bg/` and English at `/en/`.
+The portal's public website (plans 8a, 8b and 8c; design record §8): every published specification version by stage,
+each message element by element with its XSD and a sample, the code lists, the errors, the changes, the generated XSDs
+and downloads of every module version, the guides and the FAQ, the environments' status, and a search across all of it,
+in Bulgarian at `/bg/` and English at `/en/`.
 
 - **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` with no web application manager
   until plan 9 brings the staff area.
@@ -57,6 +58,7 @@ It needs a database, a file store and a Redis.
    | `TI_INSTANCE_CLASS` | The class core's start-instance constructs: `bin/portal-server.js`. |
    | `HDP_DATABASE_URL` | Where every page is read from (required): `sqlite:<path>` or `postgres://user@host:5432/database`. A URL with a password belongs in the deployment's secret store, never in a file. |
    | `HDP_FILES_DIR` | The file store, by content hash. Default: `.files` under `packages/portal`. |
+   | `HDP_CONTENT_DIR` | The guides and the questions. Default: the repository's `content/`, which is what a deployment serves. |
    | `TI_WEB_PUBLIC_URL` | The public origin every absolute link is written from (required): canonical addresses, `hreflang`, feeds. |
    | `TI_WEB_USE_TLS`, `TI_WEB_HOST`, `TI_WEB_PORT` | Plain HTTP on `127.0.0.1:3000` here; in a deployment TLS ends in front of the container. |
    | `TI_WEB_AUTH_METHODS` | Empty: no sign-in method until plan 9 brings the staff area. |
@@ -130,6 +132,29 @@ kept by content hash, and never change. A number's address serves the file; a st
 
 A withdrawn message has no XSD and no sample; a retired version's files answer 410, as plan 8a's downloads do.
 
+## Guides, FAQ, status and search
+
+Plan 8c (design record §3.4, §3.5, §8.1, §8.2, §8.7).
+
+| Address | What |
+|---|---|
+| `/{lang}/guides` · `/{lang}/guides/{slug}` | The guides in `content/`, each with its contents, sources, licence, and its notice when written with the help of artificial intelligence |
+| `/{lang}/faq` | The questions in `content/`, by category, each at its own anchor |
+| `/{lang}/status` · `/{lang}/status/feed.atom` | Each environment's state, the maintenance planned, the latest updates; their feed |
+| `/{lang}/search?q=…` | Everything above and every published specification's messages, elements, conditions, rules, lists and errors |
+
+- **The content is read once, at start.** `content/content.yml` names every file; nothing else in the folder is read
+  (see [`content/README.md`](../../content/README.md)). A file the portal cannot read stops the start, with every
+  problem named. A file whose first line is not exactly `---` is refused before it is parsed: web-content's front-matter
+  parser runs a `---js` block as code (measured).
+- **The status** is in the database, set with `hdp-status` (the repository's README) until the staff area's form. With
+  nothing set, an environment is "not reported", never shown as working. Who made a change is kept for staff and never
+  shown. Run the migrations (`hdp-migrate`, or `hdp-status` itself) on a database made before plan 8c.
+- **The search index** belongs to each server instance and lives in memory. It is built on the first search and again
+  on the first search after the published set changes, which a fingerprint of the testing and production versions' IDs
+  tells. On the seed it takes about 0.7 s, and a query about 5 ms. It reads testing and production only: previous
+  production expires by date with nothing to rebuild the index then, and a list's entries are searched on its own page.
+
 ## Fonts
 
 Sofia Sans (400, 600, 700) and Sofia Sans Extra Condensed (700), Cyrillic and Latin, are copied from the pinned
@@ -148,7 +173,7 @@ version of the fonts goes into a new directory.
 | Response | `Cache-Control` |
 |---|---|
 | A retired version's 410, its downloads' too | `public, max-age=86400` |
-| Home, indexes, stage pages, pages at a fixed address (`…/1.5.1/…`: they link each list as it is now), errors, changes, comparison, feeds, 404, redirects | `public, max-age=60` |
+| Home, indexes, stage pages, pages at a fixed address (`…/1.5.1/…`: they link each list as it is now), errors, changes, comparison, feeds, guides, FAQ, status, search, 404, redirects | `public, max-age=60` |
 | A fixed download: a code list's JSON or CSV; a module version's XSD, sample, model or zip; xmldsig | `public, max-age=31536000, immutable` |
 | The stylesheet and the script at their hashed address, the fonts | `public, max-age=31536000, immutable` |
 | A failure (500) | `no-store` |
