@@ -23,6 +23,7 @@
  * stripped on the next request. The configuration's admin keeps the framework's `admin`, which counts here as well.
  */
 
+const exceptions = require( "@ti-engine/core/exceptions" );
 const { EVERY_SPEC, ROLE } = require( "@health-dev-portal/data/staff" );
 
 /**
@@ -83,3 +84,21 @@ module.exports.sessionRolesOf = ( grants ) => {
  * @public
  */
 module.exports.isStudioAdmin = ( roles ) => module.exports.ADMIN_ROLES.some( ( role ) => roles.includes( role ) );
+
+/**
+ * Refuses anyone who is not an admin. It reads the roles, never `session.studio.editorSpecs`, which a failed refresh
+ * leaves at its last value. A fragment's `roles` gate only the HTML, so every JSON view and service of an admin screen
+ * calls this itself.
+ *
+ * @method
+ * @param {Object} session
+ * @returns {void}
+ * @throws {TiException} `E_SEC_UNAUTHORIZED_ACCESS` (403) unless the session is an admin's.
+ * @public
+ */
+module.exports.requireStudioAdmin = ( session ) => {
+    const roles = ( session && session.user && session.user.roles ) || [];
+    if ( !module.exports.isStudioAdmin( roles ) ) {
+        throw exceptions.raise( exceptions.exceptionCode.E_SEC_UNAUTHORIZED_ACCESS, null, exceptions.httpCode.C_403 );
+    }
+};

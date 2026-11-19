@@ -26,8 +26,10 @@
 require( "#studio/labels" );
 const TiWebAppManager = require( "@ti-engine/web-framework/web-application" );
 const context = require( "#studio/context" );
+const { announceWindow, changeStatus, environmentView, withdrawWindow } = require( "#studio/environment" );
 const { changeGrants, peopleView } = require( "#studio/people" );
 const { ADMIN_ROLES, STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
+const { saveSettings, settingsView } = require( "#studio/settings" );
 
 // The sidebar entry each screen lights.
 const SIDEBAR_ENTRY = Object.freeze( { dashboard: "home", people: "people", settings: "settings", "environment-status": "environment-status" } );
@@ -49,6 +51,8 @@ class StudioManager extends TiWebAppManager {
         super( "studio" );
         // Gates the HTML only: `people` as data and `people-grants` as a service check the role themselves (#studio/people).
         this.addFragment( "people", { title: "People", path: "fragments/frame-people.html", roles: ADMIN_ROLES } );
+        this.addFragment( "settings", { title: "Settings", path: "fragments/frame-settings.html", roles: ADMIN_ROLES } );
+        this.addFragment( "environment-status", { title: "Environment status", path: "fragments/frame-environment-status.html", roles: ADMIN_ROLES } );
     }
 
     /**
@@ -80,6 +84,12 @@ class StudioManager extends TiWebAppManager {
         if ( view === "people" ) {
             return peopleView( context.instance.db, session, options.language );
         }
+        if ( view === "settings" ) {
+            return settingsView( context.instance.db, session );
+        }
+        if ( view === "environment-status" ) {
+            return environmentView( context.instance.db, session, new Date(), options.language );
+        }
         const answer = await super.processDataRequest( session, view, options );
         // `/app/config` is unprotected, so `session.user` may be absent: nobody is then an admin.
         // `sidebarNavMapping` is the sidebar's screen-to-entry table, which keeps the entry lit after a reload.
@@ -87,7 +97,8 @@ class StudioManager extends TiWebAppManager {
     }
 
     /**
-     * Answers the studio's own services: `people-grants` replaces what one person holds. Every other service is the
+     * Answers the studio's own services: `people-grants` replaces what one person holds, `settings-save` the self-approval setting, and
+     * `status-set`, `maintenance-add` and `maintenance-cancel` the environments' status. Every other service is the
      * framework's.
      *
      * @method
@@ -101,6 +112,12 @@ class StudioManager extends TiWebAppManager {
     async processServiceRequest( session, service, params ) {
         if ( service === "people-grants" ) {
             await changeGrants( context.instance.db, session, params );
+            return {};
+        }
+        // Each of these checks the admin role itself: nothing here is gated but by that check.
+        const handlers = { "settings-save": saveSettings, "status-set": changeStatus, "maintenance-add": announceWindow, "maintenance-cancel": withdrawWindow };
+        if ( Object.hasOwn( handlers, service ) ) {
+            await handlers[ service ]( context.instance.db, session, params );
             return {};
         }
         return super.processServiceRequest( session, service, params );

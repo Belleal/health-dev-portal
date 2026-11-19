@@ -247,7 +247,178 @@
         };
     };
 
+    // What a screen shows when a request fails: the framework's own notification, unless the request was only aborted.
+    const reportFailure = ( error ) => {
+        if ( error && ( error.name === "AbortError" || error.isAborted ) ) {
+            return;
+        }
+        const application = Alpine.store( "tiApplication" );
+        application.notify( application.formatException( error ) );
+    };
+
+    /**
+     * Settings: whether an approver may approve a round they submitted themselves.
+     *
+     * @returns {Object}
+     */
+    const configureSettings = () => {
+        return {
+            busy: true,
+            loaded: false,
+            saving: false,
+            selfApproval: true,
+
+            init() {
+                whenInitialized( this, () => this.load() );
+            },
+
+            load() {
+                this.busy = true;
+                Alpine.store( "tiApplication" ).sendRequest( "/app/settings" ).then( ( result ) => {
+                    const data = ( result && result.data && typeof result.data === "object" ) ? result.data : {};
+                    // Anything but an explicit `false` is read as allowed, as the review code reads a missing setting.
+                    this.selfApproval = data.selfApproval !== false;
+                    this.loaded = true;
+                    this.busy = false;
+                } ).catch( ( error ) => {
+                    this.busy = false;
+                    reportFailure( error );
+                } );
+            },
+
+            setSelfApproval( checked ) {
+                this.selfApproval = Boolean( checked );
+            },
+
+            isSaving() {
+                return this.saving;
+            },
+
+            save() {
+                if ( this.saving ) {
+                    return;
+                }
+                this.saving = true;
+                Alpine.store( "tiApplication" ).sendRequest( "/app/settings-save", "POST", { selfApproval: this.selfApproval } ).then( () => {
+                    this.saving = false;
+                    this.load();
+                } ).catch( ( error ) => {
+                    this.saving = false;
+                    reportFailure( error );
+                } );
+            }
+        };
+    };
+
+    /**
+     * Environment status: each environment's state, a form to set it, the windows to come with a form to announce one, and
+     * the recent updates. The server writes the times in Sofia time and the messages in the screen's language; this lays
+     * the lines out with the labels. The window's times go back as the inputs give them, `yyyy-mm-ddThh:mm`, which the
+     * server reads as Sofia time.
+     *
+     * @returns {Object}
+     */
+    const configureEnvironment = () => {
+        const label = ( key, fallback ) => Alpine.store( "tiApplication" ).getLabel( key, fallback );
+        const environmentText = ( id ) => label( `studio.environment.env.${ id }`, String( id ) );
+        const stateText = ( id ) => id === null || id === undefined ? label( "studio.environment.not-reported", "Not reported" ) : label( `studio.environment.state.${ id }`, String( id ) );
+        const joined = ( parts ) => parts.filter( ( part ) => part !== "" ).join( " · " );
+        return {
+            busy: true,
+            loaded: false,
+            environments: [],
+            states: [],
+            current: [],
+            windows: [],
+            events: [],
+            statusEnvironment: "",
+            statusState: "",
+            windowEnvironment: "",
+            statusMessageBg: "",
+            statusMessageEn: "",
+            windowMessageBg: "",
+            windowMessageEn: "",
+            startsAt: "",
+            endsAt: "",
+
+            init() {
+                whenInitialized( this, () => this.load() );
+            },
+
+            load() {
+                this.busy = true;
+                Alpine.store( "tiApplication" ).sendRequest( "/app/environment-status" ).then( ( result ) => {
+                    const data = ( result && result.data && typeof result.data === "object" ) ? result.data : {};
+                    const list = ( value ) => Array.isArray( value ) ? value : [];
+                    this.environments = list( data.environments ).map( ( id ) => ( { id: String( id ), text: environmentText( id ) } ) );
+                    this.states = list( data.states ).map( ( id ) => ( { id: String( id ), text: stateText( id ) } ) );
+                    this.current = list( data.current ).map( ( one ) => ( { environment: String( one.environment ),
+                        text: joined( [ environmentText( one.environment ), stateText( one.state ), String( one.messageText || "" ), String( one.updatedAtText || "" ) ] ) } ) );
+                    this.windows = list( data.windows ).map( ( one ) => ( { id: String( one.id ),
+                        text: joined( [ environmentText( one.environment ), `${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }`, String( one.messageText || "" ) ] ) } ) );
+                    this.events = list( data.events ).map( ( one ) => ( { id: String( one.id ), text: one.kind === "maintenance"
+                        ? joined( [ String( one.atText || "" ), environmentText( one.environment ), `${ label( "studio.environment.window-event", "Maintenance" ) } ${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }`
+                            + ( one.cancelled ? ` (${ label( "studio.environment.cancelled", "cancelled" ) })` : "" ), String( one.messageText || "" ) ] )
+                        : joined( [ String( one.atText || "" ), environmentText( one.environment ), stateText( one.state ), String( one.messageText || "" ) ] ) } ) );
+                    // A select needs a value that is one of its options.
+                    const first = ( options, current ) => options.some( ( one ) => one.id === current ) || options.length === 0 ? current : options[ 0 ].id;
+                    this.statusEnvironment = first( this.environments, this.statusEnvironment );
+                    this.statusState = first( this.states, this.statusState );
+                    this.windowEnvironment = first( this.environments, this.windowEnvironment );
+                    this.loaded = true;
+                    this.busy = false;
+                } ).catch( ( error ) => this.fail( error ) );
+            },
+
+            fail( error ) {
+                this.busy = false;
+                reportFailure( error );
+            },
+
+            hasNoWindows() {
+                return this.windows.length === 0;
+            },
+
+            hasNoEvents() {
+                return this.events.length === 0;
+            },
+
+            // Both times are needed; the server judges the rest, and says why when it refuses.
+            cannotAnnounce() {
+                return this.startsAt === "" || this.endsAt === "";
+            },
+
+            // After a change the screen is loaded again, so what it shows is what the server holds. The fields are emptied only
+            // once the server has accepted the change: a refusal must leave what was typed to be corrected.
+            send( service, body, emptied ) {
+                Alpine.store( "tiApplication" ).sendRequest( `/app/${ service }`, "POST", body ).then( () => {
+                    Object.assign( this, emptied || {} );
+                    this.load();
+                } ).catch( ( error ) => this.fail( error ) );
+            },
+
+            setStatus() {
+                this.send( "status-set", { environment: this.statusEnvironment, state: this.statusState, messageBg: this.statusMessageBg, messageEn: this.statusMessageEn },
+                    { statusMessageBg: "", statusMessageEn: "" } );
+            },
+
+            announce() {
+                if ( this.cannotAnnounce() ) {
+                    return;
+                }
+                this.send( "maintenance-add", { environment: this.windowEnvironment, startsAt: this.startsAt, endsAt: this.endsAt, messageBg: this.windowMessageBg,
+                    messageEn: this.windowMessageEn }, { windowMessageBg: "", windowMessageEn: "", startsAt: "", endsAt: "" } );
+            },
+
+            cancelWindow( id ) {
+                this.send( "maintenance-cancel", { id: id } );
+            }
+        };
+    };
+
     document.addEventListener( "alpine:init", () => {
+        Alpine.data( "tiStudioSettings", configureSettings );
+        Alpine.data( "tiStudioEnvironment", configureEnvironment );
         Alpine.data( "tiStudioNav", configureStudioNav );
         Alpine.data( "tiStudioHome", configureStudioHome );
         Alpine.data( "tiStudioPeople", configurePeople );

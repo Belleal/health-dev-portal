@@ -23,7 +23,7 @@ const { describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 const { execFileSync } = require( "node:child_process" );
 const path = require( "node:path" );
-const { formatSofia } = require( "#studio/sofia-time" );
+const { formatSofia, sofiaInstant } = require( "#studio/sofia-time" );
 
 describe( "The studio's times", () => {
 
@@ -44,10 +44,42 @@ describe( "The studio's times", () => {
 
     it( "uses Sofia and not the process's own zone", () => {
         // A process whose zone is neither UTC nor Sofia, so a formatter that fell back to the local zone cannot pass.
-        const source = `const { formatSofia } = require( "#studio/sofia-time" );process.stdout.write( formatSofia( "2026-11-19T15:15:00Z", "bg", { time: true } ) );`;
+        const source = `const { formatSofia, sofiaInstant } = require( "#studio/sofia-time" );process.stdout.write( formatSofia( "2026-11-19T15:15:00Z", "bg", { time: true } ) );`;
         for ( const zone of [ "America/New_York", "Pacific/Auckland" ] ) {
             const out = execFileSync( process.execPath, [ "-e", source ], { cwd: path.resolve( __dirname, "../.." ), env: { ...process.env, TZ: zone }, encoding: "utf8" } );
             assert.equal( out, "19.11.2026 17:15", zone );
         }
+    } );
+} );
+
+describe( "The instant a Sofia time names", () => {
+
+    it( "reads winter time at UTC+2 and summer time at UTC+3", () => {
+        assert.equal( sofiaInstant( "2026-11-20T10:00" ).toISOString(), "2026-11-20T08:00:00.000Z" );
+        assert.equal( sofiaInstant( "2026-07-01T10:00" ).toISOString(), "2026-07-01T07:00:00.000Z" );
+    } );
+
+    it( "refuses a time the clock skips in March", () => {
+        assert.throws( () => sofiaInstant( "2026-03-29T03:30" ), { name: "RangeError", message: /does not exist/ } );
+        assert.equal( sofiaInstant( "2026-03-29T02:59" ).toISOString(), "2026-03-29T00:59:00.000Z" );
+        assert.equal( sofiaInstant( "2026-03-29T04:00" ).toISOString(), "2026-03-29T01:00:00.000Z" );
+    } );
+
+    it( "refuses a time the clock repeats in October", () => {
+        assert.throws( () => sofiaInstant( "2026-10-25T03:30" ), { name: "RangeError", message: /twice/ } );
+        assert.equal( sofiaInstant( "2026-10-25T02:59" ).toISOString(), "2026-10-24T23:59:00.000Z" );
+        assert.equal( sofiaInstant( "2026-10-25T04:00" ).toISOString(), "2026-10-25T02:00:00.000Z" );
+    } );
+
+    it( "refuses text that is no time, and a date that is no date", () => {
+        for ( const text of [ "", "2026-11-20", "2026-11-20 10:00", "2026-11-20T10:00:00", "2026-02-30T10:00", "2026-11-20T24:00", undefined ] ) {
+            assert.throws( () => sofiaInstant( text ), RangeError, String( text ) );
+        }
+    } );
+
+    it( "does not depend on the process's own zone", () => {
+        const source = `const { sofiaInstant } = require( "#studio/sofia-time" );process.stdout.write( sofiaInstant( "2026-07-01T10:00" ).toISOString() );`;
+        const out = execFileSync( process.execPath, [ "-e", source ], { cwd: path.resolve( __dirname, "../.." ), env: { ...process.env, TZ: "Pacific/Auckland" }, encoding: "utf8" } );
+        assert.equal( out, "2026-07-01T07:00:00.000Z" );
     } );
 } );

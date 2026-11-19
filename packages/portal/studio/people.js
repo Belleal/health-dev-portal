@@ -24,28 +24,11 @@
 const exceptions = require( "@ti-engine/core/exceptions" );
 const { grantChanges, listPeople, setGrants } = require( "@health-dev-portal/data/staff" );
 const { listSpecs } = require( "@health-dev-portal/data/versions" );
-const { isStudioAdmin } = require( "#studio/roles" );
+const { requireStudioAdmin } = require( "#studio/roles" );
 const { formatSofia } = require( "#studio/sofia-time" );
 
 // How many changes the screen lists: the log is long-lived and the screen is a glance, not the audit.
 const CHANGES_SHOWN = 30;
-
-/**
- * Refuses anyone who is not an admin. It reads the roles, never `session.studio.editorSpecs`, which a failed refresh
- * leaves at its last value.
- *
- * @method
- * @param {Object} session
- * @returns {void}
- * @throws {TiException} `E_SEC_UNAUTHORIZED_ACCESS` (403) unless the session is an admin's.
- * @private
- */
-const requireAdmin = ( session ) => {
-    const roles = ( session && session.user && session.user.roles ) || [];
-    if ( !isStudioAdmin( roles ) ) {
-        throw exceptions.raise( exceptions.exceptionCode.E_SEC_UNAUTHORIZED_ACCESS, null, exceptions.httpCode.C_403 );
-    }
-};
 
 /**
  * The People screen's data: everyone with what they hold, the specs a grant may name, and the latest changes.
@@ -61,7 +44,7 @@ const requireAdmin = ( session ) => {
  * @public
  */
 module.exports.peopleView = async ( db, session, language = "bg" ) => {
-    requireAdmin( session );
+    requireStudioAdmin( session );
     const [ people, specs, changes ] = await Promise.all( [ listPeople( db ), listSpecs( db ), grantChanges( db, { limit: CHANGES_SHOWN } ) ] );
     return {
         people: people.map( ( one ) => ( { ...one, lastSeenText: formatSofia( one.lastSeenAt, language ) } ) ),
@@ -83,7 +66,7 @@ module.exports.peopleView = async ( db, session, language = "bg" ) => {
  * @public
  */
 module.exports.changeGrants = async ( db, session, params ) => {
-    requireAdmin( session );
+    requireStudioAdmin( session );
     const { key, grants } = params || {};
     try {
         await setGrants( db, key, grants, { by: ( session.studio && session.studio.key ) || "" } );

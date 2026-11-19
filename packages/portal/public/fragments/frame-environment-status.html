@@ -1,0 +1,126 @@
+<!--
+    Environment status (admins only): what each environment is said to be, a form to say it, the maintenance windows to come
+    with a form to announce one (in Sofia time), and the recent updates. The fragment's roles gate this HTML;
+    /app/environment-status and its services check the role again themselves. Every value is shown by x-text, never as
+    markup: a message is staff's free text. Alpine runs in CSP mode, so tiStudioEnvironment does the shaping before the
+    values reach the template.
+-->
+<div class="ti-page" x-data="tiStudioEnvironment">
+
+    <div class="ti-page-head">
+        <div class="ti-page-eyebrow" x-text-label="studio.environment.eyebrow">Administration</div>
+        <h1 class="ti-page-title" x-text-label="studio.environment.title">Environment status</h1>
+        <p class="ti-page-subtitle" x-text-label="studio.environment.intro">What the team says of each environment. The public page shows the state, the message and the time, but never who set it.</p>
+    </div>
+
+    <template x-if="busy">
+        <div class="ti-empty-state">
+            <div class="ti-empty-state-title" x-text-label="studio.home.loading">Loading…</div>
+        </div>
+    </template>
+
+    <template x-if="loaded">
+        <div>
+            <section class="ti-panel" aria-labelledby="ti-environment-now">
+                <h2 id="ti-environment-now" x-text-label="studio.environment.current">Now</h2>
+                <ul>
+                    <template x-for="one in current" x-bind:key="one.environment">
+                        <li x-text="one.text"></li>
+                    </template>
+                </ul>
+            </section>
+
+            <section class="ti-panel" aria-labelledby="ti-environment-set">
+                <h2 id="ti-environment-set" x-text-label="studio.environment.set-title">Set a state</h2>
+                <div>
+                    <label for="ti-environment-status-environment" x-text-label="studio.environment.environment">Environment</label>
+                    <select id="ti-environment-status-environment" name="ti-environment-status-environment" x-model="statusEnvironment">
+                        <template x-for="one in environments" x-bind:key="one.id">
+                            <option x-bind:value="one.id" x-text="one.text"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label for="ti-environment-state" x-text-label="studio.environment.state-field">State</label>
+                    <select id="ti-environment-state" name="ti-environment-state" x-model="statusState">
+                        <template x-for="one in states" x-bind:key="one.id">
+                            <option x-bind:value="one.id" x-text="one.text"></option>
+                        </template>
+                    </select>
+                </div>
+                <p x-text-label="studio.environment.message-hint">In both languages or in neither.</p>
+                <div>
+                    <label for="ti-environment-status-message-bg" x-text-label="studio.environment.message-bg">Message in Bulgarian</label>
+                    <input type="text" id="ti-environment-status-message-bg" name="ti-environment-status-message-bg" maxlength="500" x-model="statusMessageBg"/>
+                </div>
+                <div>
+                    <label for="ti-environment-status-message-en" x-text-label="studio.environment.message-en">Message in English</label>
+                    <input type="text" id="ti-environment-status-message-en" name="ti-environment-status-message-en" maxlength="500" x-model="statusMessageEn"/>
+                </div>
+                <div>
+                    <button type="button" class="ti-btn primary" @click="setStatus()" x-text-label="studio.environment.set">Set</button>
+                </div>
+            </section>
+
+            <section class="ti-panel" aria-labelledby="ti-environment-windows">
+                <h2 id="ti-environment-windows" x-text-label="studio.environment.windows-title">Maintenance windows</h2>
+                <template x-if="hasNoWindows()">
+                    <p x-text-label="studio.environment.no-windows">No maintenance is announced.</p>
+                </template>
+                <ul>
+                    <template x-for="announced in windows" x-bind:key="announced.id">
+                        <li>
+                            <span x-text="announced.text"></span>
+                            <button type="button" class="ti-btn sm" @click="cancelWindow( announced.id )" x-text-label="studio.environment.cancel">Cancel</button>
+                        </li>
+                    </template>
+                </ul>
+            </section>
+
+            <section class="ti-panel" aria-labelledby="ti-environment-add">
+                <h2 id="ti-environment-add" x-text-label="studio.environment.add-title">Announce maintenance</h2>
+                <div>
+                    <label for="ti-environment-window-environment" x-text-label="studio.environment.environment">Environment</label>
+                    <select id="ti-environment-window-environment" name="ti-environment-window-environment" x-model="windowEnvironment">
+                        <template x-for="one in environments" x-bind:key="one.id">
+                            <option x-bind:value="one.id" x-text="one.text"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label for="ti-environment-starts" x-text-label="studio.environment.starts">Starts (Sofia time)</label>
+                    <input type="datetime-local" id="ti-environment-starts" name="ti-environment-starts" x-model="startsAt"/>
+                </div>
+                <div>
+                    <label for="ti-environment-ends" x-text-label="studio.environment.ends">Ends (Sofia time)</label>
+                    <input type="datetime-local" id="ti-environment-ends" name="ti-environment-ends" x-model="endsAt"/>
+                </div>
+                <p x-text-label="studio.environment.message-hint">In both languages or in neither.</p>
+                <div>
+                    <label for="ti-environment-window-message-bg" x-text-label="studio.environment.message-bg">Message in Bulgarian</label>
+                    <input type="text" id="ti-environment-window-message-bg" name="ti-environment-window-message-bg" maxlength="500" x-model="windowMessageBg"/>
+                </div>
+                <div>
+                    <label for="ti-environment-window-message-en" x-text-label="studio.environment.message-en">Message in English</label>
+                    <input type="text" id="ti-environment-window-message-en" name="ti-environment-window-message-en" maxlength="500" x-model="windowMessageEn"/>
+                </div>
+                <div>
+                    <button type="button" class="ti-btn primary" x-bind:disabled="cannotAnnounce()" @click="announce()" x-text-label="studio.environment.add">Announce</button>
+                </div>
+            </section>
+
+            <section class="ti-panel" aria-labelledby="ti-environment-updates">
+                <h2 id="ti-environment-updates" x-text-label="studio.environment.updates-title">Recent updates</h2>
+                <template x-if="hasNoEvents()">
+                    <p x-text-label="studio.environment.no-updates">Nothing has been announced yet.</p>
+                </template>
+                <ul>
+                    <template x-for="update in events" x-bind:key="update.id">
+                        <li x-text="update.text"></li>
+                    </template>
+                </ul>
+            </section>
+        </div>
+    </template>
+
+</div>
