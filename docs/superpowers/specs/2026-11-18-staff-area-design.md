@@ -1,7 +1,8 @@
 # The staff area — design (plan 9)
 
 - **Date:** 2026-11-18
-- **Status:** draft, for Boris's approval
+- **Status:** approved by Boris, 2026-11-19. Planned as 9a (the foundation), 9b (the editor's round) and 9c (the
+  approver's round).
 - **Tracking:** HEL-48
 - **Builds on:** the design record [`2026-10-14-portal-foundation-design.md`](2026-10-14-portal-foundation-design.md):
   - §3.1, one application;
