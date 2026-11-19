@@ -27,6 +27,7 @@
         "#routes": "./site/routes.js",
         "#search": "./site/search.js",
         "#spec-names": "./site/spec-names.js",
+        "#studio/*": "./studio/*.js",
         "#text": "./site/text.js"
     },
     "dependencies": {
