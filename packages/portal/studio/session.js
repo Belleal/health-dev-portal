@@ -90,13 +90,17 @@ module.exports.augment = async ( session, db, { admins, now = new Date() } ) => 
  * @public
  */
 module.exports.refresh = async ( session, db ) => {
-    const granted = sessionRolesOf( await loadGrants( db, session.studio.key ) );
-    const roles = withFramework( session.user.roles, granted.roles );
-    const editorSpecs = granted.editorSpecs;
+    // A session with no key cannot be tied to a person (one stored before the studio hook, or one it skipped), so it holds
+    // no studio role; throwing here would fail every request it makes.
+    session.studio = session.studio || {};
+    const key = session.studio.key;
+    const granted = typeof key === "string" && key !== "" ? sessionRolesOf( await loadGrants( db, key ) ) : { roles: [], editorSpecs: [] };
+    const current = session.user.roles || [];
+    const roles = withFramework( current, granted.roles );
     if ( !sameList( session.user.roles, roles ) ) {
         session.user.roles = roles;
     }
-    if ( !sameList( session.studio.editorSpecs, editorSpecs ) ) {
-        session.studio.editorSpecs = editorSpecs;
+    if ( !sameList( session.studio.editorSpecs, granted.editorSpecs ) ) {
+        session.studio.editorSpecs = granted.editorSpecs;
     }
 };

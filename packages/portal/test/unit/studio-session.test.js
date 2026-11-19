@@ -110,6 +110,29 @@ describe( "The studio's session", () => {
         assert.equal( session.user.roles, roles );
     } );
 
+    it( "refresh gives a session with no studio key no studio role, without throwing", async () => {
+        const session = { authMethod: "local", user: userOf( { roles: [ "studio:reader" ] } ) };
+        await refresh( session, db );
+        assert.deepEqual( session.user.roles, [] );
+        assert.deepEqual( session.studio.editorSpecs, [] );
+    } );
+
+    it( "refresh leaves an unkeyed session only the framework's admin", async () => {
+        const session = { authMethod: "local", user: userOf( { roles: [ "studio:admin", "admin" ] } ), studio: {} };
+        await refresh( session, db );
+        assert.deepEqual( session.user.roles, [ "admin" ] );
+        assert.deepEqual( session.studio.editorSpecs, [] );
+    } );
+
+    it( "refresh counts a session with no roles at all as having none", async () => {
+        const user = userOf();
+        delete user.roles;
+        const session = { authMethod: "local", user: user };
+        await refresh( session, db );
+        assert.deepEqual( session.user.roles, [] );
+        assert.deepEqual( session.studio.editorSpecs, [] );
+    } );
+
     it( "refresh leaves the roles untouched when nothing changed", async () => {
         const session = { authMethod: "local", user: userOf( { userID: "local:ana", username: "ana" } ) };
         await augment( session, db, { admins: [] } );
