@@ -72,6 +72,13 @@ class PortalServer extends TiWebServer {
             // is joined into a path that is none (`/app/app/packages/portal/studio/manager.js`, measured), and the start
             // fails.
             application: { classPath: path.relative( process.cwd(), STUDIO_MANAGER ), home: "/studio/" },
+            // Bulgarian and English, and a session starts in Bulgarian: the public site's `/` goes to `/bg/` and the team is
+            // Bulgarian. The framework offers only the deployment's own language, and so draws no switch at sign-in and
+            // ignores `/language/en`, unless `languages` is set (measured at 31dc138: the studio could not be shown in
+            // Bulgarian). Set here and not through `TI_WEB_LANGUAGES`, so the portal's behaviour does not depend on a
+            // variable that may be unset.
+            language: "bg",
+            languages: [ "bg", "en" ],
             ...( serviceConfig || {} )
         } );
     }
