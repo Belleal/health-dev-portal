@@ -30,8 +30,16 @@ const { resolutionStatements, resolveAt } = require( "#resolution" );
 const { guardStatements, staleStatement } = require( "#schema" );
 const { approvedStatements, findVersion, loadApprovedContent, loadItems, loadVersion } = require( "#versions" );
 
-// The setting that makes change control need two people (design record §7.4): off by default, while the team is small.
-const TWO_PEOPLE = "review.two-people";
+/**
+ * The setting that makes change control need two people (design record §7.4): off by default, while the team is small.
+ * `"on"` refuses an approver's own round; anything else, or none, allows it. Exported so the studio's Settings screen
+ * writes the key this module reads and does not keep a copy that could drift.
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.TWO_PEOPLE = "review.two-people";
+const TWO_PEOPLE = module.exports.TWO_PEOPLE;
 
 // A decision computed from versions read before its batch is taken again when one changed in between.
 const ATTEMPTS = 3;
