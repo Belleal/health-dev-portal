@@ -33,6 +33,7 @@
         "./resolution": "./store/resolution.js",
         "./review": "./store/review.js",
         "./schema": "./store/schema.js",
+        "./staff": "./store/staff.js",
         "./status": "./store/status.js",
         "./targets": "./store/targets.js",
         "./versions": "./store/versions.js"
@@ -61,6 +62,7 @@
         "#resolution": "./store/resolution.js",
         "#review": "./store/review.js",
         "#schema": "./store/schema.js",
+        "#staff": "./store/staff.js",
         "#status": "./store/status.js",
         "#sqlite-driver": "./db/sqlite-driver.js",
         "#targets": "./store/targets.js",

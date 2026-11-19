@@ -25,7 +25,7 @@ const KEYS = Object.freeze( {
     specs: "id", releases: "id", versions: "id", version_stages: "version_id, stage", items: "version_id, item_no", anomalies: "version_id, anomaly_no",
     changelog_entries: "id", resolutions: "version_id, spec_id", conflicts: "id", files: "hash", settings: "key", approved_items: "version_id, item_no",
     rounds: "id", round_versions: "round_id, version_id", comments: "id", release_events: "id", edit_log: "id", fixed_files: "version_id, name",
-    status_updates: "id", maintenance_windows: "id"
+    status_updates: "id", maintenance_windows: "id", staff_people: "key", staff_grants: "person_key, role, spec", staff_grant_changes: "id"
 } );
 
 const SELF = Object.freeze( [ "base_id", "replaces_id" ] );
