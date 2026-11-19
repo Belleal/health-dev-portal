@@ -68,6 +68,10 @@ const wallOf = ( instant ) => {
     return `${ parts.year }-${ parts.month }-${ parts.day }T${ parts.hour }:${ parts.minute }`;
 };
 
+// `reason` is the studio's label key for the refusal, so a screen can say it in the person's language; the message stays
+// English for scripts and logs.
+const refused = ( message, reason ) => Object.assign( new RangeError( message ), { reason: reason } );
+
 /**
  * The instant a Sofia wall-clock time names: `2026-11-20T10:00` is `08:00Z`, and `2026-07-01T10:00` is `07:00Z`. It tries
  * each of Sofia's two offsets and keeps the one whose reading comes back as the input, so the answer is checked against
@@ -84,20 +88,20 @@ const wallOf = ( instant ) => {
 module.exports.sofiaInstant = ( localDateTime ) => {
     const found = LOCAL.exec( typeof localDateTime === "string" ? localDateTime : "" );
     if ( !found ) {
-        throw new RangeError( `${ JSON.stringify( localDateTime ) } is not a time like 2026-11-20T10:00.` );
+        throw refused( `${ JSON.stringify( localDateTime ) } is not a time like 2026-11-20T10:00.`, "studio.refused.time-invalid" );
     }
     const [ year, month, day, hour, minute ] = found.slice( 1 ).map( Number );
     const asUTC = new Date( Date.UTC( year, month - 1, day, hour, minute ) );
     // `Date.UTC` rolls 30 February over to March; a reading that is not the input means the input was no date.
     if ( asUTC.toISOString().slice( 0, 16 ) !== localDateTime ) {
-        throw new RangeError( `${ localDateTime } is not a date and time.` );
+        throw refused( `${ localDateTime } is not a date and time.`, "studio.refused.time-invalid" );
     }
     const candidates = [ 2, 3 ].map( ( offset ) => new Date( asUTC.getTime() - offset * HOUR ) ).filter( ( instant ) => wallOf( instant ) === localDateTime );
     if ( candidates.length === 0 ) {
-        throw new RangeError( `${ localDateTime } does not exist in Sofia: the clock skips it when it goes forward.` );
+        throw refused( `${ localDateTime } does not exist in Sofia: the clock skips it when it goes forward.`, "studio.refused.time-skipped" );
     }
     if ( candidates.length > 1 ) {
-        throw new RangeError( `${ localDateTime } happens twice in Sofia, when the clock goes back; choose a time outside that hour.` );
+        throw refused( `${ localDateTime } happens twice in Sofia, when the clock goes back; choose a time outside that hour.`, "studio.refused.time-repeated" );
     }
     return candidates[ 0 ];
 };

@@ -57,6 +57,18 @@ describe( "The studio's labels", () => {
         }
     } );
 
+    it( "every refusal reason the studio raises is a label with Bulgarian and English", () => {
+        // A refusal's `details` is looked up as a label by the framework; a key missing here would reach a Bulgarian screen as the raw key.
+        const keys = new Set( leavesOf( catalogue ).map( ( [ key ] ) => key ) );
+        const directory = path.join( __dirname, "..", "..", "studio" );
+        const raised = fs.readdirSync( directory ).filter( ( name ) => name.endsWith( ".js" ) )
+            .flatMap( ( name ) => [ ...fs.readFileSync( path.join( directory, name ), "utf8" ).matchAll( /"(studio\.refused\.[\w-]+)"/g ) ].map( ( match ) => match[ 1 ] ) );
+        assert.ok( raised.length >= 10, "the sweep found the refusals" );
+        for ( const key of new Set( raised ) ) {
+            assert.ok( keys.has( key ), key );
+        }
+    } );
+
     it( "every screen the studio registers has a title in the topbar, in both languages", () => {
         // The framework's topbar and the tab's title read `interface.topbar.<screen>`; without it the topbar is blank and the
         // tab keeps the last screen's title (WCAG 2.4.2).

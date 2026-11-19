@@ -21,9 +21,9 @@
  * to anyone signed in; each checks the role itself, from the session's roles, which are re-read on every request.
  */
 
-const exceptions = require( "@ti-engine/core/exceptions" );
 const { grantChanges, listPeople, setGrants } = require( "@health-dev-portal/data/staff" );
 const { listSpecs } = require( "@health-dev-portal/data/versions" );
+const { refusalOf } = require( "#studio/refusals" );
 const { requireStudioAdmin } = require( "#studio/roles" );
 const { formatSofia } = require( "#studio/sofia-time" );
 
@@ -71,10 +71,7 @@ module.exports.changeGrants = async ( db, session, params ) => {
     try {
         await setGrants( db, key, grants, { by: ( session.studio && session.studio.key ) || "" } );
     } catch ( error ) {
-        if ( error instanceof RangeError ) {
-            // The reason is the store's own sentence, written for a person; a client error keeps its data, and the framework's notification shows `details` as the second line.
-            throw exceptions.raise( exceptions.exceptionCode.E_WEB_INVALID_REQUEST_BODY, { details: error.message }, exceptions.httpCode.C_422 );
-        }
-        throw error;
+        // The reason is a label key, so the notification's second line is in the person's language.
+        throw refusalOf( error );
     }
 };

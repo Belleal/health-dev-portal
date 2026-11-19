@@ -8,6 +8,24 @@
         }
     },
     "studio": {
+        "refused": {
+            "time-invalid": { "bg": "Времето не е във вида 2026-11-20T10:00.", "en": "That is not a time like 2026-11-20T10:00." },
+            "time-skipped": { "bg": "Това време не съществува в София: часовникът го прескача при преминаване към лятно часово време.", "en": "That time does not exist in Sofia: the clock skips it when it goes forward." },
+            "time-repeated": { "bg": "Това време се случва два пъти в София, когато часовникът се връща назад; изберете време извън този час.", "en": "That time happens twice in Sofia, when the clock goes back; choose a time outside that hour." },
+            "window-ends-first": { "bg": "Профилактиката трябва да свършва след началото си.", "en": "A maintenance window must end after it starts." },
+            "window-gone": { "bg": "Няма такава профилактика или вече е отменена.", "en": "There is no such window, or it was cancelled already." },
+            "message-both-languages": { "bg": "Съобщението се дава на двата езика, български и английски, или на никой.", "en": "A message is given in both languages, Bulgarian and English, or in neither." },
+            "unknown-environment": { "bg": "Тази среда не е позната.", "en": "That environment is not known." },
+            "unknown-state": { "bg": "Това състояние не е позволено.", "en": "That state is not allowed." },
+            "no-author": { "bg": "Всяка промяна записва кой я е направил.", "en": "Every change records who made it." },
+            "not-boolean": { "bg": "Стойността трябва да е да или не.", "en": "The value must be yes or no." },
+            "unknown-role": { "bg": "Тази роля не е позната.", "en": "That role is not known." },
+            "role-every-spec": { "bg": "Тази роля важи за всички спецификации, не за една.", "en": "That role holds for every spec, not for one." },
+            "unknown-spec": { "bg": "Тази спецификация не е позната.", "en": "That spec is not known." },
+            "editor-both": { "bg": "Редакторът има всички спецификации или назовани, не и двете.", "en": "An editor holds every spec or named ones, not both." },
+            "unknown-person": { "bg": "Този човек не е влизал в студиото.", "en": "That person has not signed in to the studio." },
+            "grants-not-list": { "bg": "Ролите се подават като списък.", "en": "The roles are given as a list." }
+        },
         "brand": {
             "title": { "bg": "НЗИС · студио", "en": "Health dev portal studio" },
             "sub": { "bg": "Вход за екипа на портала", "en": "Sign in for the portal's team" }

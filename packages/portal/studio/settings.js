@@ -20,9 +20,9 @@
  * themselves. The fragment's roles gate only the HTML, so the view and the service each check the role themselves.
  */
 
-const exceptions = require( "@ti-engine/core/exceptions" );
 const { readSetting, writeSetting } = require( "@health-dev-portal/data/files" );
 const { TWO_PEOPLE } = require( "@health-dev-portal/data/review" );
+const { refuse } = require( "#studio/refusals" );
 const { requireStudioAdmin } = require( "#studio/roles" );
 
 /**
@@ -57,7 +57,7 @@ module.exports.saveSettings = async ( db, session, params ) => {
     requireStudioAdmin( session );
     const { selfApproval } = params || {};
     if ( typeof selfApproval !== "boolean" ) {
-        throw exceptions.raise( exceptions.exceptionCode.E_WEB_INVALID_REQUEST_BODY, { details: "selfApproval is true or false." }, exceptions.httpCode.C_422 );
+        throw refuse( "studio.refused.not-boolean" );
     }
     await writeSetting( db, TWO_PEOPLE, selfApproval ? "off" : "on" );
 };

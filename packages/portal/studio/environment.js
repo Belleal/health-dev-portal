@@ -22,8 +22,8 @@
  * service check the role themselves.
  */
 
-const exceptions = require( "@ti-engine/core/exceptions" );
 const { ENVIRONMENTS, STATES, addMaintenance, cancelMaintenance, currentStatus, maintenanceWindows, setStatus, statusEvents } = require( "@health-dev-portal/data/status" );
+const { refusalOf, refuse } = require( "#studio/refusals" );
 const { requireStudioAdmin } = require( "#studio/roles" );
 const { formatSofia, sofiaInstant } = require( "#studio/sofia-time" );
 
@@ -31,11 +31,6 @@ const { formatSofia, sofiaInstant } = require( "#studio/sofia-time" );
 const EVENTS_SHOWN = 20;
 
 const textOf = ( message, language ) => message ? message[ language === "en" ? "en" : "bg" ] : "";
-const refused = ( details ) => exceptions.raise( exceptions.exceptionCode.E_WEB_INVALID_REQUEST_BODY, { details: details }, exceptions.httpCode.C_422 );
-
-// The store's own sentences are written for a person, so a client error carries them as they are.
-const asClientError = ( error ) => error instanceof RangeError ? refused( error.message ) : error;
-
 const by = ( session ) => ( session.studio && session.studio.key ) || "";
 
 // Both languages given, neither, or one: the one is the store's to refuse, and it says why.
@@ -94,7 +89,7 @@ module.exports.changeStatus = async ( db, session, params ) => {
     try {
         await setStatus( db, { environment: environment, state: state, message: messageOf( params || {} ), by: by( session ) } );
     } catch ( error ) {
-        throw asClientError( error );
+        throw refusalOf( error );
     }
 };
 
@@ -117,7 +112,7 @@ module.exports.announceWindow = async ( db, session, params ) => {
     try {
         await addMaintenance( db, { environment: environment, startsAt: sofiaInstant( startsAt ), endsAt: sofiaInstant( endsAt ), message: messageOf( params || {} ), by: by( session ) } );
     } catch ( error ) {
-        throw asClientError( error );
+        throw refusalOf( error );
     }
 };
 
@@ -138,9 +133,9 @@ module.exports.withdrawWindow = async ( db, session, params ) => {
     const { id } = params || {};
     try {
         if ( typeof id !== "string" || !await cancelMaintenance( db, id, { by: by( session ) } ) ) {
-            throw refused( "There is no such window, or it was cancelled already." );
+            throw refuse( "studio.refused.window-gone" );
         }
     } catch ( error ) {
-        throw asClientError( error );
+        throw refusalOf( error );
     }
 };

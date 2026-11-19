@@ -65,6 +65,11 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
     };
     const call = ( service, session, body ) => fetch( `${ portal.url }/app/${ service }`, { method: "POST", redirect: "manual",
         headers: { ...json( session ), "content-type": "application/json", "x-xsrf-token": session.token, origin: portal.url }, body: JSON.stringify( body ) } );
+    // A refusal's reason is a label key, which the screen shows in the person's language; it must not be an English sentence.
+    const assertRefusal = async ( response, key, message ) => {
+        assert.equal( response.status, 422, message );
+        assert.match( JSON.stringify( await response.json() ), new RegExp( `"details":"${ key.replaceAll( ".", "[.]" ) }"` ), message );
+    };
     const html = ( name, session ) => fetch( `${ portal.url }/app/${ name }`, { redirect: "manual", headers: { accept: "text/html", "hx-request": "true", cookie: session.cookie } } );
     const updatesOf = () => withDatabase( ( db ) => db.all( "SELECT id, environment, state, message_bg, message_en, updated_by FROM status_updates ORDER BY updated_at DESC, id DESC" ) );
     const snapshot = () => withDatabase( async ( db ) => JSON.stringify( [ await readSetting( db, TWO_PEOPLE ), await db.all( "SELECT id FROM status_updates ORDER BY id" ),
@@ -84,7 +89,7 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
     it( "refuses a setting that is not a yes or a no, and changes nothing", async () => {
         const session = await signIn( portal.url, "admin" );
         for ( const selfApproval of [ "false", 0, null, undefined ] ) {
-            assert.equal( ( await call( "settings-save", session, { selfApproval } ) ).status, 422, String( selfApproval ) );
+            await assertRefusal( await call( "settings-save", session, { selfApproval } ), "studio.refused.not-boolean", String( selfApproval ) );
         }
         assert.equal( await withDatabase( ( db ) => readSetting( db, TWO_PEOPLE ) ), "off" );
     } );
@@ -139,10 +144,9 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
         assert.equal( test.message, null );
         assert.equal( test.messageText, "" );
         const one = await call( "status-set", session, { environment: "test", state: "outage", messageBg: "Авария", messageEn: "" } );
-        assert.equal( one.status, 422 );
-        assert.match( JSON.stringify( await one.json() ), /both languages/ );
-        assert.equal( ( await call( "status-set", session, { environment: "staging", state: "outage" } ) ).status, 422 );
-        assert.equal( ( await call( "status-set", session, { environment: "test", state: "on fire" } ) ).status, 422 );
+        await assertRefusal( one, "studio.refused.message-both-languages" );
+        await assertRefusal( await call( "status-set", session, { environment: "staging", state: "outage" } ), "studio.refused.unknown-environment" );
+        await assertRefusal( await call( "status-set", session, { environment: "test", state: "on fire" } ), "studio.refused.unknown-state" );
     } );
 
     it( "a public page never shows who set a status", async () => {
@@ -182,18 +186,18 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
         assert.ok( ( await dataOf( "environment-status", session ) ).events.some( ( one ) => one.kind === "maintenance" && one.cancelled ) );
         assert.doesNotMatch( ( await get( "/bg/status" ) ).text, /20\.11\.2099/ );
         // Cancelling it again is a refusal that says so, not a silent success.
-        assert.equal( ( await call( "maintenance-cancel", session, { id: window.id } ) ).status, 422 );
+        await assertRefusal( await call( "maintenance-cancel", session, { id: window.id } ), "studio.refused.window-gone" );
     } );
 
     it( "refuses a window at a time the clock skips or repeats, or ending before it starts", async () => {
         const session = await signIn( portal.url, "admin" );
         const window = ( startsAt, endsAt ) => call( "maintenance-add", session, { environment: "test", startsAt, endsAt } );
-        assert.equal( ( await window( "2026-03-29T03:30", "2026-03-29T05:00" ) ).status, 422, "skipped" );
-        assert.equal( ( await window( "2026-10-25T03:30", "2026-10-25T05:00" ) ).status, 422, "repeated" );
-        assert.equal( ( await window( "2099-11-20T12:00", "2099-11-20T11:00" ) ).status, 422, "ends first" );
-        assert.equal( ( await window( "tomorrow", "2099-11-20T11:00" ) ).status, 422, "no time" );
-        assert.equal( ( await window( "2099-11-20T10:00+02:00", "2099-11-20T11:00" ) ).status, 422, "an offset is not what the form takes" );
-        assert.equal( ( await window( undefined, undefined ) ).status, 422, "none given" );
+        await assertRefusal( await window( "2026-03-29T03:30", "2026-03-29T05:00" ), "studio.refused.time-skipped", "skipped" );
+        await assertRefusal( await window( "2026-10-25T03:30", "2026-10-25T05:00" ), "studio.refused.time-repeated", "repeated" );
+        await assertRefusal( await window( "2099-11-20T12:00", "2099-11-20T11:00" ), "studio.refused.window-ends-first", "ends first" );
+        await assertRefusal( await window( "tomorrow", "2099-11-20T11:00" ), "studio.refused.time-invalid", "no time" );
+        await assertRefusal( await window( "2099-11-20T10:00+02:00", "2099-11-20T11:00" ), "studio.refused.time-invalid", "an offset is not what the form takes" );
+        await assertRefusal( await window( undefined, undefined ), "studio.refused.time-invalid", "none given" );
     } );
 
     it( "everyone but an admin is refused, the screens and the services alike", async () => {

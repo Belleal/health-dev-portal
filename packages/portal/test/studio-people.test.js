@@ -151,9 +151,10 @@ describe( "The People screen", { skip: !SEEDED && "build the seed first: npm run
         const session = await signIn( portal.url, "admin" );
         const response = await save( session, { key: "local:reader", grants: [ { role: ROLE.READER, spec: "CL009" } ] } );
         assert.equal( response.status, 422 );
-        const body = await response.json();
-        assert.match( JSON.stringify( body ), /holds for every spec/ );
+        // A label key, which the screen shows in the person's language, and not the store's English sentence.
+        assert.match( JSON.stringify( await response.json() ), /"details":"studio\.refused\.role-every-spec"/ );
         const unknown = await save( session, { key: "local:no-such-person", grants: [] } );
         assert.equal( unknown.status, 422 );
+        assert.match( JSON.stringify( await unknown.json() ), /"details":"studio\.refused\.unknown-person"/ );
     } );
 } );

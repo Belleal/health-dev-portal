@@ -60,13 +60,13 @@ describe( "The instant a Sofia time names", () => {
     } );
 
     it( "refuses a time the clock skips in March", () => {
-        assert.throws( () => sofiaInstant( "2026-03-29T03:30" ), { name: "RangeError", message: /does not exist/ } );
+        assert.throws( () => sofiaInstant( "2026-03-29T03:30" ), { name: "RangeError", message: /does not exist/, reason: "studio.refused.time-skipped" } );
         assert.equal( sofiaInstant( "2026-03-29T02:59" ).toISOString(), "2026-03-29T00:59:00.000Z" );
         assert.equal( sofiaInstant( "2026-03-29T04:00" ).toISOString(), "2026-03-29T01:00:00.000Z" );
     } );
 
     it( "refuses a time the clock repeats in October", () => {
-        assert.throws( () => sofiaInstant( "2026-10-25T03:30" ), { name: "RangeError", message: /twice/ } );
+        assert.throws( () => sofiaInstant( "2026-10-25T03:30" ), { name: "RangeError", message: /twice/, reason: "studio.refused.time-repeated" } );
         assert.equal( sofiaInstant( "2026-10-25T02:59" ).toISOString(), "2026-10-24T23:59:00.000Z" );
         assert.equal( sofiaInstant( "2026-10-25T04:00" ).toISOString(), "2026-10-25T02:00:00.000Z" );
     } );
