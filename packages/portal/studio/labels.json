@@ -32,6 +32,28 @@
                 "approver": { "bg": "Одобряващ", "en": "Approver" },
                 "admin": { "bg": "Администратор", "en": "Administrator" }
             }
+        },
+        "people": {
+            "eyebrow": { "bg": "Администрация", "en": "Administration" },
+            "title": { "bg": "Хора", "en": "People" },
+            "intro": {
+                "bg": "Всички, които са влизали. Дайте на всеки ролите, които му трябват; промяната важи от следващата му заявка.",
+                "en": "Everyone who has signed in. Give each person the roles they need; a change takes effect on their next request."
+            },
+            "name": { "bg": "Име", "en": "Name" },
+            "holds": { "bg": "Роли", "en": "Roles" },
+            "actions": { "bg": "Действия", "en": "Actions" },
+            "configured-admin": { "bg": "Администратор по конфигурация", "en": "Admin by configuration" },
+            "none": { "bg": "няма", "en": "none" },
+            "edit": { "bg": "Промяна на ролите", "en": "Edit roles" },
+            "roles": { "bg": "Роли", "en": "Roles" },
+            "all-specs": { "bg": "всички спецификации", "en": "every spec" },
+            "some-specs": { "bg": "Само тези спецификации", "en": "Only these specs" },
+            "choose-specs": { "bg": "Изберете поне една спецификация или всички.", "en": "Choose at least one spec, or every spec." },
+            "save": { "bg": "Запис", "en": "Save" },
+            "cancel": { "bg": "Отказ", "en": "Cancel" },
+            "changes": { "bg": "Последни промени", "en": "Latest changes" },
+            "no-changes": { "bg": "Все още няма направени промени.", "en": "No change has been made yet." }
         }
     }
 }

@@ -1,0 +1,119 @@
+<!--
+    People (admins only): everyone who has signed in, with what each holds, a form that gives a person their roles, and the
+    latest changes with who made them. The fragment's roles gate this HTML; /app/people and /app/people-grants check the
+    role again themselves. Every value is shown by x-text, never as markup: a display name from the identity provider may
+    contain some. Alpine runs in CSP mode, so the shaping is done in tiStudioPeople before the values reach the template.
+-->
+<div class="ti-page" x-data="tiStudioPeople">
+
+    <div class="ti-page-head">
+        <div class="ti-page-eyebrow" x-text-label="studio.people.eyebrow">Administration</div>
+        <h1 class="ti-page-title" x-text-label="studio.people.title">People</h1>
+        <p class="ti-page-subtitle" x-text-label="studio.people.intro">Everyone who has signed in. Give each person the roles they need; a change takes effect on their next request.</p>
+    </div>
+
+    <template x-if="busy">
+        <div class="ti-empty-state">
+            <div class="ti-empty-state-title" x-text-label="studio.home.loading">Loading…</div>
+        </div>
+    </template>
+
+    <template x-if="loaded">
+        <div>
+            <section class="ti-panel">
+                <table class="ti-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" x-text-label="studio.people.name">Name</th>
+                            <th scope="col" x-text-label="studio.people.holds">Roles</th>
+                            <th scope="col"><span x-text-label="studio.people.actions">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="person in people" x-bind:key="person.key">
+                            <tr>
+                                <td>
+                                    <span x-text="person.name"></span>
+                                    <template x-if="person.configuredAdmin">
+                                        <span class="ti-tag accent" x-text-label="studio.people.configured-admin">Admin by configuration</span>
+                                    </template>
+                                </td>
+                                <td x-text="person.holdsText"></td>
+                                <td>
+                                    <button type="button" class="ti-btn sm" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </section>
+
+            <template x-if="isEditing()">
+                <section class="ti-panel" aria-labelledby="ti-people-form-title">
+                    <h2 id="ti-people-form-title" x-text="form.name"></h2>
+                    <fieldset>
+                        <legend x-text-label="studio.people.roles">Roles</legend>
+                        <div>
+                            <input type="checkbox" id="ti-people-reader" name="ti-people-reader" x-bind:checked="form.reader" @change="setRole( 'reader', $event.target.checked )"/>
+                            <label for="ti-people-reader" x-text-label="studio.home.role.reader">Reader</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="ti-people-editor" name="ti-people-editor" x-bind:checked="form.editor" @change="setRole( 'editor', $event.target.checked )"/>
+                            <label for="ti-people-editor" x-text-label="studio.home.role.editor">Editor</label>
+                        </div>
+                        <template x-if="form.editor">
+                            <div>
+                                <div>
+                                    <input type="radio" id="ti-people-all-specs" name="ti-people-scope" x-bind:checked="form.allSpecs" @change="setAllSpecs( true )"/>
+                                    <label for="ti-people-all-specs" x-text-label="studio.people.all-specs">Every spec</label>
+                                </div>
+                                <div>
+                                    <input type="radio" id="ti-people-some-specs" name="ti-people-scope" x-bind:checked="form.someSpecs" @change="setAllSpecs( false )"/>
+                                    <label for="ti-people-some-specs" x-text-label="studio.people.some-specs">Only these specs</label>
+                                </div>
+                                <template x-if="form.someSpecs">
+                                    <div>
+                                        <template x-for="spec in form.specs" x-bind:key="spec.id">
+                                            <span>
+                                                <input type="checkbox" x-bind:id="spec.inputID" x-bind:name="spec.inputID" x-bind:checked="spec.checked" @change="setSpec( spec.id, $event.target.checked )"/>
+                                                <label x-bind:for="spec.inputID" x-text="spec.id"></label>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <div>
+                            <input type="checkbox" id="ti-people-approver" name="ti-people-approver" x-bind:checked="form.approver" @change="setRole( 'approver', $event.target.checked )"/>
+                            <label for="ti-people-approver" x-text-label="studio.home.role.approver">Approver</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="ti-people-admin" name="ti-people-admin" x-bind:checked="form.admin" @change="setRole( 'admin', $event.target.checked )"/>
+                            <label for="ti-people-admin" x-text-label="studio.home.role.admin">Administrator</label>
+                        </div>
+                    </fieldset>
+                    <template x-if="cannotSave()">
+                        <p x-text-label="studio.people.choose-specs">Choose at least one spec, or every spec.</p>
+                    </template>
+                    <div>
+                        <button type="button" class="ti-btn primary" x-bind:disabled="cannotSave()" @click="save()" x-text-label="studio.people.save">Save</button>
+                        <button type="button" class="ti-btn ghost" @click="cancel()" x-text-label="studio.people.cancel">Cancel</button>
+                    </div>
+                </section>
+            </template>
+
+            <section class="ti-panel">
+                <h2 x-text-label="studio.people.changes">Latest changes</h2>
+                <template x-if="hasNoChanges()">
+                    <p x-text-label="studio.people.no-changes">No change has been made yet.</p>
+                </template>
+                <ul>
+                    <template x-for="change in changes" x-bind:key="change.id">
+                        <li x-text="change.text"></li>
+                    </template>
+                </ul>
+            </section>
+        </div>
+    </template>
+
+</div>

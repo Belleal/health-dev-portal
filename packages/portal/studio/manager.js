@@ -25,7 +25,9 @@
 // First: it lays the studio's texts under the application's before anything asks for one.
 require( "#studio/labels" );
 const TiWebAppManager = require( "@ti-engine/web-framework/web-application" );
-const { STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
+const context = require( "#studio/context" );
+const { changeGrants, peopleView } = require( "#studio/people" );
+const { ADMIN_ROLES, STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
 
 // The sidebar entry each screen lights.
 const SIDEBAR_ENTRY = Object.freeze( { dashboard: "home", people: "people", settings: "settings", "environment-status": "environment-status" } );
@@ -45,6 +47,8 @@ class StudioManager extends TiWebAppManager {
      */
     constructor() {
         super( "studio" );
+        // Gates the HTML only: `people` as data and `people-grants` as a service check the role themselves (#studio/people).
+        this.addFragment( "people", { title: "People", path: "fragments/frame-people.html", roles: ADMIN_ROLES } );
     }
 
     /**
@@ -73,10 +77,33 @@ class StudioManager extends TiWebAppManager {
                 admin: isStudioAdmin( roles )
             };
         }
+        if ( view === "people" ) {
+            return peopleView( context.instance.db, session );
+        }
         const answer = await super.processDataRequest( session, view, options );
         // `/app/config` is unprotected, so `session.user` may be absent: nobody is then an admin.
         // `sidebarNavMapping` is the sidebar's screen-to-entry table, which keeps the entry lit after a reload.
         return view === "config" ? { ...answer, studio: { admin: isStudioAdmin( roles ) }, sidebarNavMapping: SIDEBAR_ENTRY } : answer;
+    }
+
+    /**
+     * Answers the studio's own services: `people-grants` replaces what one person holds. Every other service is the
+     * framework's.
+     *
+     * @method
+     * @param {Object} session
+     * @param {string} service
+     * @param {Object} params
+     * @returns {Promise<Object>}
+     * @override
+     * @public
+     */
+    async processServiceRequest( session, service, params ) {
+        if ( service === "people-grants" ) {
+            await changeGrants( context.instance.db, session, params );
+            return {};
+        }
+        return super.processServiceRequest( session, service, params );
     }
 }
 
