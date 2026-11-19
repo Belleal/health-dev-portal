@@ -47,6 +47,11 @@ that: the queue, the release screen, review and promotion. Each ends in working 
 - **The portal ships its own `index.html` for the shell,** a copy of web-framework 1.63.1's with the studio's script
   added before Alpine's. The framework has no hook for an application's script. This is a framework gap, for a CA card
   (Task 7).
+- **The studio offers Bulgarian and English, and starts in Bulgarian** (`languages` and `language` in
+  `PortalServer`'s configuration; a ruling in Task 4). The framework offers only the deployment's language when
+  neither is set.
+- **With no sign-in method in effect, the studio does not exist** (Task 6a, added with Boris's approval on
+  2026-11-19). A deployment may run the public site before Entra is registered.
 - **The test environment signs in locally from now on** (`TI_WEB_AUTH_METHODS=local`), with synthetic users. The shell
   tests that pinned the framework's routes as the pages' 404 are rewritten to what they answer now.
 
@@ -451,6 +456,95 @@ CREATE TABLE staff_grant_changes ( id TEXT PRIMARY KEY, person_key TEXT NOT NULL
 
 ---
 
+### Task 6a: A refused start lets go, and no sign-in method means no studio
+
+Added on 2026-11-19, after Task 3's review, with Boris's approval. Spec §3, "No sign-in method, no staff area".
+
+**Files:**
+- Modify: `packages/portal/bin/portal-server.js`:
+  - `onStart` and `onStop`;
+  - `isUnprotectedRoute`, a new override;
+  - `defineWebApplicationRoutes`.
+- Modify: `packages/portal/studio/manager.js` (`setEnabledAuthMethods`, `hasSignIn`).
+- Modify: `packages/portal/test/start.test.js`, and `test/support/server.js` if `createPortal` must take a service
+  configuration.
+- Create: `packages/portal/test/studio-off.test.js`.
+
+**Interfaces:**
+- Consumes:
+  - the framework's push of the effective methods into the manager, `setEnabledAuthMethods( methods )`. It comes after
+    `AuthManager#initialize` has dropped any provider without a client ID, and before the server listens.
+  - `TiWebServer#webAppManager`.
+  - `isUnprotectedRoute( route )`, which the framework's protection calls with `request.url` before it refuses
+    anything.
+- Produces:
+  - `StudioManager#hasSignIn → boolean`. It is `true` once the framework has pushed a list that is not empty, and
+    `false` before any push, so the studio fails closed.
+  - With no sign-in method in effect, every address whose first segment is `studio`, `app`, `admin`, `me`, `login`,
+    `logout`, `csrf-token` or `language`, in any case, answers 404, sets no cookie and redirects nowhere:
+    - a GET or HEAD is the pages' own 404 page;
+    - any other method is a bare 404.
+
+    The public pages and `/health` are unchanged. With a method in effect, nothing changes.
+  - A NOTICE at start when the studio is off: `The studio is off: no sign-in method is in effect (TI_WEB_AUTH_METHODS).`
+
+- [ ] **Step 1: Write the failing tests for a refused start** (`start.test.js`):
+  - `a start refused after the database opened lets the database and the studio's context go, and rejects with its own
+    error`. Hold a port with a `net` server on `127.0.0.1`, then start a portal on it (service configuration
+    `{ port }`). Assert three things:
+    - the start rejects with the listen error (`EADDRINUSE`);
+    - `context.instance.db` throws, because the context is detached;
+    - the database was closed.
+
+    Windows' file lock shows an open database only on Windows, as EPERM when the copy is removed, and this test must
+    also fail on Linux CI without the fix. So observe the close directly: wrap the real `openDatabase` with node:test's
+    `mock.method` before the portal's module is first required in the file, or use a better observable you measure.
+  - `a stop whose framework stop fails still lets the database and the context go, and rejects with that failure`:
+    after a good start, make `TiWebServer.prototype.onStop` reject once (`mock.method`), then stop the server for real.
+- [ ] **Step 2: Write the failing tests for the studio switched off** (`studio-off.test.js`). Use a file of its own,
+  started with no sign-in method. First measure how the methods reach the framework: from the environment at
+  construction (`TI_WEB_AUTH_METHODS=""` through `createPortal`), or from the service configuration's `auth.methods`.
+  Use whichever works.
+  - `with no sign-in method, every studio address is the pages' 404, with no cookie and no redirect`. Send GETs as a
+    browser sends them (HTML, no redirect followed):
+    - `/studio/`, `/studio`, `/STUDIO/` and `/studio/not-found`;
+    - `/app`, `/app/enter`, `/app/config`, `/app/dashboard` and `/APP/profile`;
+    - `/me`, `/login/local`, `/csrf-token`, `/language/bg` and `/admin/config/editors`;
+    - `/me#x`, through `rawStatus`.
+
+    Each one answers 404 with no `Set-Cookie` and no `Location`, and its body is the pages' 404 page.
+  - `with no sign-in method, any other method is a bare 404`: `POST` to `/app/feedback`, `/login/local` and `/logout`.
+    Each answers 404 with no cookie and no `Location`.
+  - `with no sign-in method, the public pages and /health are unchanged`: `assertPublic` on `/bg/` and `/en/`, and
+    `/health` answering 200.
+  - `a listed method the framework drops leaves the studio off too`: `openid-azure` with no client ID, then
+    `/studio/` answers 404. Use a process of its own if the methods are read once per process.
+  - The NOTICE: pin it if the logger can be observed without a seam added to production code. Otherwise, say so in
+    the report.
+- [ ] **Step 3: Run them and watch them fail.**
+- [ ] **Step 4: Implement.**
+  - `onStart`: when `super.onStart()` rejects, detach the context and close the database, then reject with the start's
+    own error. A failure while closing is logged and never takes the start error's place.
+  - `onStop`: the portal's cleanup runs in `finally`. The database is let go even when `super.onStop()` rejects, and
+    that rejection still reaches the caller.
+  - `StudioManager.setEnabledAuthMethods( methods )`: call `super`, set `hasSignIn`, and log the NOTICE when it is
+    `false`.
+  - `PortalServer.isUnprotectedRoute( route )`: `true` for a studio address while `!this.webAppManager.hasSignIn`,
+    otherwise `super`'s answer. The path is read up to `?`, as `super` reads it, and the match ignores case. Without
+    this, the framework's protection answers an anonymous `/app/profile` or `/me` with a 303 to `/studio/`, which names
+    the address the studio is meant not to have. Opening these paths is safe here because nobody can sign in, and the
+    route below answers every one of them with 404.
+  - `defineWebApplicationRoutes`: first, before `/` and the framework's routes, add
+    `registerRoute( "all", <the studio address pattern>, … )`. It calls `next()` while sign-in is on. Otherwise a GET
+    or HEAD goes to the pages handler (the catch-all's own instance) and any other method gets a 404. The pattern is
+    tested against the routed path, so `/me#x` is caught as `/me`.
+- [ ] **Step 5: Run them and watch them pass,** then run the whole portal suite. Check `/studio/` in the Browser pane
+  with sign-in off (the controller does this, ruling R2).
+- [ ] **Step 6: Commit** `fix(portal): a refused start lets the database and the studio's context go (HEL-48)`, then
+  `feat(portal): with no sign-in method, the studio does not exist (HEL-48)`.
+
+---
+
 ### Task 7: The access table, accessibility, the record, and the framework card
 
 **Files:**
@@ -460,7 +554,8 @@ CREATE TABLE staff_grant_changes ( id TEXT PRIMARY KEY, person_key TEXT NOT NULL
   `index.html`), §10.1 (the roles as built, the session role names, the narrowed exemption) and §10.2 (the person
   keyed by the Entra object ID; the stored fields)
 - Modify: `packages/portal/.env.example`, which documents `TI_WEB_AUTH_METHODS`, the `TI_AZURE_AUTH_*` variables,
-  `TI_WEB_AUTH_ADMINS` and `TI_WEB_COOKIE_SECRET`, each with a placeholder value
+  `TI_WEB_AUTH_ADMINS` and `TI_WEB_COOKIE_SECRET`, each with a placeholder value. It says that an empty
+  `TI_WEB_AUTH_METHODS` switches the studio off (Task 6a).
 - Modify: `packages/portal/README.md`, a section on the studio: its address, sign-in, the first admin, and roles
 
 - [ ] **Step 1: Write the access table:** one test over every 9a view and service × `anonymous`, `nobody`, `reader`,

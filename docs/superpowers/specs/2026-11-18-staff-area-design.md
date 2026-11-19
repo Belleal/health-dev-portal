@@ -28,7 +28,8 @@ Also settled:
 - a code list is uploaded as a single-list file, and the whole nomenclatures workbook is a migration input only (§6.3,
   Boris);
 - the area is reached by its own address, with no link from the public site (§3);
-- a sign-out is final, even against a request still in flight (CA-587, §3).
+- a sign-out is final, even against a request still in flight (CA-587, §3);
+- with no sign-in method in effect, the staff area does not exist (§3, Boris, 2026-11-19).
 
 ## 1. Intent
 
@@ -125,6 +126,18 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
 - **Entra ID only, in production:** `openid-azure`, the tenant-pinned discovery URL, and
   `TI_AZURE_AUTH_ALLOWED_DOMAINS` (§10.1). Development and the tests use the framework's local sign-in, with
   synthetic users.
+- **No sign-in method, no staff area** *(Boris, 2026-11-19)*. A deployment may run the public site before IT has
+  registered the application with Entra, with `TI_WEB_AUTH_METHODS` empty. With no sign-in method in effect (none
+  listed, or each listed one dropped by the framework as unconfigured), the staff area behaves as if it did not exist:
+  - every address under `/studio`, `/app`, `/admin`, `/me`, `/login`, `/logout`, `/csrf-token` and `/language`, in any
+    case, is a 404 that sets no cookie and redirects nowhere. A GET of one is the pages' 404 page;
+  - the public pages and `/health` are unchanged;
+  - the portal logs a notice at start that the studio is off.
+
+  Rejected:
+  - refusing to start, which would take the public site down with the studio;
+  - the framework's sign-in screen with no method on it, a dead end that shows the staff address to anyone who finds
+    it.
 - **The routes the portal shadows today come back:** `PortalServer.defineWebApplicationRoutes` answers `/not-found`,
   `/app`, `/app/*splat`, `/csrf-token` and `/logout` with the pages' 404, because nothing behind them existed. Plan 9
   hands `/app`, `/csrf-token` and `/logout` back to the framework. `/not-found` needs no shadow any more: with the home
@@ -146,7 +159,8 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
 - **Personal data:** a staff member's identity is stored for staff only and never shown on a public page (§10.2). See
   §8.
 - **Two languages and accessibility:** Bulgarian and English labels, with the framework's language choice at sign-in;
-  WCAG 2.1 AA (§8.5).
+  WCAG 2.1 AA (§8.5). The studio starts in Bulgarian, as the public site's `/` goes to `/bg/` *(design call, plan
+  9a)*.
 - **The SQL subset of §3.2** for every new table, and every data-layer test on SQLite and PostgreSQL.
 - **Uploads are hostile** (§10.1): size and decompression limits, a parse timeout, and formulas never evaluated. The
   importer has no limits today, so plan 9 adds them where an upload is read.
