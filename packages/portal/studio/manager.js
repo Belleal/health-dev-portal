@@ -22,11 +22,17 @@
  * through the server.
  */
 
+// First: it lays the studio's texts under the application's before anything asks for one.
+require( "#studio/labels" );
 const TiWebAppManager = require( "@ti-engine/web-framework/web-application" );
+const { STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
+
+// The sidebar entry each screen lights.
+const SIDEBAR_ENTRY = Object.freeze( { dashboard: "home", people: "people", settings: "settings", "environment-status": "environment-status" } );
 
 /**
- * The studio. Its screens come with the tasks that build them; until then it is the framework's shell alone, with its
- * sign-in screen.
+ * The studio. Its screens come with the tasks that build them; until then it is the framework's shell, its sign-in and
+ * a landing screen.
  *
  * @class StudioManager
  * @extends TiWebAppManager
@@ -39,6 +45,38 @@ class StudioManager extends TiWebAppManager {
      */
     constructor() {
         super( "studio" );
+    }
+
+    /**
+     * Answers the studio's own views and the framework's: `studio-home` is the landing screen's data, and `config` is
+     * the framework's answer with a `studio` block that says whether the person is an admin, which the sidebar reads to
+     * show People, Settings and Environment status. Every other view is the framework's.
+     *
+     * @method
+     * @param {Object} session
+     * @param {string} view
+     * @param {Object} [options]
+     * @returns {Promise<Object>}
+     * @override
+     * @public
+     */
+    async processDataRequest( session, view, options = {} ) {
+        // The roles the session carries, never a role the framework adds for itself: an application's own would not be
+        // the studio's to name on the landing screen.
+        const roles = ( ( session && session.user && session.user.roles ) || [] ).filter( ( role ) => STAFF_ROLES.includes( role ) );
+        if ( view === "studio-home" ) {
+            return {
+                name: ( session && session.user && session.user.name ) || "",
+                roles: roles,
+                // `null` is an editor of every spec, which is not the same as none.
+                editorSpecs: ( session && session.studio ) ? session.studio.editorSpecs : [],
+                admin: isStudioAdmin( roles )
+            };
+        }
+        const answer = await super.processDataRequest( session, view, options );
+        // `/app/config` is unprotected, so `session.user` may be absent: nobody is then an admin.
+        // `sidebarNavMapping` is the sidebar's screen-to-entry table, which keeps the entry lit after a reload.
+        return view === "config" ? { ...answer, studio: { admin: isStudioAdmin( roles ) }, sidebarNavMapping: SIDEBAR_ENTRY } : answer;
     }
 }
 

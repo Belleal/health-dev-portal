@@ -1,0 +1,37 @@
+{
+    "interface": {
+        "topbar": {
+            "dashboard": { "bg": "Начало", "en": "Home" }
+        }
+    },
+    "studio": {
+        "brand": {
+            "title": { "bg": "НЗИС · студио", "en": "Health dev portal studio" },
+            "sub": { "bg": "Вход за екипа на портала", "en": "Sign in for the portal's team" }
+        },
+        "nav": {
+            "home": { "bg": "Начало", "en": "Home" },
+            "people": { "bg": "Хора", "en": "People" },
+            "settings": { "bg": "Настройки", "en": "Settings" },
+            "environment": { "bg": "Състояние на средата", "en": "Environment status" }
+        },
+        "home": {
+            "eyebrow": { "bg": "Студио", "en": "Studio" },
+            "title": { "bg": "Добре дошли", "en": "Welcome" },
+            "signed-in-as": { "bg": "Влезли сте като", "en": "You are signed in as" },
+            "roles": { "bg": "Вашите роли", "en": "Your roles" },
+            "no-access-title": { "bg": "Все още нямате достъп", "en": "You have no access yet" },
+            "no-access-desc": {
+                "bg": "Все още нямате достъп; обърнете се към администратор.",
+                "en": "You have no access yet; ask an administrator."
+            },
+            "loading": { "bg": "Зареждане…", "en": "Loading…" },
+            "role": {
+                "reader": { "bg": "Читател", "en": "Reader" },
+                "editor": { "bg": "Редактор", "en": "Editor" },
+                "approver": { "bg": "Одобряващ", "en": "Approver" },
+                "admin": { "bg": "Администратор", "en": "Administrator" }
+            }
+        }
+    }
+}
