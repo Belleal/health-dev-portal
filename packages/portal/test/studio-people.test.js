@@ -26,6 +26,7 @@ const assert = require( "node:assert/strict" );
 // First: it sets the environment ti-engine reads as it loads.
 const { SEED, SEEDED, startPortal } = require( "./support/server" );
 const { grant, signIn } = require( "./support/staff" );
+const { formatSofia } = require( "#studio/sofia-time" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { EVERY_SPEC, ROLE, grantChanges, recordSignIn } = require( "@health-dev-portal/data/staff" );
 
@@ -77,6 +78,10 @@ describe( "The People screen", { skip: !SEEDED && "build the seed first: npm run
         assert.equal( byKey.get( "local:admin" ).name, "Test Admin" );
         assert.ok( data.specs.includes( SPEC ), "the specs a grant may name" );
         assert.ok( Array.isArray( data.changes ) );
+        // Sofia time in the screen's language, here the studio's default, Bulgarian.
+        const editor = byKey.get( "local:editor" );
+        assert.equal( editor.lastSeenText, formatSofia( editor.lastSeenAt, "bg" ) );
+        assert.match( editor.lastSeenText, /^\d\d\.\d\d\.\d{4}$/ );
     } );
 
     it( "an admin is served the screen, which names its component and shows nothing as markup", async () => {
@@ -96,7 +101,10 @@ describe( "The People screen", { skip: !SEEDED && "build the seed first: npm run
         const [ change ] = await withDatabase( ( db ) => grantChanges( db, { key: "local:editor-cl009", limit: 1 } ) );
         assert.equal( change.by, "local:admin" );
         assert.deepEqual( change.grants, [ { role: ROLE.EDITOR, spec: "CL009" } ] );
-        assert.equal( ( await people( session ) ).changes[ 0 ].by, "local:admin" );
+        const shown = ( await people( session ) ).changes[ 0 ];
+        assert.equal( shown.by, "local:admin" );
+        assert.equal( shown.atText, formatSofia( shown.at, "bg", { time: true } ) );
+        assert.match( shown.atText, /^\d\d\.\d\d\.\d{4} \d\d:\d\d$/ );
     } );
 
     it( "everyone but an admin is refused, the screen and the service alike", async () => {

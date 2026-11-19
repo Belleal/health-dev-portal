@@ -155,10 +155,10 @@
                     const names = new Map( people.map( ( one ) => [ one.key, String( one.name ) ] ) );
                     this.specs = ( Array.isArray( data.specs ) ? data.specs : [] ).map( String );
                     this.people = people.map( ( one ) => ( { key: String( one.key ), name: String( one.name ), configuredAdmin: Boolean( one.configuredAdmin ),
-                        grants: one.grants || [], holdsText: holdsText( one.grants || [] ) } ) );
+                        grants: one.grants || [], holdsText: holdsText( one.grants || [] ), lastSeenText: String( one.lastSeenText || "" ) } ) );
                     // Who it was done to and by, by name where the studio knows them: a key is an identity provider's, not for reading.
                     this.changes = ( Array.isArray( data.changes ) ? data.changes : [] ).map( ( one ) => ( { id: String( one.id ),
-                        text: `${ String( one.at ).slice( 0, 16 ).replace( "T", " " ) } UTC · ${ names.get( one.key ) || one.key } · ${ holdsText( one.grants || [] ) } · ${ names.get( one.by ) || one.by }` } ) );
+                        text: `${ String( one.atText || "" ) } ·${ names.get( one.key ) || one.key } · ${ holdsText( one.grants || [] ) } · ${ names.get( one.by ) || one.by }` } ) );
                     this.loaded = true;
                     this.busy = false;
                 } ).catch( ( error ) => this.fail( error ) );

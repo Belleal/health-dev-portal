@@ -1,7 +1,8 @@
 {
     "interface": {
         "topbar": {
-            "dashboard": { "bg": "Начало", "en": "Home" }
+            "dashboard": { "bg": "Начало", "en": "Home" },
+            "people": { "bg": "Хора", "en": "People" }
         }
     },
     "studio": {
@@ -42,6 +43,7 @@
             },
             "name": { "bg": "Име", "en": "Name" },
             "holds": { "bg": "Роли", "en": "Roles" },
+            "last-seen": { "bg": "Последно", "en": "Last seen" },
             "actions": { "bg": "Действия", "en": "Actions" },
             "configured-admin": { "bg": "Администратор по конфигурация", "en": "Admin by configuration" },
             "none": { "bg": "няма", "en": "none" },

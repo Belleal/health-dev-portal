@@ -25,6 +25,7 @@ const exceptions = require( "@ti-engine/core/exceptions" );
 const { grantChanges, listPeople, setGrants } = require( "@health-dev-portal/data/staff" );
 const { listSpecs } = require( "@health-dev-portal/data/versions" );
 const { isStudioAdmin } = require( "#studio/roles" );
+const { formatSofia } = require( "#studio/sofia-time" );
 
 // How many changes the screen lists: the log is long-lived and the screen is a glance, not the audit.
 const CHANGES_SHOWN = 30;
@@ -52,15 +53,21 @@ const requireAdmin = ( session ) => {
  * @method
  * @param {Object} db The portal's database.
  * @param {Object} session The requesting session.
+ * @param {string} [language] The screen's language, for the times; Bulgarian without one.
  * @returns {Promise<{people: Array<Object>, specs: string[], changes: Array<Object>}>} Names are the identity
- *     provider's text, returned as it is: the screen shows them by `x-text` and never as markup.
+ *     provider's text, returned as it is: the screen shows them by `x-text` and never as markup. Each person carries
+ *     `lastSeenText` and each change `atText`, written in Sofia time.
  * @throws {TiException} `E_SEC_UNAUTHORIZED_ACCESS` (403) unless the session is an admin's.
  * @public
  */
-module.exports.peopleView = async ( db, session ) => {
+module.exports.peopleView = async ( db, session, language = "bg" ) => {
     requireAdmin( session );
     const [ people, specs, changes ] = await Promise.all( [ listPeople( db ), listSpecs( db ), grantChanges( db, { limit: CHANGES_SHOWN } ) ] );
-    return { people: people, specs: specs, changes: changes };
+    return {
+        people: people.map( ( one ) => ( { ...one, lastSeenText: formatSofia( one.lastSeenAt, language ) } ) ),
+        specs: specs,
+        changes: changes.map( ( one ) => ( { ...one, atText: formatSofia( one.at, language, { time: true } ) } ) )
+    };
 };
 
 /**

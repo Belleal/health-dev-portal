@@ -26,6 +26,7 @@
                         <tr>
                             <th scope="col" x-text-label="studio.people.name">Name</th>
                             <th scope="col" x-text-label="studio.people.holds">Roles</th>
+                            <th scope="col" x-text-label="studio.people.last-seen">Last seen</th>
                             <th scope="col"><span x-text-label="studio.people.actions">Actions</span></th>
                         </tr>
                     </thead>
@@ -39,6 +40,7 @@
                                     </template>
                                 </td>
                                 <td x-text="person.holdsText"></td>
+                                <td x-text="person.lastSeenText"></td>
                                 <td>
                                     <button type="button" class="ti-btn sm" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
                                 </td>

@@ -56,4 +56,20 @@ describe( "The studio's labels", () => {
             }
         }
     } );
+
+    it( "every screen the studio registers has a title in the topbar, in both languages", () => {
+        // The framework's topbar and the tab's title read `interface.topbar.<screen>`; without it the topbar is blank and the
+        // tab keeps the last screen's title (WCAG 2.4.2).
+        const directory = path.join( __dirname, "..", "..", "studio" );
+        const screens = fs.readdirSync( directory ).filter( ( name ) => name.endsWith( ".js" ) )
+            .flatMap( ( name ) => [ ...fs.readFileSync( path.join( directory, name ), "utf8" ).matchAll( /addFragment\(\s*"([\w-]+)"/g ) ].map( ( match ) => match[ 1 ] ) );
+        assert.ok( screens.includes( "people" ), "the sweep found People" );
+        for ( const screen of screens ) {
+            const title = catalogue.interface.topbar[ screen ];
+            assert.ok( title, `interface.topbar.${ screen }` );
+            for ( const language of [ "bg", "en" ] ) {
+                assert.ok( typeof title[ language ] === "string" && title[ language ].trim() !== "", `${ screen } (${ language })` );
+            }
+        }
+    } );
 } );

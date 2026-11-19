@@ -78,7 +78,7 @@ class StudioManager extends TiWebAppManager {
             };
         }
         if ( view === "people" ) {
-            return peopleView( context.instance.db, session );
+            return peopleView( context.instance.db, session, options.language );
         }
         const answer = await super.processDataRequest( session, view, options );
         // `/app/config` is unprotected, so `session.user` may be absent: nobody is then an admin.
