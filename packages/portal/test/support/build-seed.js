@@ -19,7 +19,9 @@
  * Builds the seed the portal's HTTP tests start from (plan 8a, decision 12), as the portal's `pretest`: once per test
  * run, since the migration alone takes seconds, too long to repeat in every test file. It migrates the public production
  * set — nomenclatures 1.5.33, rules 1.1.1 and e-Prescription 1.5.1, with the /api/v1/ XSDs — then runs decision 13
- * (seed.js), and writes .fixtures/portal/seed.sqlite and .fixtures/portal/files/, which git ignores.
+ * (seed.js), and writes .fixtures/portal/seed.sqlite and .fixtures/portal/files/, which git ignores. Beside them it
+ * writes the studio's users file (plan 9a, support/staff.js), here for the same reason: each password's hash takes the
+ * framework's script half a second, which every test file would otherwise pay seven times.
  *
  * The database is built in memory and written out whole with VACUUM INTO: measured on this set, the migration took
  * 4.4 s in memory and 20.4 s into a file. It is built beside the seed and then put in its place, so an interrupted build
@@ -39,6 +41,7 @@ const { readManifest } = require( "@health-dev-portal/data/manifest" );
 const { migrate } = require( "@health-dev-portal/data/migration" );
 const { migrateSchema } = require( "@health-dev-portal/data/schema" );
 const { SEED_DIRECTORY, inCi, seed } = require( "./seed" );
+const { writeUsersFile } = require( "./staff" );
 
 const FIXTURES = path.resolve( __dirname, "../../../../.fixtures/public" );
 const SET = Object.freeze( { nomenclatures: "nomenclatures-1.5.33.xlsx", rules: "rules-1.1.1.xlsx", module: "eprescription-1.5.1.xlsx", xsd: "api-v1" } );
@@ -75,6 +78,7 @@ const build = async () => {
         await seed( db, store );
         // SQLite's own copy of a whole database into a new file; the portal's tests run on SQLite only (decision 12).
         await db.run( "VACUUM INTO ?", [ path.join( building, "seed.sqlite" ) ] );
+        writeUsersFile( building );
     } catch ( error ) {
         fs.rmSync( building, { recursive: true, force: true } );
         throw error;

@@ -16,9 +16,9 @@
  */
 
 /*
- * The portal's server (plan 8a, decision 1; design record §3.1): a ti-engine web server with no web application
- * manager until plan 9 brings the staff area. It is started by core's start-instance (`TI_INSTANCE_CLASS`, see the
- * README), which constructs it with the instance's name and the configuration file, if any.
+ * The portal's server (plan 8a, decision 1; design record §3.1): a ti-engine web server for the public site, with the
+ * staff area, the studio (plan 9a), as its web application at `/studio/`. It is started by core's start-instance
+ * (`TI_INSTANCE_CLASS`, see the README), which constructs it with the instance's name and the configuration file, if any.
  */
 
 const path = require( "node:path" );
@@ -29,13 +29,18 @@ const { PUBLIC_DIRECTORY } = require( "#assets" );
 const { CONTENT_DIRECTORY, loadContent } = require( "#content" );
 const { nameOf } = require( "#pages/nomenclatures" );
 const { setPublicUrl } = require( "#paths" );
-const { notFound } = require( "#responses" );
 const { pageHandler, rootRedirect } = require( "#routes" );
 const { createSearch } = require( "#search" );
+const context = require( "#studio/context" );
+const studioSession = require( "#studio/session" );
+
+// The studio's web application manager, which the framework loads by its path.
+const STUDIO_MANAGER = path.join( __dirname, "..", "studio", "manager.js" );
 
 /**
  * The public website: every published specification version by stage, its messages, the code lists, the errors and the
- * changes, in Bulgarian and English. No response sets a cookie (design record §10.1).
+ * changes, in Bulgarian and English. No public page sets a cookie for a visitor who is not signed in (design record
+ * §10.1). Beside it, the studio: the staff area, signed in to, at `/studio/`.
  *
  * @class PortalServer
  * @extends TiWebServer
@@ -62,6 +67,11 @@ class PortalServer extends TiWebServer {
             publicPath: PUBLIC_DIRECTORY,
             // The framework's service proxy, /service/:version/:name, has nothing behind it here.
             api: { endpointEnabled: false },
+            // The studio (plan 9a), at /studio/ so that / stays the public site's. The framework requires the manager at
+            // `path.join( process.cwd(), classPath )`, so the path is relative to the working directory: an absolute one
+            // is joined into a path that is none (`/app/app/packages/portal/studio/manager.js`, measured), and the start
+            // fails.
+            application: { classPath: path.relative( process.cwd(), STUDIO_MANAGER ), home: "/studio/" },
             ...( serviceConfig || {} )
         } );
     }
@@ -70,7 +80,8 @@ class PortalServer extends TiWebServer {
      * Reads the guides and the questions, opens the database and the file store, then starts the web server. All are
      * ready before the framework's start resolves, so its start-up gate holds every request until they are. Nothing
      * listens when any is missing, when the content cannot be read, or without the public URL every absolute link is
-     * written from.
+     * written from. The studio's handlers and session hooks reach the database and the store through its context,
+     * attached here: the framework constructs the studio's manager with nothing of the server's.
      *
      * @method
      * @returns {Promise<void>}
@@ -78,11 +89,14 @@ class PortalServer extends TiWebServer {
      * @public
      */
     onStart() {
-        return this.#open().then( () => super.onStart() );
+        return this.#open().then( () => {
+            context.instance.attach( { db: this.#db, store: this.#store } );
+            return super.onStart();
+        } );
     }
 
     /**
-     * Stops the web server, then closes the database.
+     * Stops the web server, lets the studio's context go, then closes the database.
      *
      * @method
      * @returns {Promise<void>}
@@ -91,6 +105,7 @@ class PortalServer extends TiWebServer {
      */
     onStop() {
         return super.onStop().then( async () => {
+            context.instance.detach();
             if ( this.#db ) {
                 await this.#db.close();
                 this.#db = null;
@@ -99,14 +114,26 @@ class PortalServer extends TiWebServer {
     }
 
     /**
-     * Everything is public but the framework's `/admin`: web-content's own pattern for a public site, written out here
-     * since the portal takes only `/html` and `/transliterate` from web-content. Any narrower list left the rest to the
-     * framework's protection, which answers an anonymous `/nope`, `/robots.txt` or `/favicon.ico` 303 to `/` (401 for
-     * anything but HTML) before the portal's 404 is reached (review of task 3, I2). The framework's routes that are not
-     * public pages are taken by the portal's own 404 instead (`defineWebApplicationRoutes`).
+     * Everything is public but what is the staff's: web-content's own pattern for a public site, written out here since
+     * the portal takes only `/html` and `/transliterate` from web-content. Any narrower list left the rest to the
+     * framework's protection, which answers an anonymous `/nope`, `/robots.txt` or `/favicon.ico` 303 to the home (401
+     * for anything but HTML) before the portal's 404 is reached (review of task 3, I2). Four first segments are left to
+     * the protection, each because what is under it is no public page:
+     * - `admin`, the framework's configuration API, which its own admin role guards behind the sign-in;
+     * - `app`, the studio's screens, their data and its services (`/app/:view`, `POST /app/:service`, plan 9a). The
+     *   framework opens what its sign-in screen needs there itself (`/app`, `/app/enter`, `/app/config` and the labels),
+     *   so the rest is refused, a screen added later included, rather than public until someone remembers to close it;
+     * - `studio`, the studio's home, for the same reason: the framework opens the home and its not-found page, and
+     *   nothing else under it is the public site's;
+     * - `me`, the signed-in user, which the framework's own list does not open either. Exempted, an anonymous `/me`
+     *   reached its handler past the protection, whose refusal sent the browser to the sign-in screen with an error,
+     *   `/studio/?error=2002` (measured), where every other staff address sends it there plainly.
      *
      * The exception ignores case, as Express's routing does: without `i`, `/ADMIN/config/editors` counted as public and
      * reached the admin routes past the protection, which answered a browser 401 rather than its 303 (final review M8).
+     * `/APP/profile` and `/ME` reach the studio's handlers in the same way. An address that only resembles one of the
+     * four, such as `/%61pp/profile`, `//app/profile` or `/./app/profile`, reaches no studio route either: Express
+     * routes the address as it is written, and each is the pages' 404 (measured).
      *
      * @method
      * @override
@@ -114,25 +141,21 @@ class PortalServer extends TiWebServer {
      */
     defineUnprotectedRoutes() {
         super.defineUnprotectedRoutes();
-        this.addUnprotectedRoute( /^\/(?!admin(?:\/|$)).*$/i );
+        this.addUnprotectedRoute( /^\/(?!(?:admin|app|studio|me)(?:\/|$)).*$/i );
     }
 
     /**
      * The portal's routes around the framework's.
-     * - **Before them**, `/`, and the portal's 404 for the framework's application and session routes:
-     *   - its handlers for `/`, `/not-found`, `/app`, `/app/:view` and `POST /app/:service` read the web application
-     *     manager the portal does not have, and throw (measured: 500, logged as an error, for a POST holding a CSRF
-     *     token);
-     *   - `GET /csrf-token` minted a token into a new session for anyone, saved and cookied (`ti-xsrf-token` and
-     *     `connect.sid`), after which every page re-sent both cookies beside its public caching (review of task 3, I1);
-     *     `/logout` ends a sign-in the portal does not have until plan 9. The framework keeps both mounted on a site
-     *     with no sign-in method, by design: a public form asks `/csrf-token` for its token.
-     *   - `/me` and `/login/:method` need no shadow since web-framework 1.62.0: with no sign-in method in effect they
-     *     pass the request on (CA-573), here to the pages' 404. That closed, for them, the gap this comment named for a
-     *     CA card (HEL-43).
+     * - **Before them**, `/`, the public site's: the framework's home is `/studio/` (plan 9a), so it serves nothing at
+     *   the root. The portal no longer shadows any of the framework's routes with its 404, as it did while it had no
+     *   web application: the studio is the manager the handlers of `/app`, `/app/:view` and `POST /app/:service` read,
+     *   the framework's not-found page is `/studio/not-found`, which leaves `/not-found` to the pages, and `/csrf-token`,
+     *   `/login/:method`, `/me` and `/logout` are the studio's sign-in. A session, and its cookie, is started only by the
+     *   sign-in screen and the routes it asks (`/app`, `/app/enter` and `/csrf-token`, measured), each `no-store`, and
+     *   never by a public page: the framework mints a token only where a form or a script asks for one.
      * - **After them**, every other GET goes to the pages, whose own 404 answers what is none: the framework's would
-     *   redirect an HTML GET to `/`. It is a pattern with no named or captured part, so Express decodes nothing of the
-     *   address before the portal reads it: as `*splat`, a malformed escape such as `/bg/%E0%A4%A` failed Express's
+     *   redirect an HTML GET to the home. It is a pattern with no named or captured part, so Express decodes nothing of
+     *   the address before the portal reads it: as `*splat`, a malformed escape such as `/bg/%E0%A4%A` failed Express's
      *   decoding, which the framework answered 303 to `/?error=4002` for a browser and 400 otherwise, with no caching
      *   stated (final review M2, measured), where the address parser answers it with the 404 page. The framework
      *   answers such an escape with its own 404 since 1.62.0 (CA-573), but the portal's page is still the one shown.
@@ -143,14 +166,37 @@ class PortalServer extends TiWebServer {
      */
     defineWebApplicationRoutes() {
         this.registerRoute( "get", "/", rootRedirect );
-        for ( const route of [ "/not-found", "/app", "/app/*splat", "/csrf-token" ] ) {
-            this.registerRoute( "get", route, notFound );
-        }
-        for ( const route of [ "/app/*splat", "/logout" ] ) {
-            this.registerRoute( "post", route, notFound );
-        }
         super.defineWebApplicationRoutes();
         this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content, search: this.#search } ) ) );
+    }
+
+    /**
+     * At sign-in: records the person, the configuration's admin marked as such, and puts their roles on the session
+     * (`#studio/session`). A sign-in it cannot key is refused: the framework answers its throw with the sign-in screen
+     * and an error.
+     *
+     * @method
+     * @param {Object} session The new session, with the signed-in user.
+     * @returns {Promise<void>} Nothing: the session is changed in place, which the framework accepts.
+     * @override
+     * @public
+     */
+    augmentSession( session ) {
+        return studioSession.augment( session, context.instance.db, { admins: this.serviceConfig.auth.admins } );
+    }
+
+    /**
+     * On every request of a signed-in session: reads the person's grants again, so a role given or taken away holds from
+     * the next request, with no new sign-in.
+     *
+     * @method
+     * @param {Object} session The request's session.
+     * @returns {Promise<void>} The session is changed in place.
+     * @override
+     * @public
+     */
+    refreshSession( session ) {
+        return studioSession.refresh( session, context.instance.db );
     }
 
     // HDP_DATABASE_URL is required; HDP_FILES_DIR defaults to `.files` under the working directory, and HDP_CONTENT_DIR

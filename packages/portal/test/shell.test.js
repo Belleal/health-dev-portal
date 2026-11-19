@@ -49,7 +49,9 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
         const root = await get( "/" );
         assertPublic( root, "public, max-age=60", null );
         assert.deepEqual( [ root.status, root.headers.get( "location" ) ], [ 301, "/bg/" ] );
-        for ( const path of [ "/bg/nope", "/en/specs/%3Cscript%3E/production", "/app", "/app/x", "/not-found",
+        // `/not-found` is the pages' since the studio's home is /studio/ (plan 9a): the framework's not-found page is
+        // /studio/not-found, no longer at the root.
+        for ( const path of [ "/bg/nope", "/en/specs/%3Cscript%3E/production", "/not-found",
             "/bg/specs/e-prescription/1.5.1/P001/elements/..%2F..%2Fx", "/en/specs/e-prescription/development", "/bg/specs/CL007/production",
             "/downloads/nomenclatures/CL007/development.json" ] ) {
             const response = await get( path );
@@ -59,7 +61,15 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
             assert.match( response.text, /<h1>(Страницата не е намерена|Page not found)<\/h1>/, path );
         }
         assert.match( ( await get( "/en/nope" ) ).text, /<html lang="en">[\s\S]*<h1>Page not found<\/h1>/ );
-        assert.match( ( await get( "/app/x" ) ).text, /<html lang="bg">/ );
+        assert.match( ( await get( "/nope" ) ).text, /<html lang="bg">/ );
+    } );
+
+    it( "sends a studio screen asked for without a session to the studio's sign-in, and sets no cookie", async () => {
+        // The studio's screens are /app/:view (plan 9a): refused by the framework's protection, never a public page.
+        const page = await get( "/app/x" );
+        assert.deepEqual( [ page.status, page.headers.get( "location" ), page.headers.get( "set-cookie" ) ], [ 303, "/studio/", null ] );
+        const api = await fetch( `${ portal.url }/app/x`, { redirect: "manual", headers: { accept: "application/json" } } );
+        assert.deepEqual( [ api.status, api.headers.get( "set-cookie" ) ], [ 401, null ] );
     } );
 
     it( "sends a language's address without its slash to that language's home page", async () => {
@@ -90,14 +100,9 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
         }
     } );
 
-    it( "mints no session: the framework's sign-in and session routes are the portal's 404 until plan 9", async () => {
-        // GET /csrf-token minted a token into a new session, saved and cookied, which every later page then re-sent.
-        for ( const path of [ "/csrf-token", "/me", "/login/local", "/login/openid-google", "/login/google-callback" ] ) {
-            const response = await get( path );
-            assertPublic( response, "public, max-age=60" );
-            assert.equal( response.status, 404, path );
-        }
-        // A form post without a token is refused by the framework's CSRF check before any route, and sets nothing either.
+    it( "refuses a sign-in or sign-out posted without a token, and sets no cookie", async () => {
+        // The framework's CSRF check, before any route. The sign-in and session routes themselves are the framework's
+        // since plan 9a; the studio's access test pins what a visitor without a session gets at /me.
         for ( const path of [ "/logout", "/login/local" ] ) {
             const response = await fetch( `${ portal.url }${ path }`, { method: "POST", redirect: "manual", headers: { accept: "text/html" } } );
             assert.equal( response.headers.get( "set-cookie" ), null, path );
@@ -106,12 +111,13 @@ describe( "The shell", { skip: !SEEDED && "build the seed first: npm run fixture
     } );
 
     it( "keeps the framework's /admin protected, and sets no cookie there either", async () => {
+        // A refusal sends the browser to the studio's sign-in (plan 9a); it went to / before there was one.
         const response = await get( "/admin/config/editors" );
-        assert.deepEqual( [ response.status, response.headers.get( "location" ), response.headers.get( "set-cookie" ) ], [ 303, "/", null ] );
+        assert.deepEqual( [ response.status, response.headers.get( "location" ), response.headers.get( "set-cookie" ) ], [ 303, "/studio/", null ] );
         // Express routes `/ADMIN/…` to the same handlers as `/admin/…`, so the exception to "public" must ignore case too.
         for ( const path of [ "/ADMIN/config/editors", "/Admin/config/editors" ] ) {
             const other = await get( path );
-            assert.deepEqual( [ other.status, other.headers.get( "location" ), other.headers.get( "set-cookie" ) ], [ 303, "/", null ], path );
+            assert.deepEqual( [ other.status, other.headers.get( "location" ), other.headers.get( "set-cookie" ) ], [ 303, "/studio/", null ], path );
             const api = await fetch( `${ portal.url }${ path }`, { redirect: "manual", headers: { accept: "application/json" } } );
             assert.deepEqual( [ api.status, api.headers.get( "set-cookie" ) ], [ 401, null ], path );
         }

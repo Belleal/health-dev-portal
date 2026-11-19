@@ -5,11 +5,12 @@ each message element by element with its XSD and a sample, the code lists, the e
 and downloads of every module version, the guides and the FAQ, the environments' status, and a search across all of it,
 in Bulgarian at `/bg/` and English at `/en/`.
 
-- **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` with no web application manager
-  until plan 9 brings the staff area.
+- **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` whose web application is the staff
+  area, the studio, at `/studio/` (plan 9a; `studio/manager.js`), with its screens at `/app/…`.
 - **Server-rendered pages**, readable without JavaScript, built with web-content's escaping `html` template. One
   stylesheet and one small deferred script, each by its content hash; nothing inline.
-- **No cookie on any response**, so every page can be cached (design record §10.1).
+- **No cookie on any public page for a visitor who is not signed in**, so every page can be cached (design record
+  §10.1). A signed-in member of staff gets their session's cookie on every response, which keeps theirs private.
 - **The data** is read through `@health-dev-portal/data/published`, which decides what is public.
 - **Links follow the stage shown** (design record §4.8): a module page links each code list and the rules at their
   version in the stage it shows, else the nearest stage further on, and a list's "used in" names the module versions of
@@ -82,13 +83,17 @@ npm test --workspace packages/portal
 ```
 
 - **The seed.** `pretest` builds `.fixtures/portal/` (git-ignored) from the public fixtures, through the data layer's
-  own migration and lifecycle functions: about 6 s, once per run. Without the fixtures it says so and the HTTP tests
-  skip; in CI (`CI` set and not `false`) it fails, since a skipped test looks exactly like a passing one.
+  own migration and lifecycle functions, with the studio's synthetic staff in `users.json` beside it
+  (`test/support/staff.js`): about 10 s, once per run. Without the fixtures it says so and the HTTP tests skip; in CI
+  (`CI` set and not `false`) it fails, since a skipped test looks exactly like a passing one.
+- **Sign-in is on**, by the framework's local method for those synthetic staff, so every public page is tested as it
+  is served beside the studio.
 - **One server per test file**, in the test's process, on a copy of the seed (`test/support/server.js`): core allows
   one service instance per process, and `node --test` runs each file in its own.
 - **No Redis.** The tests replace core's exported `cache.instance` with a stand-in written for the portal
-  (`test/support/memory-cache.js`). Measured, the server asks it for nothing but `initialize` when it starts,
-  `shutDown` when it stops and `isOperational` on `/health`; anything else throws, naming itself.
+  (`test/support/memory-cache.js`). Measured, the server asks it for `initialize` when it starts, `shutDown` when it
+  stops and `isOperational` on `/health`, the local users as a document, and the sessions as hash fields and values
+  that expire; anything else throws, naming itself. An anonymous visit to a public page touches none of it.
 - **SQLite only.** The data layer is the one tested on both databases.
 
 ### Accessibility

@@ -80,7 +80,8 @@ describe( "The document", () => {
     } );
 
     it( "leaves out what a page does not have: no canonical for a page not found, no band, sidebar or panel", () => {
-        const text = page( { lang: "en", title: "Page not found", path: "/app/x", main: html`<h1>x</h1>`, nonce: "n" } );
+        // An address outside the languages; not /app/x, which is the studio's since plan 9a and never reaches the pages.
+        const text = page( { lang: "en", title: "Page not found", path: "/nope", main: html`<h1>x</h1>`, nonce: "n" } );
         assert.match( text, /<html lang="en">/ );
         assert.doesNotMatch( text, /rel="canonical"|rel="alternate"|class="band"|class="sidebar"|class="panel"|aria-current/ );
         assert.match( text, /<a href="\/bg\/" hreflang="bg" lang="bg">Български<\/a>/ );

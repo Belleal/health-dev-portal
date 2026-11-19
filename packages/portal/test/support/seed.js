@@ -32,6 +32,7 @@ const { approveRelease } = require( "@health-dev-portal/data/review" );
 const { promoteReleases } = require( "@health-dev-portal/data/promotion" );
 const { readContent } = require( "@health-dev-portal/data/targets" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
+const { USERS_FILE } = require( "./staff" );
 
 const NOW = new Date( "2026-11-05T10:00:00Z" );
 const BY_EDITOR = Object.freeze( { actor: "editor@example.test", now: NOW } );
@@ -61,6 +62,14 @@ module.exports.SEED_DATABASE = path.join( module.exports.SEED_DIRECTORY, "seed.s
  * @public
  */
 module.exports.SEED_FILES = path.join( module.exports.SEED_DIRECTORY, "files" );
+
+/**
+ * The seed's local users file: the studio's synthetic staff (support/staff.js), each password hashed once per run.
+ *
+ * @type {string}
+ * @public
+ */
+module.exports.SEED_USERS = path.join( module.exports.SEED_DIRECTORY, USERS_FILE );
 
 // The path of an element, as a comparison or a changelog would name it: the path itself, or its identity (`…/lrn@value`),
 // but never a longer path it is the start of.
