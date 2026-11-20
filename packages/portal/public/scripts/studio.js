@@ -217,9 +217,12 @@
                 }
             },
 
+            // Refused while a save is in flight, as the rows' Edit buttons are disabled: that save's answer closes the form, and
+            // a person opened meanwhile lost theirs, with what was typed on it, when it landed (CodeRabbit on #10). The form
+            // being saved already keeps its Save and Cancel until then, so a second form would have had neither.
             edit( key ) {
                 const person = this.people.find( ( one ) => one.key === key );
-                if ( !person ) {
+                if ( !person || this.saving ) {
                     return;
                 }
                 const editing = person.grants.filter( ( grant ) => grant.role === "editor" );
@@ -334,9 +337,10 @@
                 whenInitialized( this, () => this.load() );
             },
 
+            // Returns the request, settled either way, so a save can hold its guard until the refresh is in.
             load() {
                 this.busy = true;
-                Alpine.store( "tiApplication" ).sendRequest( "/app/settings" ).then( ( result ) => {
+                return Alpine.store( "tiApplication" ).sendRequest( "/app/settings" ).then( ( result ) => {
                     const data = ( result && result.data && typeof result.data === "object" ) ? result.data : {};
                     // Anything but an explicit `false` is read as allowed, as the review code reads a missing setting.
                     this.selfApproval = data.selfApproval !== false;
@@ -361,13 +365,14 @@
                     return;
                 }
                 this.saving = true;
-                Alpine.store( "tiApplication" ).sendRequest( "/app/settings-save", "POST", { selfApproval: this.selfApproval } ).then( () => {
-                    this.saving = false;
-                    this.load();
-                } ).catch( ( error ) => {
-                    this.saving = false;
-                    reportFailure( error );
-                } );
+                // The guard holds until the refresh has landed or failed. Released on the save's answer, it let a second save be
+                // sent while the first one's refresh was on its way, and that refresh then put the older value back on the
+                // screen while the newer save was in flight (CodeRabbit on #10). `load` settles either way, having reported its
+                // own failure, so `finally` always runs.
+                Alpine.store( "tiApplication" ).sendRequest( "/app/settings-save", "POST", { selfApproval: this.selfApproval } ).then( () => this.load() )
+                    .catch( ( error ) => reportFailure( error ) ).finally( () => {
+                        this.saving = false;
+                    } );
             }
         };
     };
@@ -410,9 +415,12 @@
                 whenInitialized( this, () => this.load() );
             },
 
+            // Returns the request, settled either way: `send` holds its guard on it. Without it `send`'s `finally` ran before the
+            // refresh, and a slow first refresh put an older "Now" and an older state on the form while a newer status was in
+            // flight (CodeRabbit on #10).
             load() {
                 this.busy = true;
-                Alpine.store( "tiApplication" ).sendRequest( "/app/environment-status" ).then( ( result ) => {
+                return Alpine.store( "tiApplication" ).sendRequest( "/app/environment-status" ).then( ( result ) => {
                     const data = ( result && result.data && typeof result.data === "object" ) ? result.data : {};
                     const list = ( value ) => Array.isArray( value ) ? value : [];
                     this.environments = list( data.environments ).map( ( id ) => ( { id: String( id ), text: environmentText( id ) } ) );
@@ -475,8 +483,9 @@
                 return this.saving || this.startsAt === "" || this.endsAt === "";
             },
 
-            // After a change the screen is loaded again, so what it shows is what the server holds. The fields are emptied only
-            // once the server has accepted the change: a refusal must leave what was typed to be corrected.
+            // After a change the screen is loaded again, so what it shows is what the server holds, and the guard holds until
+            // that refresh has landed or failed. The fields are emptied only once the server has accepted the change: a refusal
+            // must leave what was typed to be corrected.
             send( service, body, emptied ) {
                 if ( this.saving ) {
                     return;

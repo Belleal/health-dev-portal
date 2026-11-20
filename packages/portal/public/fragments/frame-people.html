@@ -42,7 +42,7 @@
                                 <td x-text="person.holdsText"></td>
                                 <td x-text="person.lastSeenText"></td>
                                 <td>
-                                    <button type="button" class="ti-btn sm" x-bind:id="person.buttonID" x-bind:aria-label="person.editText" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
+                                    <button type="button" class="ti-btn sm" x-bind:id="person.buttonID" x-bind:aria-label="person.editText" x-bind:disabled="isSaving()" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
                                 </td>
                             </tr>
                         </template>
