@@ -201,8 +201,10 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
   - **One tenant.** Sign-in uses the tenant-pinned discovery URL (§10.1), so every person, the drug agency's guest
     included, has an object ID in Information Services' tenant. `tenantID` is not part of the key *(design call)*.
   - **An Entra sign-in that carries no object ID is refused** *(design call)*: it cannot be keyed for good.
-  - **The local sign-in** used in development and the tests has no object ID. There the key is the framework's user
-    ID. Production enables Entra only (§3).
+  - **The local sign-in** used in development and the tests has no object ID. There the key is `local:` and the
+    user's `username`, never the framework's user ID: a users-file entry may set its own `userID`, and one written
+    `entra:<oid>` would take that Entra person's grants. A local sign-in with no username is refused, as an unkeyable
+    Entra one is. Production enables Entra only (§3).
 - **The first sign-in creates the person's record, with no role.** `augmentSession` does it before the session is
   written; since web-framework 1.63.0 it may await the database (CA-585). The record holds:
   - the key;

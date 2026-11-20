@@ -1539,8 +1539,9 @@ call)*.
 
 As built (plan 9a), a person is keyed by the Entra object ID, as `entra:<object ID>`, and not by the sign-in's subject:
 Entra makes the subject differ per application registration, and the development database is carried to the data
-centre at launch, under another one. A sign-in without an object ID is refused. A local sign-in is keyed by the
-framework's user ID. The record of a person holds:
+centre at launch, under another one. A sign-in without an object ID is refused. A local sign-in is keyed by
+`local:<username>` and refused without a username: never by the `userID` the users file may set for itself, which
+could name an `entra:` key and take that person's grants. The record of a person holds:
 - the key;
 - the display name, refreshed at each sign-in, so that history shows the name they have now;
 - whether configuration named them an admin at their last sign-in;

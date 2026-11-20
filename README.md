@@ -131,7 +131,8 @@ centre's PostgreSQL at launch.
 ### Setting the environments' status
 
 Staff set what the portal says of the production and test environments, and announce maintenance windows, with
-`hdp-status` (design record §8.7), until the staff area's form replaces it:
+`hdp-status` (design record §8.7). The studio's Environment status screen does the same for a person; `hdp-status`
+stays for scripts:
 
 ```bash
 HDP_DATABASE_URL=sqlite:portal.db npx hdp-status show

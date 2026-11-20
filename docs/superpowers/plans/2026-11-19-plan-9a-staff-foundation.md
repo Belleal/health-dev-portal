@@ -33,8 +33,8 @@ that: the queue, the release screen, review and promotion. Each ends in working 
   directions (`authorization.applyAdminRole`), so a database-granted role named `admin` would be stripped from anyone
   not on the allowlist. The configuration's admin keeps the framework's `admin`, and the portal counts it as
   `studio:admin`. The database stores the four role names bare: `reader`, `editor`, `approver`, `admin`.
-- **A person's key** is `entra:<objectID>` for an Entra sign-in and the framework's `userID` (`local:<username>`) for a
-  local one. The prefix keeps the two sources from ever meeting.
+- **A person's key** is `entra:<objectID>` for an Entra sign-in and `local:<username>` for a local
+  one (never the users file's own `userID`, which an entry may set to an `entra:` key). The prefix keeps the two sources from ever meeting.
 - **An editor's spec limit is stored as rows,** one per spec; the spec `*` means every spec. A role other than editor
   always has `*`.
 - **"From configuration" is recorded at sign-in,** as a column on the person, by the framework's `isAdminIdentity`

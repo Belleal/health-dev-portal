@@ -87,7 +87,11 @@ status (plan 9a; the editor's and the approver's screens follow). Its design is 
   `.env.example`. In development and the tests, the framework's local method (`TI_WEB_AUTH_METHODS=local`, with
   `TI_WEB_AUTH_LOCAL_USERS_PATH` naming a users file). Signing in grants nothing.
 - **The first admin** is whoever `TI_WEB_AUTH_ADMINS` names. They give everyone else a role on the People screen, which
-  cannot take theirs away: it comes from configuration.
+  cannot take theirs away: it comes from configuration. Keep `TI_WEB_AUTH_ADMINS` set: it is the way back if every
+  studio admin grant is removed.
+- **Upgrading.** A database made before the studio must run migration `0006-staff` (`hdp-migrate`) before sign-in is
+  switched on. Without it every sign-in is refused: the studio records each sign-in (`recordSignIn`) in a table that
+  does not exist yet.
 - **Roles.** `reader`, `editor`, `approver` and `admin`, as in the design record §10.1. An editor may be limited to named
   specs. Roles are read on every request, so a change takes effect on the person's next one. Today only an admin has a
   screen beyond the landing, which names the person and their roles.
@@ -177,7 +181,7 @@ Plan 8c (design record §3.4, §3.5, §8.1, §8.2, §8.7).
   (see [`content/README.md`](../../content/README.md)). A file the portal cannot read stops the start, with every
   problem named. A file whose first line is not exactly `---` is refused before it is parsed: web-content's front-matter
   parser runs a `---js` block as code (measured).
-- **The status** is in the database, set with `hdp-status` (the repository's README) until the staff area's form. With
+- **The status** is in the database, set on the studio's Environment status screen, or with `hdp-status` (the repository's README), which stays for scripts. With
   nothing set, an environment is "not reported", never shown as working. Who made a change is kept for staff and never
   shown. Run the migrations (`hdp-migrate`, or `hdp-status` itself) on a database made before plan 8c.
 - **The search index** belongs to each server instance and lives in memory. It is built on the first search and again
