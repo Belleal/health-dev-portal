@@ -22,6 +22,7 @@
  */
 
 const path = require( "node:path" );
+const logger = require( "@ti-engine/core/logger" );
 const TiWebServer = require( "@ti-engine/web-framework/web-server" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { directoryStore } = require( "@health-dev-portal/data/files" );
@@ -90,6 +91,11 @@ class PortalServer extends TiWebServer {
      * written from. The studio's handlers and session hooks reach the database and the store through its context,
      * attached here: the framework constructs the studio's manager with nothing of the server's.
      *
+     * A start the framework refuses once the database is open, such as on a port already taken (EADDRINUSE), lets the
+     * context and the database go before it rejects with its own error. Kept, the database stayed open: on Windows its
+     * lock then failed the test helper's removal of its copy with EPERM, and that error took the start's place (review
+     * of task 3).
+     *
      * @method
      * @returns {Promise<void>}
      * @override
@@ -98,12 +104,15 @@ class PortalServer extends TiWebServer {
     onStart() {
         return this.#open().then( () => {
             context.instance.attach( { db: this.#db, store: this.#store } );
-            return super.onStart();
+            return super.onStart().catch( ( error ) => this.#releaseAfter( error ) );
         } );
     }
 
     /**
-     * Stops the web server, lets the studio's context go, then closes the database.
+     * Stops the web server, lets the studio's context go, then closes the database. Both are let go when the
+     * framework's stop fails too, and that failure is the one the stop rejects with. They were let go only once it had
+     * succeeded, which after a refused start it never does: `server.close` on a server that never listened fails
+     * (ERR_SERVER_NOT_RUNNING, measured).
      *
      * @method
      * @returns {Promise<void>}
@@ -111,13 +120,7 @@ class PortalServer extends TiWebServer {
      * @public
      */
     onStop() {
-        return super.onStop().then( async () => {
-            context.instance.detach();
-            if ( this.#db ) {
-                await this.#db.close();
-                this.#db = null;
-            }
-        } );
+        return super.onStop().then( () => this.#release(), ( error ) => this.#releaseAfter( error ) );
     }
 
     /**
@@ -225,6 +228,30 @@ class PortalServer extends TiWebServer {
         }
         this.#store = directoryStore( path.resolve( process.env.HDP_FILES_DIR || ".files" ) );
         this.#db = await openDatabase( url );
+    }
+
+    // Detaches the studio's context and closes the database. The field is cleared before the close: node:sqlite throws on
+    // a second close (ERR_INVALID_STATE, measured), and a database whose close failed is not handed out again.
+    async #release() {
+        context.instance.detach();
+        const db = this.#db;
+        this.#db = null;
+        if ( db ) {
+            await db.close();
+        }
+    }
+
+    // Lets go after a start or a stop has failed, then rejects with that failure. A close that fails as well is logged, at
+    // ERROR, and never takes its place: the failure that stopped the server is the one to report.
+    async #releaseAfter( error ) {
+        try {
+            await this.#release();
+        } catch ( failure ) {
+            // The stack alone, as responses.js logs a failure: a driver's error can carry its connection's details.
+            logger.log( "The portal could not close its database after its start or stop failed.", logger.logSeverity.ERROR,
+                { stack: failure && failure.stack ? failure.stack : String( failure ) } );
+        }
+        throw error;
     }
 }
 
