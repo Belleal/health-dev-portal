@@ -99,25 +99,44 @@ describe( "The studio with no sign-in method", { skip: !SEEDED && "build the see
         assert.deepEqual( shapeOf( await ask( "/studio/", { method: "HEAD", headers: { accept: "text/html" } } ) ), [ 404, null, null ] );
     } );
 
-    it( "with no sign-in method, any other method is a bare 404", async () => {
-        const session = await leftoverSession();
-        for ( const path of STAFF_POSTS ) {
-            const response = await ask( path, { method: "POST", headers: { accept: "text/html", cookie: session.cookie, "x-xsrf-token": session.token } } );
-            assert.deepEqual( [ response.status, response.headers.get( "location" ) ], [ 404, null ], path );
-            assert.equal( await response.text(), "", path );
-            // None of the studio's cookies: the session's own is renewed, as on every response to a session (`rolling`).
-            assert.deepEqual( response.headers.getSetCookie().map( ( line ) => line.slice( 0, line.indexOf( "=" ) ) ).filter( ( name ) => name !== "connect.sid" ), [], path );
+    // All an answer says of its address, but the ID every exception carries: its status, where it redirects, its type
+    // and caching, the names of the cookies it sets, and the exception's code when the body is the framework's JSON.
+    const answerOf = async ( response ) => {
+        const text = await response.text();
+        let code = null;
+        try {
+            code = JSON.parse( text ).exception.code;
+        } catch {
+            // Not the framework's JSON: an empty body, or a page.
         }
+        return [ response.status, response.headers.get( "location" ), response.headers.get( "content-type" ), response.headers.get( "cache-control" ),
+            response.headers.getSetCookie().map( ( line ) => line.slice( 0, line.indexOf( "=" ) ) ), code ];
+    };
+    // Sends one request to `/bg/nope`, an address that is none, checks the status and code it answers, then sends it to
+    // each staff address and asks for the very same answer.
+    const answersAsNone = async ( method, headers, addresses, [ status, code ] ) => {
+        const init = { method: method, headers: { accept: "text/html", ...headers } };
+        const none = await answerOf( await ask( "/bg/nope", init ) );
+        assert.deepEqual( [ none[ 0 ], none[ 5 ] ], [ status, code ], `${ method } /bg/nope` );
+        for ( const path of addresses ) {
+            assert.deepEqual( await answerOf( await ask( path, init ) ), none, `${ method } ${ path }` );
+        }
+    };
+
+    // A 404 of the studio's own (`no-store`, no body) told an outsider which addresses were the studio's, since an
+    // address that is none answers the framework's JSON 404, code 4001 (review of task 6a, measured).
+    it( "with no sign-in method, any other method at a studio address answers as at an address that is none", async () => {
+        // The CSRF check never applies to OPTIONS, so it reaches the routes with no session.
+        await answersAsNone( "OPTIONS", {}, [ "/studio/", "/app/feedback", "/logout" ], [ 404, 4001 ] );
+        // A session left in the store passes the CSRF check with its token; its cookie is renewed at either address.
+        const session = await leftoverSession();
+        await answersAsNone( "POST", { cookie: session.cookie, "x-xsrf-token": session.token }, STAFF_POSTS, [ 404, 4001 ] );
     } );
 
-    it( "with no sign-in method, a POST with no session is refused as at an address that was never the studio's", async () => {
-        // The framework's CSRF check refuses it before any route, wherever it is sent (measured): no route of the
-        // portal's can make it a 404, and none is needed for it to say nothing of the studio.
-        const never = await ask( "/bg/nope", { method: "POST", headers: { accept: "text/html" } } );
-        assert.deepEqual( shapeOf( never ), [ 403, null, null ] );
-        for ( const path of STAFF_POSTS ) {
-            assert.deepEqual( shapeOf( await ask( path, { method: "POST", headers: { accept: "text/html" } } ) ), shapeOf( never ), path );
-        }
+    it( "with no sign-in method, a POST or PUT with no session is refused as at an address that is none", async () => {
+        // The framework's CSRF check refuses it before any route, wherever it is sent (measured), with no cookie.
+        await answersAsNone( "POST", {}, STAFF_POSTS, [ 403, 4004 ] );
+        await answersAsNone( "PUT", {}, [ "/studio/", "/app/feedback" ], [ 403, 4004 ] );
     } );
 
     it( "with no sign-in method, the public pages and /health are unchanged", async () => {

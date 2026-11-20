@@ -22,6 +22,7 @@
  */
 
 const path = require( "node:path" );
+const exceptions = require( "@ti-engine/core/exceptions" );
 const logger = require( "@ti-engine/core/logger" );
 const TiWebServer = require( "@ti-engine/web-framework/web-server" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
@@ -30,7 +31,6 @@ const { PUBLIC_DIRECTORY } = require( "#assets" );
 const { CONTENT_DIRECTORY, loadContent } = require( "#content" );
 const { nameOf } = require( "#pages/nomenclatures" );
 const { setPublicUrl } = require( "#paths" );
-const { CACHE } = require( "#responses" );
 const { pageHandler, rootRedirect } = require( "#routes" );
 const { createSearch } = require( "#search" );
 const context = require( "#studio/context" );
@@ -162,7 +162,7 @@ class PortalServer extends TiWebServer {
 
     /**
      * Whether the framework's protection lets a request through without a session. While nobody can sign in, every staff
-     * address does, so that it reaches the route that answers it with the pages' 404: refused here, an anonymous
+     * address does, so that it reaches the route that answers it as an address that is none: refused here, an anonymous
      * `/app/profile` or `/me` was answered 303 to `/studio/` (401 to a script), which names the address the studio is
      * meant not to have (measured). Opening them is safe only then: nobody can sign in, and that route answers each one
      * before anything of the studio's. The address is read up to `?`, as the framework reads it, and in any case.
@@ -182,12 +182,15 @@ class PortalServer extends TiWebServer {
 
     /**
      * The portal's routes around the framework's.
-     * - **First of all**, every staff address while nobody can sign in: a GET or a HEAD is the pages' 404 page and any
-     *   other method a bare 404, with no cookie and no redirect, so the studio behaves as if it did not exist (spec §3).
-     *   Ahead of the framework's routes, which served the sign-in screen with no method on it at `/studio/`, a session's
-     *   cookie at `/csrf-token`, and a redirect to `/studio/` at `/language/bg` (measured). Decided per request, as the
-     *   framework learns which methods are in effect only after the routes are defined. Tested against the path Express
-     *   routes, so `/me#x`, sent as written, is caught as `/me`.
+     * - **First of all**, every staff address while nobody can sign in, answered as an address that is none, so the
+     *   studio behaves as if it did not exist (spec §3): a GET or a HEAD is the pages' 404 page, as the catch-all below
+     *   answers it, and any other method is the framework's own 404, as its catch-all answers `/bg/nope`. A 404 of
+     *   the portal's own there (`no-store`, no body) told an outsider which addresses were the studio's, by `OPTIONS`
+     *   with no session at all (review of task 6a, measured). Ahead of the framework's routes, which served the sign-in
+     *   screen with no method on it at `/studio/`, a session's cookie at `/csrf-token`, and a redirect to `/studio/` at
+     *   `/language/bg` (measured). Decided per request, as the framework learns which methods are in effect only after
+     *   the routes are defined. Tested against the path Express routes, so `/me#x`, sent as written, is caught as
+     *   `/me`.
      * - **Before them**, `/`, the public site's: the framework's home is `/studio/` (plan 9a), so it serves nothing at
      *   the root. The portal no longer shadows any of the framework's routes with its 404, as it did while it had no
      *   web application: the studio is the manager the handlers of `/app`, `/app/:view` and `POST /app/:service` read,
@@ -210,12 +213,14 @@ class PortalServer extends TiWebServer {
         const pages = pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content, search: this.#search } ) );
         this.registerRoute( "all", STAFF_ADDRESS, ( request, response, next ) => {
             if ( !this.#isStudioOff() ) {
-                next();
-            } else if ( request.method === "GET" || request.method === "HEAD" ) {
-                pages( request, response );
-            } else {
-                response.status( 404 ).set( "Cache-Control", CACHE.NONE ).end();
+                return next();
             }
+            if ( request.method === "GET" || request.method === "HEAD" ) {
+                // Returned, as the catch-all's is: dropped, a rejection of the handler's escaped unhandled.
+                return pages( request, response, next );
+            }
+            // The error the framework's catch-all raises: Express skips every route left and its error handler answers.
+            return next( exceptions.raise( exceptions.exceptionCode.E_WEB_INVALID_REQUEST_URI, null, exceptions.httpCode.C_404 ) );
         } );
         this.registerRoute( "get", "/", rootRedirect );
         super.defineWebApplicationRoutes();

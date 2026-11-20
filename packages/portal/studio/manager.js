@@ -61,7 +61,7 @@ class StudioManager extends TiWebAppManager {
     /**
      * Whether anybody can sign in to the studio: `true` once the framework has handed over a list of methods in effect
      * that is not empty. `false` before it has, so the studio fails closed. With none, the studio does not exist (spec
-     * §3, "No sign-in method, no staff area"): the portal server answers every staff address with the pages' 404.
+     * §3, "No sign-in method, no staff area"): the portal server answers every staff address as one that is none.
      *
      * @returns {boolean}
      * @public
