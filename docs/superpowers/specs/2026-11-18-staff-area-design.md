@@ -130,9 +130,10 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
   registered the application with Entra, with `TI_WEB_AUTH_METHODS` empty. With no sign-in method in effect (none
   listed, or each listed one dropped by the framework as unconfigured), the staff area behaves as if it did not exist:
   - for every address under `/studio`, `/app`, `/admin`, `/me`, `/login`, `/logout`, `/csrf-token` and `/language`, in
-    any case, a GET is the pages' 404 page;
-  - any other method gets the framework's own answer for an address that is none: a 403 from its CSRF check when the
-    request carries no token, and its JSON 404 otherwise;
+    any case, a GET or a HEAD is the pages' 404 page;
+  - any other method gets the framework's own answer for an address that is none. That is a 403 from its CSRF check
+    when the check applies and no token is sent, as for a POST or a PUT, and its JSON 404 otherwise, as for an
+    OPTIONS, to which the check does not apply;
   - every answer is the same as for `/bg/nope`, with no redirect. No answer to an anonymous request sets a cookie. A
     request carrying a session left from before gets that session's cookie renewed, as at `/bg/nope`. Two framework
     answers still name the

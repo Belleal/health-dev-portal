@@ -99,7 +99,8 @@ status (plan 9a; the editor's and the approver's screens follow). Its design is 
 - **Times** on staff screens are Sofia time, whatever zone the server runs in.
 - **With sign-in off.** An empty `TI_WEB_AUTH_METHODS`, or one whose methods are all dropped by the framework as
   unconfigured (an OpenID provider with no client ID), switches the studio off, and the public site runs on. Every studio
-  address then answers as an address that is none: the pages' 404 for a GET, with no cookie and no redirect. A name the
+  address then answers as an address that is none: the pages' 404 for a GET or a HEAD, with no cookie and no redirect,
+  and the framework's own answer for any other method, as at `/bg/nope`. A name the
   framework does not know is not dropped, so a misspelt method keeps the studio on with no way to sign in.
 
 **Deployment note.** Once sign-in is switched on after a run with it off, a shared cache in front of the portal may keep
