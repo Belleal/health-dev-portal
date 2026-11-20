@@ -133,7 +133,9 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
     any case, a GET is the pages' 404 page;
   - any other method gets the framework's own answer for an address that is none: a 403 from its CSRF check when the
     request carries no token, and its JSON 404 otherwise;
-  - every answer is the same as for `/bg/nope`, with no cookie and no redirect. Two framework answers still name the
+  - every answer is the same as for `/bg/nope`, with no redirect. No answer to an anonymous request sets a cookie. A
+    request carrying a session left from before gets that session's cookie renewed, as at `/bg/nope`. Two framework
+    answers still name the
     home and are not covered: the redirect an htmx error answer carries (CA-593), and the refusal of a request target
     in absolute form (CA-592);
   - the studio's own static files stay served under `/static`, which is outside the list;

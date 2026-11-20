@@ -482,11 +482,13 @@ Added on 2026-11-19, after Task 3's review, with Boris's approval. Spec §3, "No
   - `StudioManager#hasSignIn → boolean`. It is `true` once the framework has pushed a list that is not empty, and
     `false` before any push, so the studio fails closed.
   - With no sign-in method in effect, every address whose first segment is `studio`, `app`, `admin`, `me`, `login`,
-    `logout`, `csrf-token` or `language`, in any case, answers 404, sets no cookie and redirects nowhere:
-    - a GET or HEAD is the pages' own 404 page;
-    - any other method gets the framework's own answer, exactly as at an address that is none: 403 from its CSRF
-      check without a token, and otherwise its JSON 404 (`E_WEB_INVALID_REQUEST_URI`). Each is compared with
-      `/bg/nope`'s live answer.
+    `logout`, `csrf-token` or `language`, in any case, answers exactly as an address that is none, and redirects
+    nowhere:
+    - a GET or HEAD is the pages' own 404 page, and sets no cookie;
+    - any other method gets the framework's own answer for such an address: 403 from its CSRF check without a
+      token, and otherwise its JSON 404 (`E_WEB_INVALID_REQUEST_URI`). A request that carries a session left from
+      before gets that session's cookie renewed, as `/bg/nope` does. Each is compared with `/bg/nope`'s live answer:
+      status, redirect, caching, the names of the cookies set, and the exception's code.
 
     The public pages and `/health` are unchanged. With a method in effect, nothing changes. *(Revised after Task 6a's
     review: a bare 404 of the studio's own told an outsider which addresses were the studio's.)*
