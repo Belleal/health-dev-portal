@@ -18,73 +18,23 @@
 /*
  * Accessibility in real Chromium (plan 8a, Task 9; design record §8.5, EN 301 549): every kind of page, in both languages
  * where it has two, is opened in a browser and checked by axe against WCAG 2.1 A and AA. A rule is never switched off and
- * no element is excluded: a violation is fixed in the page or the stylesheet that has it.
+ * no element is excluded: a violation is fixed in the page or the stylesheet that has it. The studio's staff screens are
+ * checked signed in, in both languages (plan 9a, Task 7).
  */
 
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 // A missing browser skips locally and fails in CI, as a missing seed does: a skipped check looks exactly like a passing one.
 const { IN_CI, SEED, SEEDED, get, startPortal } = require( "./support/server" );
+const { grant, signIn } = require( "./support/staff" );
+const { elementOf, pagesToCheck } = require( "./support/pages" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { addMaintenance, setStatus } = require( "@health-dev-portal/data/status" );
+const { EVERY_SPEC, ROLE } = require( "@health-dev-portal/data/staff" );
 const paths = require( "#paths" );
 
 const TAGS = [ "wcag2a", "wcag2aa", "wcag21a", "wcag21aa" ];
 const SPEC = SEED.ePrescription.spec;
-
-/**
- * Every address to check: each kind of page, and both languages where a page has two.
- *
- * @method
- * @param {string} element The address of one element of P001, selected.
- * @returns {Array<[string, number]>} Each address with the status it should answer.
- * @private
- */
-function pagesToCheck( element ) {
-    const addresses = [];
-    for ( const lang of [ "bg", "en" ] ) {
-        addresses.push( ...[
-            paths.home( lang ),
-            paths.specs( lang ),
-            paths.spec( lang, SPEC, "production" ),
-            paths.message( lang, SPEC, SEED.ePrescription.production, "P001" ),
-            paths.message( lang, SPEC, "testing", "P001" ),
-            paths.message( lang, SPEC, "testing", "P001", "conditions" ),
-            paths.message( lang, SPEC, "testing", "P001", "changes" ),
-            paths.spec( lang, SEED.rules.spec, "production" ),
-            paths.conditions( lang, SPEC, "testing" ),
-            paths.dictionary( lang, SPEC, "testing" ),
-            paths.lists( lang ),
-            paths.list( lang, SEED.cl007.spec, "production" ),
-            paths.errors( lang ),
-            paths.changes( lang ),
-            paths.changes( lang, SPEC ),
-            paths.compare( lang, SPEC, SEED.ePrescription.production, SEED.ePrescription.testing ),
-            // Plan 8b: the Schemas section, the two file tabs, and the combined nomenclatures' history (HEL-36).
-            paths.schemas( lang ),
-            paths.schemaSet( lang, SPEC, SEED.ePrescription.production ),
-            paths.message( lang, SPEC, "testing", "P001", "sample" ),
-            paths.message( lang, SPEC, "testing", "P001", "xsd" ),
-            paths.changes( lang, "nomenclatures" ),
-            // Plan 8c: the guides, the FAQ, the status page with every state shown, and search, its results and a query too short.
-            paths.guides( lang ),
-            paths.guide( lang, "getting-started" ),
-            paths.guide( lang, "environments" ),
-            paths.faq( lang ),
-            paths.status( lang ),
-            paths.search( lang, "P001" ),
-            paths.search( lang, "a" )
-        ].map( ( address ) => [ address, 200 ] ) );
-        // Nothing is in testing as far as errors go, so that address is the 404 page in its language.
-        addresses.push(
-            [ paths.errors( lang, true ), 404 ],
-            [ `/${ lang }/no-such-page`, 404 ],
-            [ paths.spec( lang, SPEC, SEED.history ), 410 ]
-        );
-    }
-    addresses.push( [ element, 200 ], [ element.replace( "/bg/", "/en/" ), 200 ] );
-    return addresses;
-}
 
 describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is not built (npm run fixtures:fetch, then npm test)" }, () => {
     let portal = null;
@@ -136,12 +86,11 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
             return;
         }
         // An element is found on the page rather than named here, so that this test needs no knowledge of the slugs.
-        const tree = await get( paths.message( "bg", SPEC, SEED.ePrescription.production, "P001" ) );
-        const selected = /href="([^"]*\/P001\/elements\/[^"]+)"/.exec( tree.text );
-        assert.ok( selected, "P001's tree links to its elements" );
+        const element = elementOf( ( await get( paths.message( "bg", SPEC, SEED.ePrescription.production, "P001" ) ) ).text );
+        assert.ok( element, "P001's tree links to its elements" );
 
         const found = [];
-        for ( const [ address, status ] of pagesToCheck( selected[ 1 ] ) ) {
+        for ( const [ address, status ] of pagesToCheck( element ) ) {
             const requested = new URL( address, portal.url ).href;
             const response = await page.goto( requested );
             // Without this a mistyped builder, a redirect or a 500 page would be analysed as the page meant, and pass.
@@ -155,5 +104,74 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
             }
         }
         assert.deepEqual( found, [] );
+    } );
+
+    // The staff screens, full-page as a person opens them. The shell is `/studio/`; each screen's address is the view's, which
+    // a browser asking for HTML is served as its page. The studio starts in Bulgarian, and `/language/en` switches it.
+    it( "finds no WCAG 2.1 AA violation on the staff screens, signed in, in both languages", { timeout: 300000 }, async ( context ) => {
+        if ( skip !== null ) {
+            context.skip( skip );
+            return;
+        }
+        const people = [ [ "admin", [ "/studio/", "/app/people", "/app/settings", "/app/environment-status" ] ], [ "nobody", [ "/studio/" ] ] ];
+        const found = [];
+        for ( const [ username ] of people ) {
+            await signIn( portal.url, username );
+        }
+        await grant( portal.database, "admin", [ { role: ROLE.ADMIN, spec: EVERY_SPEC } ] );
+        for ( const [ username, addresses ] of people ) {
+            for ( const language of [ "bg", "en" ] ) {
+                // A browser of its own per person and language: the cookies are the person's.
+                const browserContext = await browser.newContext();
+                const staffPage = await browserContext.newPage();
+                const session = await signIn( portal.url, username );
+                await browserContext.addCookies( session.cookie.split( "; " ).map( ( pair ) => ( { name: pair.slice( 0, pair.indexOf( "=" ) ),
+                    value: pair.slice( pair.indexOf( "=" ) + 1 ), url: portal.url } ) ) );
+                await staffPage.goto( new URL( `/language/${ language }`, portal.url ).href );
+                for ( const address of addresses ) {
+                    const requested = new URL( address, portal.url ).href;
+                    const response = await staffPage.goto( requested );
+                    if ( response.status() !== 200 || response.url() !== requested ) {
+                        found.push( `${ username } ${ language } ${ address } answered ${ response.status() } at ${ response.url() }` );
+                        continue;
+                    }
+                    // The shell asks for its screen as it loads: axe must see the screen, not the page waiting for it.
+                    await staffPage.waitForLoadState( "networkidle" );
+                    const result = await new AxeBuilder( { page: staffPage } ).withTags( TAGS ).analyze();
+                    for ( const one of result.violations ) {
+                        found.push( `${ username } ${ language } ${ address } ${ one.id }: ${ one.nodes.map( ( node ) => node.target.join( " " ) ).join( " | " ) }` );
+                    }
+                }
+                await browserContext.close();
+            }
+        }
+        assert.deepEqual( found, [] );
+    } );
+
+    // The studio's stylesheet darkens the daylight theme's tokens (CA-594). Loaded last, a rule for `:root` would also beat
+    // the glass theme, which has no `:root` selector, and give it dark text on its dark background (measured, 25141e6).
+    it( "applies the studio's colour tokens to the daylight theme only", { timeout: 60000 }, async ( context ) => {
+        if ( skip !== null ) {
+            context.skip( skip );
+            return;
+        }
+        const TOKENS = [ "--fg-tertiary", "--accent", "--accent-hover", "--accent-ring" ];
+        const tidy = ( value ) => value.replace( /\s+/g, " " ).trim().toLowerCase();
+        // The expected values are read from the stylesheets as served, so that they cannot drift from what the page loads.
+        const tokensIn = ( css, selector ) => {
+            const block = css.slice( css.indexOf( selector ) ).match( /{([^}]*)}/ )[ 1 ];
+            return Object.fromEntries( TOKENS.map( ( name ) => [ name, tidy( block.match( new RegExp( `${ name }:([^;]+);` ) )[ 1 ] ) ] ) );
+        };
+        const glass = tokensIn( ( await get( "/static/scripts/ti-theme-black-glass.css" ) ).text, '[data-theme="glass"]' );
+        const daylight = tokensIn( ( await get( "/static/scripts/studio.css" ) ).text, '[data-theme="daylight"]' );
+        await page.goto( new URL( "/studio/", portal.url ).href );
+        // A script as a string: it runs in the browser, whose globals this file does not declare.
+        const inEffect = ( theme ) => page.evaluate( `( () => {
+            document.documentElement.setAttribute( "data-theme", ${ JSON.stringify( theme ) } );
+            const style = getComputedStyle( document.documentElement );
+            return Object.fromEntries( ${ JSON.stringify( TOKENS ) }.map( ( name ) => [ name, style.getPropertyValue( name ).replace( /\\s+/g, " " ).trim().toLowerCase() ] ) );
+        } )()` );
+        assert.deepEqual( await inEffect( "daylight" ), daylight );
+        assert.deepEqual( await inEffect( "glass" ), glass );
     } );
 } );

@@ -1,0 +1,102 @@
+<!--
+    The studio's sidebar: the framework's (web-framework 1.63.1, fragments/components/component-sidebar.html) with its
+    brand and navigation slots filled and the rest as it is, but for the words the framework writes in English (the
+    navigation's name, the collapse button and the theme button), which are labelled here in both languages; the
+    framework's own file keeps them (CA-595). The static-path search resolves this file in preference to the
+    framework's. People, Settings and Environment status are an admin's: the `studio` block of /app/config says
+    whether the person is one, and the server refuses the screens to anyone else, so hiding them here is courtesy and
+    not the control. A later screen adds its entry to the admin group, or beside Home for a staff screen.
+-->
+<nav class="ti-sidebar" x-data="tiComponentSidebarNav" x-text-label:aria-label="studio.nav.main" aria-label="Main navigation">
+    <button class="ti-sidebar-collapse-btn" x-data="tiStudioChrome" @click="toggleCollapse()" x-bind:aria-label="collapseText()" type="button">
+        <span class="ti-icon chevron-left xs" aria-hidden="true"></span>
+    </button>
+
+    <!-- Brand slot -->
+    <div class="ti-sidebar-brand">
+        <div class="ti-sidebar-brand-mark" data-ti-keep>Н</div>
+        <div class="ti-sidebar-brand-text-block">
+            <span class="ti-sidebar-brand-text" x-text-label="studio.brand.title">Health dev portal studio</span>
+        </div>
+    </div>
+
+    <!-- Navigation slot -->
+    <div class="ti-sidebar-nav" x-data="tiStudioNav">
+        <a href="/studio/" x-bind:href="home" class="ti-sidebar-item" x-bind:class="{ active: active === 'home' }"
+           x-text-label:data-tip="studio.nav.home" x-text-label:aria-label="studio.nav.home"
+           data-tip="Home" aria-label="Home" @click.prevent="navigate( 'home', 'dashboard' )">
+            <span class="ti-sidebar-item-icon">
+                <span class="ti-icon dashboard md" aria-hidden="true"></span>
+            </span>
+            <span class="ti-sidebar-item-label" x-text-label="studio.nav.home">Home</span>
+        </a>
+
+        <template x-if="isAdmin()">
+            <a href="/app/people" class="ti-sidebar-item" x-bind:class="{ active: active === 'people' }"
+               x-text-label:data-tip="studio.nav.people" x-text-label:aria-label="studio.nav.people"
+               data-tip="People" aria-label="People" @click.prevent="navigate( 'people', 'people' )">
+                <span class="ti-sidebar-item-icon">
+                    <span class="ti-icon users md" aria-hidden="true"></span>
+                </span>
+                <span class="ti-sidebar-item-label" x-text-label="studio.nav.people">People</span>
+            </a>
+        </template>
+        <template x-if="isAdmin()">
+            <a href="/app/settings" class="ti-sidebar-item" x-bind:class="{ active: active === 'settings' }"
+               x-text-label:data-tip="studio.nav.settings" x-text-label:aria-label="studio.nav.settings"
+               data-tip="Settings" aria-label="Settings" @click.prevent="navigate( 'settings', 'settings' )">
+                <span class="ti-sidebar-item-icon">
+                    <span class="ti-icon settings md" aria-hidden="true"></span>
+                </span>
+                <span class="ti-sidebar-item-label" x-text-label="studio.nav.settings">Settings</span>
+            </a>
+        </template>
+        <template x-if="isAdmin()">
+            <a href="/app/environment-status" class="ti-sidebar-item" x-bind:class="{ active: active === 'environment-status' }"
+               x-text-label:data-tip="studio.nav.environment" x-text-label:aria-label="studio.nav.environment"
+               data-tip="Environment status" aria-label="Environment status" @click.prevent="navigate( 'environment-status', 'environment-status' )">
+                <span class="ti-sidebar-item-icon">
+                    <span class="ti-icon bar-chart md" aria-hidden="true"></span>
+                </span>
+                <span class="ti-sidebar-item-label" x-text-label="studio.nav.environment">Environment status</span>
+            </a>
+        </template>
+    </div>
+
+    <!-- Footer -->
+    <div class="ti-sidebar-foot">
+        <!-- No aria-label: the framework's "Toggle theme" differed from the visible "Glass Theme" or "Daylight Theme", which
+             axe reports as label-content-name-mismatch (WCAG 2.5.3, label in name). The visible text is the name. -->
+        <button class="ti-sidebar-item" x-data="tiStudioChrome" @click="toggleTheme()" x-text-label:data-tip="studio.nav.theme-tip" data-tip="Toggle theme" type="button">
+            <span class="ti-sidebar-item-icon">
+                <span class="ti-icon sun md" aria-hidden="true"></span>
+            </span>
+            <span class="ti-sidebar-item-label" data-ti-keep x-text="themeText()">Toggle Theme</span>
+        </button>
+
+        <!--
+            User menu. Its entries come from `componentsConfig.userProfileMenu` in the /app/config payload, which
+            TiWebAppManager#buildComponentsConfig fills with the framework's own screens (Profile, About) plus
+            sign-out.
+        -->
+        <ti-component-sidebar-flyout-placeholder config-key="userProfileMenu">
+            <button class="ti-sidebar-user" type="button"
+                    x-on:click.stop="toggle()"
+                    x-on:ti-close-all-flyout="close()"
+                    x-bind:aria-expanded="isOpen"
+                    x-bind:aria-controls="$id( 'component-flyout' )"
+                    x-ref="flyoutButton"
+                    x-text-label:data-tip="interface.topbar.user-profile"
+                    data-tip="Your profile">
+                <span class="ti-avatar sm"
+                      x-bind:style="$store.tiToolbox.generateAvatarStyle( $store.tiApplication.user && $store.tiApplication.user.userID, $store.tiApplication.user && $store.tiApplication.user.name )"
+                      aria-hidden="true"
+                      x-text="( ( $store.tiApplication.user && $store.tiApplication.user.name ) || '?' ).charAt( 0 ).toUpperCase()">?</span>
+                <span class="ti-sidebar-user-text">
+                    <span class="ti-sidebar-user-name" x-text="( $store.tiApplication.user && $store.tiApplication.user.name ) || ''"></span>
+                    <span class="ti-sidebar-user-sub" x-text="( $store.tiApplication.user && $store.tiApplication.user.email ) || ''"></span>
+                </span>
+            </button>
+        </ti-component-sidebar-flyout-placeholder>
+    </div>
+</nav>

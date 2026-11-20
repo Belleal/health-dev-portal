@@ -17,6 +17,7 @@
 
 const { CHANGE_ORIGIN, RELEASE_EVENT, RELEASE_STATUS, ROUND_DECISION, SPEC_KIND, STAGE } = require( "@health-dev-portal/spec-model/kinds" );
 const { ENVIRONMENT, STATE } = require( "#status" );
+const { ROLE } = require( "#staff" );
 
 // The SQL subset of design record §3.2: TEXT and INTEGER only, booleans as 0/1, no word either database reserves.
 const oneOf = ( column, values ) => `CHECK ( ${ column } IN ( ${ Object.values( values ).map( ( value ) => `'${ value }'` ).join( ", " ) } ) )`;
@@ -255,12 +256,40 @@ const STATUS = [
     )`
 ];
 
+const STAFF = [
+    // The staff area's people (plan 9a): who signed in, and whether configuration made them admin, which a grant never
+    // overrides. A person is known by the identity provider's stable key, never by a name or an address.
+    `CREATE TABLE staff_people (
+        key TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        configured_admin INTEGER NOT NULL CHECK ( configured_admin IN ( 0, 1 ) ),
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+    )`,
+    // A spec of '*' is every spec. Only an editor holds a named one; that rule is the store's, since it spans two columns.
+    `CREATE TABLE staff_grants (
+        person_key TEXT NOT NULL REFERENCES staff_people ( key ),
+        role TEXT NOT NULL ${ oneOf( "role", ROLE ) },
+        spec TEXT NOT NULL,
+        PRIMARY KEY ( person_key, role, spec )
+    )`,
+    // Each change keeps the whole new set as JSON, so the log reads on its own and never needs the grants it replaced.
+    `CREATE TABLE staff_grant_changes (
+        id TEXT PRIMARY KEY,
+        person_key TEXT NOT NULL REFERENCES staff_people ( key ),
+        changed_by TEXT NOT NULL,
+        changed_at TEXT NOT NULL,
+        grants TEXT NOT NULL
+    )`
+];
+
 const MIGRATIONS = Object.freeze( [
     Object.freeze( { id: "0001-initial", statements: Object.freeze( INITIAL ) } ),
     Object.freeze( { id: "0002-editing", statements: Object.freeze( EDITING ) } ),
     Object.freeze( { id: "0003-review", statements: Object.freeze( REVIEW ) } ),
     Object.freeze( { id: "0004-files", statements: Object.freeze( FILES ) } ),
-    Object.freeze( { id: "0005-status", statements: Object.freeze( STATUS ) } )
+    Object.freeze( { id: "0005-status", statements: Object.freeze( STATUS ) } ),
+    Object.freeze( { id: "0006-staff", statements: Object.freeze( STAFF ) } )
 ] );
 
 /**
@@ -272,7 +301,7 @@ const MIGRATIONS = Object.freeze( [
  */
 module.exports.TABLES = Object.freeze( [ "specs", "releases", "versions", "version_stages", "items", "approved_items", "anomalies", "changelog_entries",
     "resolutions", "conflicts", "rounds", "round_versions", "comments", "release_events", "edit_log", "files", "fixed_files", "settings", "status_updates",
-    "maintenance_windows" ] );
+    "maintenance_windows", "staff_people", "staff_grants", "staff_grant_changes" ] );
 
 /**
  * The statement that makes a batch fail when its version is frozen (design record §7.7). It inserts into

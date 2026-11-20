@@ -1,0 +1,34 @@
+<!--
+    Settings (admins only): the rules for changing the specifications that hold for the whole team. The fragment's roles
+    gate this HTML; /app/settings and /app/settings-save check the role again themselves. Alpine runs in CSP mode, so
+    tiStudioSettings keeps every value this template reads as a plain property.
+-->
+<div class="ti-page" x-data="tiStudioSettings">
+
+    <div class="ti-page-head">
+        <div class="ti-page-eyebrow" x-text-label="studio.settings.eyebrow">Administration</div>
+        <h1 class="ti-page-title" x-text-label="studio.settings.title">Settings</h1>
+        <p class="ti-page-subtitle" x-text-label="studio.settings.intro">The rules for changing the specifications, which hold for the whole team.</p>
+    </div>
+
+    <template x-if="busy">
+        <div class="ti-empty-state">
+            <div class="ti-empty-state-title" x-text-label="studio.home.loading">Loading…</div>
+        </div>
+    </template>
+
+    <template x-if="loaded">
+        <section class="ti-panel">
+            <div>
+                <input type="checkbox" id="ti-settings-self-approval" name="ti-settings-self-approval" aria-describedby="ti-settings-self-approval-hint"
+                       x-bind:checked="selfApproval" @change="setSelfApproval( $event.target.checked )"/>
+                <label for="ti-settings-self-approval" x-text-label="studio.settings.self-approval">An approver may approve a round they submitted themselves</label>
+                <p id="ti-settings-self-approval-hint" x-text-label="studio.settings.self-approval-hint">Turn it off once the team has at least two people: every round is then approved by someone else.</p>
+            </div>
+            <div>
+                <button type="button" class="ti-btn primary" x-bind:disabled="isSaving()" @click="save()" x-text-label="studio.settings.save">Save</button>
+            </div>
+        </section>
+    </template>
+
+</div>

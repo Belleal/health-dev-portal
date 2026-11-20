@@ -1,0 +1,45 @@
+<!--
+    The studio's landing screen (`dashboard` is the framework's landing fragment, which frame-application.html loads).
+    The person's name and roles come from /app/studio-home; a person with none is told they have no access yet. Every
+    value is shown by x-text, never as markup: a display name from the identity provider may contain some.
+-->
+<div class="ti-page" x-data="tiStudioHome">
+
+    <div class="ti-page-head">
+        <div class="ti-page-eyebrow" x-text-label="studio.home.eyebrow">Studio</div>
+        <h1 class="ti-page-title" x-text-label="studio.home.title">Welcome</h1>
+    </div>
+
+    <template x-if="hasRoles()">
+        <section class="ti-panel">
+            <div class="ti-identity">
+                <div class="ti-identity-mark" aria-hidden="true">
+                    <span x-text="name.charAt( 0 ).toUpperCase()"></span>
+                </div>
+                <div class="ti-identity-meta">
+                    <div class="ti-identity-caption" x-text-label="studio.home.signed-in-as">You are signed in as</div>
+                    <div class="ti-identity-name" x-text="name"></div>
+                    <div class="ti-identity-caption" x-text-label="studio.home.roles">Your roles</div>
+                    <div>
+                        <template x-for="role in roles" x-bind:key="role.key">
+                            <span class="ti-tag accent" x-text="role.text"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <template x-if="hasNoRoles()">
+        <div class="ti-panel">
+            <div class="ti-empty-state">
+                <div class="ti-empty-state-icon" aria-hidden="true">
+                    <span class="ti-icon info-circle xl"></span>
+                </div>
+                <div class="ti-empty-state-title" x-text-label="studio.home.no-access-title">You have no access yet</div>
+                <div class="ti-empty-state-desc" x-text-label="studio.home.no-access-desc">You have no access yet; ask an administrator.</div>
+            </div>
+        </div>
+    </template>
+
+</div>

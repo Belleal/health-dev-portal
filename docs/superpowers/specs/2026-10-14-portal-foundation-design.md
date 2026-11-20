@@ -1416,6 +1416,25 @@ are the portal's own *(design call, plan 8a)*: `web-content`'s `composeHead` is 
 Open Graph and Twitter tags and an article's JSON-LD, and points `x-default` at English, where `/` here goes to `/bg/`.
 The staff area uses the framework's application shell. Accessibility target WCAG 2.1 AA (EN 301 549).
 
+As built for the staff area (plan 9a), which is called the studio:
+- **Where.** The shell is served at `/studio/`, and is also the sign-in screen; the screens are the framework's
+  `/app/*`. No public page links to it, and none names it.
+- **The shell page is a copy.** `public/index.html` is the framework's `index.html` (web-framework 1.63.1) with two
+  lines added: the studio's script, before Alpine's, and the studio's stylesheet, after the themes. The framework has
+  no hook for an application's scripts or styles, so the copy has to be made again when the framework's shell changes
+  (CA-591).
+- **Languages.** Bulgarian and English, and a session starts in Bulgarian; `/language/en` switches it. Every staff text
+  has both, in `studio/labels.json`.
+- **Times** on staff screens are Sofia time, in the screen's language: `19.11.2026` and `19 Nov 2026`, with the hour
+  and minute where the time matters (`studio/sofia-time.js`). The zone is set on the formatter, never for the process.
+- **Refusals** are sent as label keys: a 422 whose `details` names a label, which the framework looks up in the
+  person's language (`studio/refusals.js`). An English sentence there would reach a Bulgarian screen as English.
+- **Colour.** The framework's daylight theme misses 4.5:1 for its muted text and its red; the studio's stylesheet darkens
+  those tokens, for the daylight theme only, until the framework's own is fixed (CA-594).
+  `a11y.test.js` runs axe over the studio signed in, in both languages.
+- **No sign-in method, no studio.** With none in effect, every studio address answers as an address that is none
+  (staff-area design §3).
+
 ### 8.6 Message tester
 
 - **Runs in the browser; the message never leaves the vendor's machine.** It validates against the published model:
@@ -1482,6 +1501,30 @@ each; the rest is labelled example data.
 
   A person may hold several roles. Every edit's author and time, every review round, approval, promotion, upload and status change is recorded with who
   and when.
+
+  As built (plan 9a):
+  - **Entra in production, local in development.** Production enables `openid-azure` alone. Development and the tests
+    use the framework's local sign-in, with synthetic people.
+  - **Roles are rows, read on every request.** A grant is a role on a spec in the portal's database, `*` standing for
+    every spec; only an editor holds a named one. A role taken away is gone on the person's next request, and one given
+    works without signing in again.
+  - **The session's role names carry a prefix:** `studio:reader`, `studio:editor`, `studio:approver`, `studio:admin`.
+    The framework reconciles its own `admin` role against `TI_WEB_AUTH_ADMINS` on every request, in both directions, so
+    an `admin` granted from the database would be stripped. The configuration's admin keeps the framework's `admin`,
+    which the studio counts as an admin, so a fresh deployment has someone who can give roles. The People screen cannot
+    withdraw that.
+  - **The public exemption is narrowed.** `defineUnprotectedRoutes` exempts every path from the session check except
+    `/admin`, `/app`, `/studio` and `/me`, in any case. Without that, the staff screens and the shell would have been
+    open to anyone.
+  - **Every view and service checks the role on the server.** The screens only hide what the server would refuse. A
+    test pins every view and service against every role. An anonymous caller is refused (401 to a script, a redirect to
+    the sign-in for a browser, 403 from the CSRF check for a POST without a token); only the framework's own `config`
+    answers them, with no person in it, as it is how the shell learns whether anyone is signed in. The landing
+    (`studio-home`) and `config` are open to everyone signed in, a person with no role included. The admin views and
+    services (People, Settings, Environment status) refuse every person who is not an admin (403), whichever way the
+    request is made.
+  - **No sign-in method, no studio.** The studio is not served, and the public pages are unchanged (staff-area design
+    §3).
 - **Uploads are hostile input**, even from staff: size and decompression limits (an `.xlsx` is a zip), a parse
   timeout, formulas never evaluated. XSDs parsed with external entities disabled (XXE). A code-list file (§7.11) is an
   upload like any other.
@@ -1495,7 +1538,21 @@ the DPO confirms it**. The tester transmits nothing.
 
 The studio records who did what (§7.4, §10.1): each staff member's Entra object ID and display name, against edits,
 review rounds and promotions. That record is staff-only; public changelogs and announcements name no one *(design
-call)*. It includes a person from another organisation, the drug agency's representative, so its retention and the
+call)*.
+
+As built (plan 9a), a person is keyed by the Entra object ID, as `entra:<object ID>`, and not by the sign-in's subject:
+Entra makes the subject differ per application registration, and the development database is carried to the data
+centre at launch, under another one. A sign-in without an object ID is refused. A local sign-in is keyed by
+`local:<username>` and refused without a username: never by the `userID` the users file may set for itself, which
+could name an `entra:` key and take that person's grants. The record of a person holds:
+- the key;
+- the display name, refreshed at each sign-in, so that history shows the name they have now;
+- whether configuration named them an admin at their last sign-in;
+- when they were first and last seen, in UTC;
+- their grants, and a log of each change to them: who made it, when, and the whole new set.
+
+No e-mail address is kept. The actor columns elsewhere hold the key; showing names beside them comes with the release
+screen (plan 9c). It includes a person from another organisation, the drug agency's representative, so its retention and the
 agency's part go to the DPO before that person's first sign-in (§15). The DPO is involved before part 4 (accounts) at the latest, because
 per-organisation monitoring and contact data start there.
 

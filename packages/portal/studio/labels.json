@@ -1,0 +1,139 @@
+{
+    "interface": {
+        "topbar": {
+            "dashboard": { "bg": "Начало", "en": "Home" },
+            "people": { "bg": "Хора", "en": "People" },
+            "settings": { "bg": "Настройки", "en": "Settings" },
+            "environment-status": { "bg": "Състояние на средата", "en": "Environment status" }
+        }
+    },
+    "studio": {
+        "refused": {
+            "time-invalid": { "bg": "Времето не е във вида 2026-11-20T10:00.", "en": "That is not a time like 2026-11-20T10:00." },
+            "time-skipped": { "bg": "Това време не съществува в София: часовникът го прескача при преминаване към лятно часово време.", "en": "That time does not exist in Sofia: the clock skips it when it goes forward." },
+            "time-repeated": { "bg": "Това време се случва два пъти в София, когато часовникът се връща назад; изберете време извън този час.", "en": "That time happens twice in Sofia, when the clock goes back; choose a time outside that hour." },
+            "window-ends-first": { "bg": "Профилактиката трябва да свършва след началото си.", "en": "A maintenance window must end after it starts." },
+            "window-gone": { "bg": "Няма такава профилактика или вече е отменена.", "en": "There is no such window, or it was cancelled already." },
+            "message-both-languages": { "bg": "Съобщението се дава на двата езика, български и английски, или на никой.", "en": "A message is given in both languages, Bulgarian and English, or in neither." },
+            "unknown-environment": { "bg": "Тази среда не е позната.", "en": "That environment is not known." },
+            "unknown-state": { "bg": "Това състояние не е позволено.", "en": "That state is not allowed." },
+            "no-author": { "bg": "Всяка промяна записва кой я е направил.", "en": "Every change records who made it." },
+            "not-boolean": { "bg": "Стойността трябва да е да или не.", "en": "The value must be yes or no." },
+            "unknown-role": { "bg": "Тази роля не е позната.", "en": "That role is not known." },
+            "role-every-spec": { "bg": "Тази роля важи за всички спецификации, не за една.", "en": "That role holds for every spec, not for one." },
+            "unknown-spec": { "bg": "Тази спецификация не е позната.", "en": "That spec is not known." },
+            "editor-both": { "bg": "Редакторът има всички спецификации или назовани, не и двете.", "en": "An editor holds every spec or named ones, not both." },
+            "unknown-person": { "bg": "Този човек не е влизал в студиото.", "en": "That person has not signed in to the studio." },
+            "grants-not-list": { "bg": "Ролите се подават като списък.", "en": "The roles are given as a list." }
+        },
+        "brand": {
+            "title": { "bg": "НЗИС · студио", "en": "Health dev portal studio" },
+            "sub": { "bg": "Вход за екипа на портала", "en": "Sign in for the portal's team" }
+        },
+        "nav": {
+            "home": { "bg": "Начало", "en": "Home" },
+            "people": { "bg": "Хора", "en": "People" },
+            "settings": { "bg": "Настройки", "en": "Settings" },
+            "environment": { "bg": "Състояние на средата", "en": "Environment status" },
+            "main": { "bg": "Основна навигация", "en": "Main navigation" },
+            "expand": { "bg": "Разгъване на страничната лента", "en": "Expand sidebar" },
+            "collapse": { "bg": "Свиване на страничната лента", "en": "Collapse sidebar" },
+            "theme-glass": { "bg": "Тъмна тема", "en": "Glass theme" },
+            "theme-daylight": { "bg": "Светла тема", "en": "Daylight theme" },
+            "theme-tip": { "bg": "Смяна на темата", "en": "Toggle theme" }
+        },
+        "home": {
+            "eyebrow": { "bg": "Студио", "en": "Studio" },
+            "title": { "bg": "Добре дошли", "en": "Welcome" },
+            "signed-in-as": { "bg": "Влезли сте като", "en": "You are signed in as" },
+            "roles": { "bg": "Вашите роли", "en": "Your roles" },
+            "no-access-title": { "bg": "Все още нямате достъп", "en": "You have no access yet" },
+            "no-access-desc": {
+                "bg": "Все още нямате достъп; обърнете се към администратор.",
+                "en": "You have no access yet; ask an administrator."
+            },
+            "loading": { "bg": "Зареждане…", "en": "Loading…" },
+            "role": {
+                "reader": { "bg": "Читател", "en": "Reader" },
+                "editor": { "bg": "Редактор", "en": "Editor" },
+                "approver": { "bg": "Одобряващ", "en": "Approver" },
+                "admin": { "bg": "Администратор", "en": "Administrator" }
+            }
+        },
+        "people": {
+            "eyebrow": { "bg": "Администрация", "en": "Administration" },
+            "title": { "bg": "Хора", "en": "People" },
+            "intro": {
+                "bg": "Всички, които са влизали. Дайте на всеки ролите, които му трябват; промяната важи от следващата му заявка.",
+                "en": "Everyone who has signed in. Give each person the roles they need; a change takes effect on their next request."
+            },
+            "name": { "bg": "Име", "en": "Name" },
+            "holds": { "bg": "Роли", "en": "Roles" },
+            "last-seen": { "bg": "Последно", "en": "Last seen" },
+            "actions": { "bg": "Действия", "en": "Actions" },
+            "configured-admin": { "bg": "Администратор по конфигурация (към последното влизане)", "en": "Admin by configuration (as of their last sign-in)" },
+            "none": { "bg": "няма", "en": "none" },
+            "edit": { "bg": "Промяна на ролите", "en": "Edit roles" },
+            "roles": { "bg": "Роли", "en": "Roles" },
+            "all-specs": { "bg": "всички спецификации", "en": "every spec" },
+            "some-specs": { "bg": "Само тези спецификации", "en": "Only these specs" },
+            "choose-specs": { "bg": "Изберете поне една спецификация или всички.", "en": "Choose at least one spec, or every spec." },
+            "save": { "bg": "Запис", "en": "Save" },
+            "cancel": { "bg": "Отказ", "en": "Cancel" },
+            "changes": { "bg": "Последни промени", "en": "Latest changes" },
+            "no-changes": { "bg": "Все още няма направени промени.", "en": "No change has been made yet." }
+        },
+        "settings": {
+            "eyebrow": { "bg": "Администрация", "en": "Administration" },
+            "title": { "bg": "Настройки", "en": "Settings" },
+            "intro": {
+                "bg": "Правилата за промяна на спецификациите, които важат за целия екип.",
+                "en": "The rules for changing the specifications, which hold for the whole team."
+            },
+            "self-approval": { "bg": "Одобряващият може да одобри кръг, който сам е подал", "en": "An approver may approve a round they submitted themselves" },
+            "self-approval-hint": {
+                "bg": "Изключете го, когато в екипа има поне двама души: тогава всеки кръг се одобрява от друг човек.",
+                "en": "Turn it off once the team has at least two people: every round is then approved by someone else."
+            },
+            "save": { "bg": "Запис", "en": "Save" }
+        },
+        "environment": {
+            "eyebrow": { "bg": "Администрация", "en": "Administration" },
+            "title": { "bg": "Състояние на средата", "en": "Environment status" },
+            "intro": {
+                "bg": "Какво казва екипът за всяка среда. Публичната страница показва състоянието, съобщението и часа, но не и кой го е задал.",
+                "en": "What the team says of each environment. The public page shows the state, the message and the time, but never who set it."
+            },
+            "current": { "bg": "Сега", "en": "Now" },
+            "not-reported": { "bg": "Не е съобщено", "en": "Not reported" },
+            "env": {
+                "production": { "bg": "Продукционна среда", "en": "Production environment" },
+                "test": { "bg": "Тестова среда", "en": "Test environment" }
+            },
+            "state": {
+                "operational": { "bg": "Работи нормално", "en": "Operational" },
+                "degraded": { "bg": "Работи със затруднения", "en": "Degraded" },
+                "maintenance": { "bg": "Профилактика", "en": "Under maintenance" },
+                "outage": { "bg": "Не работи", "en": "Outage" }
+            },
+            "set-title": { "bg": "Задаване на състояние", "en": "Set a state" },
+            "environment": { "bg": "Среда", "en": "Environment" },
+            "state-field": { "bg": "Състояние", "en": "State" },
+            "message-bg": { "bg": "Съобщение на български", "en": "Message in Bulgarian" },
+            "message-en": { "bg": "Съобщение на английски", "en": "Message in English" },
+            "message-hint": { "bg": "На двата езика или на никой.", "en": "In both languages or in neither." },
+            "set": { "bg": "Задай", "en": "Set" },
+            "windows-title": { "bg": "Профилактики", "en": "Maintenance windows" },
+            "no-windows": { "bg": "Няма обявени профилактики.", "en": "No maintenance is announced." },
+            "add-title": { "bg": "Нова профилактика", "en": "Announce maintenance" },
+            "starts": { "bg": "Начало (софийско време)", "en": "Starts (Sofia time)" },
+            "ends": { "bg": "Край (софийско време)", "en": "Ends (Sofia time)" },
+            "add": { "bg": "Обяви", "en": "Announce" },
+            "cancel": { "bg": "Отмени", "en": "Cancel" },
+            "updates-title": { "bg": "Последни съобщения", "en": "Recent updates" },
+            "no-updates": { "bg": "Все още няма съобщения.", "en": "Nothing has been announced yet." },
+            "window-event": { "bg": "Профилактика", "en": "Maintenance" },
+            "cancelled": { "bg": "отменена", "en": "cancelled" }
+        }
+    }
+}

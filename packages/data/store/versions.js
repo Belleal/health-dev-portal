@@ -438,3 +438,13 @@ module.exports.loadAnomalies = async ( db, versionId ) => {
     return rows.map( ( row ) => ( { type: row.type, level: row.level, message: row.message, sheet: row.sheet, row: row.row_number, column: row.column_number,
         details: JSON.parse( row.details ), item: row.item_no } ) );
 };
+
+/**
+ * Every spec ID, sorted.
+ *
+ * @method
+ * @param {import( "#definitions" ).Database} db
+ * @returns {Promise<string[]>}
+ * @public
+ */
+module.exports.listSpecs = async ( db ) => ( await db.all( "SELECT id FROM specs" ) ).map( ( row ) => row.id ).sort( ( a, b ) => a < b ? -1 : a > b ? 1 : 0 );

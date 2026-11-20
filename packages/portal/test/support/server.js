@@ -17,9 +17,14 @@
 
 /*
  * A real portal server for a test file (plan 8a, decision 12): in this process, on a copy of the seed, with core's cache
- * replaced by the portal's stand-in, and no TLS, sign-in, message exchange, health check or jobs timer. Core allows one
- * service instance per process, so a test file starts one; `node --test` runs each file in a process of its own.
+ * replaced by the portal's stand-in, and no TLS, message exchange, health check or jobs timer. Sign-in is on, by the
+ * framework's local method for the seed's synthetic staff (plan 9a), so every public page is tested as it is served
+ * beside the studio; a file that tests the studio switched off starts with none. Core allows one service instance per
+ * process, so a test file starts one; `node --test` runs each file in a process of its own.
  */
+
+// Before ti-engine: the seed's module loads nothing of it, and the environment below names the seed's users file.
+const { SEED, SEED_DATABASE, SEED_FILES, SEED_USERS, inCi } = require( "./seed" );
 
 // Before anything of ti-engine is loaded: core reads its settings from the environment once, as its config loads.
 Object.assign( process.env, {
@@ -28,14 +33,21 @@ Object.assign( process.env, {
     TI_WEB_USE_TLS: "false",
     TI_WEB_HOST: "127.0.0.1",
     TI_WEB_PORT: "0",
-    // Empty: no sign-in method at all, as the public site has none until plan 9.
-    TI_WEB_AUTH_METHODS: "",
+    // The studio's sign-in: the local method, from the users file the pretest writes beside the seed (support/staff.js).
+    TI_WEB_AUTH_METHODS: "local",
+    TI_WEB_AUTH_LOCAL_USERS_PATH: SEED_USERS,
+    TI_WEB_AUTH_ADMINS: "config-admin@example.test",
+    // Set, as a deployment sets it, so that a secret inherited from the shell is never the one used. A test value only.
+    TI_WEB_COOKIE_SECRET: "hdp-portal-tests-only-cookie-secret",
     // Off: the 15-minute jobs timer would otherwise touch the cache.
     TI_WEB_JOBS_TRIGGER: "off",
     TI_WEB_PUBLIC_URL: "https://developers.example.test",
     // Warnings and errors only: a test's output is its own, not each request's notice.
     TI_AUDITING_LOG_MIN_LEVEL: "400"
 } );
+// The studio's home is the portal's own `/studio/`: an override inherited from the shell would move it, and every test
+// of where a refusal sends the browser with it.
+delete process.env.TI_WEB_APPLICATION_HOME;
 
 const assert = require( "node:assert/strict" );
 const fs = require( "node:fs" );
@@ -47,15 +59,14 @@ const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { readContent } = require( "@health-dev-portal/data/targets" );
 const { findVersion } = require( "@health-dev-portal/data/versions" );
 const { installMemoryCache } = require( "./memory-cache" );
-const { SEED, SEED_DATABASE, SEED_FILES, inCi } = require( "./seed" );
 
 /**
- * Whether the seed has been built: the HTTP tests skip without it, locally.
+ * Whether the seed has been built, with its staff's users file: the HTTP tests skip without it, locally.
  *
  * @type {boolean}
  * @public
  */
-module.exports.SEEDED = fs.existsSync( SEED_DATABASE ) && fs.existsSync( SEED_FILES );
+module.exports.SEEDED = fs.existsSync( SEED_DATABASE ) && fs.existsSync( SEED_FILES ) && fs.existsSync( SEED_USERS );
 
 // In CI a missing seed is a failure, never a skip: a skipped test looks exactly like a passing one (the rule the data
 // layer's HDP_TEST_POSTGRES_URL follows).
@@ -113,12 +124,15 @@ module.exports.createPortal = ( environment = {} ) => {
  * @param {Object} [options]
  * @param {string} [options.contentDirectory] The guides and questions to load (`HDP_CONTENT_DIR`); the repository's own
  *     `content/` without it.
+ * @param {Object<string, string|undefined>} [options.environment] Anything else to set or remove before the portal is
+ *     constructed, as `createPortal` takes it: `{ TI_WEB_AUTH_METHODS: "" }` starts it with no sign-in method. The
+ *     framework reads its `TI_WEB_*` settings as the server is constructed, not as it starts (measured).
  * @returns {Promise<{url: string, database: string, files: string, stop: function(): Promise<void>}>} `database` is the
  *     copy's SQLite file and `files` its file store, for a test that moves a spec on through the data layer, as staff
  *     would; `stop` stops the server and removes the copy.
  * @public
  */
-module.exports.startPortal = async ( { contentDirectory } = {} ) => {
+module.exports.startPortal = async ( { contentDirectory, environment = {} } = {} ) => {
     const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-portal-" ) );
     const database = path.join( directory, "seed.sqlite" );
     const files = path.join( directory, "files" );
@@ -129,7 +143,7 @@ module.exports.startPortal = async ( { contentDirectory } = {} ) => {
         fs.copyFileSync( SEED_DATABASE, database );
         fs.cpSync( SEED_FILES, files, { recursive: true } );
         // An undefined value is deleted from the environment, so a file that names no folder gets the repository's own.
-        server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files, HDP_CONTENT_DIR: contentDirectory } );
+        server = module.exports.createPortal( { ...environment, HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files, HDP_CONTENT_DIR: contentDirectory } );
         await server.start();
     } catch ( error ) {
         // A stop after a refused start may fail too; the start's error is the one worth reporting.

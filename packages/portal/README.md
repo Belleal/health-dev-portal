@@ -5,11 +5,12 @@ each message element by element with its XSD and a sample, the code lists, the e
 and downloads of every module version, the guides and the FAQ, the environments' status, and a search across all of it,
 in Bulgarian at `/bg/` and English at `/en/`.
 
-- **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` with no web application manager
-  until plan 9 brings the staff area.
+- **One server**, `PortalServer` (`bin/portal-server.js`), a ti-engine `TiWebServer` whose web application is the staff
+  area, the studio, at `/studio/` (plan 9a; `studio/manager.js`), with its screens at `/app/…`.
 - **Server-rendered pages**, readable without JavaScript, built with web-content's escaping `html` template. One
   stylesheet and one small deferred script, each by its content hash; nothing inline.
-- **No cookie on any response**, so every page can be cached (design record §10.1).
+- **No cookie on any public page for a visitor who is not signed in**, so every page can be cached (design record
+  §10.1). A signed-in member of staff gets their session's cookie on every response, which keeps theirs private.
 - **The data** is read through `@health-dev-portal/data/published`, which decides what is public.
 - **Links follow the stage shown** (design record §4.8): a module page links each code list and the rules at their
   version in the stage it shows, else the nearest stage further on, and a list's "used in" names the module versions of
@@ -61,7 +62,7 @@ It needs a database, a file store and a Redis.
    | `HDP_CONTENT_DIR` | The guides and the questions. Default: the repository's `content/`, which is what a deployment serves. |
    | `TI_WEB_PUBLIC_URL` | The public origin every absolute link is written from (required): canonical addresses, `hreflang`, feeds. |
    | `TI_WEB_USE_TLS`, `TI_WEB_HOST`, `TI_WEB_PORT` | Plain HTTP on `127.0.0.1:3000` here; in a deployment TLS ends in front of the container. |
-   | `TI_WEB_AUTH_METHODS` | Empty: no sign-in method until plan 9 brings the staff area. |
+   | `TI_WEB_AUTH_METHODS` | Empty in `.env.example`: no sign-in method, so no studio (see *The studio*). |
    | `TI_MESSAGE_EXCHANGE_ENABLED`, `TI_SERVICE_HEALTH_CHECK_ENABLED`, `TI_WEB_JOBS_TRIGGER` | `false`, `false`, `off`: one instance, no mesh, no heartbeat, no scheduled jobs. |
    | `TI_MEMORY_CACHE_REDIS_HOST`, `TI_MEMORY_CACHE_REDIS_PORT` | The framework's cache; without a Redis the start never completes (step 2). |
    | `TI_LOCALIZATION_TIME_ZONE` | `Europe/Sofia`: a day is a calendar day there (design record §7.12). |
@@ -75,6 +76,40 @@ It needs a database, a file store and a Redis.
    npm start --workspace packages/portal
    ```
 
+## The studio
+
+The studio is the staff area, where the team gives people roles and sets the portal's settings and the environments'
+status (plan 9a; the editor's and the approver's screens follow). Its design is the staff-area design record,
+`docs/superpowers/specs/2026-11-18-staff-area-design.md`.
+
+- **Address.** `/studio/`. No public page links to it or names it; staff reach it by the address.
+- **Sign-in.** Microsoft Entra ID (`openid-azure`) in production, set by the `TI_AZURE_AUTH_*` variables in
+  `.env.example`. In development and the tests, the framework's local method (`TI_WEB_AUTH_METHODS=local`, with
+  `TI_WEB_AUTH_LOCAL_USERS_PATH` naming a users file). Signing in grants nothing.
+- **The first admin** is whoever `TI_WEB_AUTH_ADMINS` names. They give everyone else a role on the People screen, which
+  cannot take theirs away: it comes from configuration. Keep `TI_WEB_AUTH_ADMINS` set: it is the way back if every
+  studio admin grant is removed.
+- **Upgrading.** A database made before the studio must run migration `0006-staff` (`hdp-migrate`) before sign-in is
+  switched on. Without it every sign-in is refused: the studio records each sign-in (`recordSignIn`) in a table that
+  does not exist yet.
+- **Roles.** `reader`, `editor`, `approver` and `admin`, as in the design record §10.1. An editor may be limited to named
+  specs. Roles are read on every request, so a change takes effect on the person's next one. Today only an admin has a
+  screen beyond the landing, which names the person and their roles.
+- **Language.** Bulgarian first, with English: a session starts in Bulgarian, and `/language/en` switches it.
+- **Times** on staff screens are Sofia time, whatever zone the server runs in.
+- **With sign-in off.** An empty `TI_WEB_AUTH_METHODS`, or one whose methods are all dropped by the framework as
+  unconfigured (an OpenID provider with no client ID), switches the studio off, and the public site runs on. Every studio
+  address then answers exactly as `/bg/nope` does: the pages' 404 for a GET or a HEAD, and the framework's own answer
+  for any other method. Neither redirects, with one exception, which `/bg/nope` shares. A request of any other method
+  marked as htmx's (`HX-Request: true`), when the framework answers it with its 404, gets `HX-Redirect` to
+  `/studio/not-found`. That happens without a token for an OPTIONS, and for a POST or a PUT only with a session from
+  before. The framework names its home there, which is CA-593. An anonymous visitor gets no cookie. A request that
+  carries a session left from before sign-in was switched off gets that session's cookie renewed, as at any address.
+  A name the framework does not know is not dropped, so a misspelt method keeps the studio on with no way to sign in.
+
+**Deployment note.** Once sign-in is switched on after a run with it off, a shared cache in front of the portal may keep
+answering a studio address with the 404 for up to 60 seconds (`public, max-age=60`, the same as any unknown address).
+
 ## Testing
 
 ```bash
@@ -82,13 +117,17 @@ npm test --workspace packages/portal
 ```
 
 - **The seed.** `pretest` builds `.fixtures/portal/` (git-ignored) from the public fixtures, through the data layer's
-  own migration and lifecycle functions: about 6 s, once per run. Without the fixtures it says so and the HTTP tests
-  skip; in CI (`CI` set and not `false`) it fails, since a skipped test looks exactly like a passing one.
+  own migration and lifecycle functions, with the studio's synthetic staff in `users.json` beside it
+  (`test/support/staff.js`): about 10 s, once per run. Without the fixtures it says so and the HTTP tests skip; in CI
+  (`CI` set and not `false`) it fails, since a skipped test looks exactly like a passing one.
+- **Sign-in is on**, by the framework's local method for those synthetic staff, so every public page is tested as it
+  is served beside the studio.
 - **One server per test file**, in the test's process, on a copy of the seed (`test/support/server.js`): core allows
   one service instance per process, and `node --test` runs each file in its own.
 - **No Redis.** The tests replace core's exported `cache.instance` with a stand-in written for the portal
-  (`test/support/memory-cache.js`). Measured, the server asks it for nothing but `initialize` when it starts,
-  `shutDown` when it stops and `isOperational` on `/health`; anything else throws, naming itself.
+  (`test/support/memory-cache.js`). Measured, the server asks it for `initialize` when it starts, `shutDown` when it
+  stops and `isOperational` on `/health`, the local users as a document, and the sessions as hash fields and values
+  that expire; anything else throws, naming itself. An anonymous visit to a public page touches none of it.
 - **SQLite only.** The data layer is the one tested on both databases.
 
 ### Accessibility
@@ -147,7 +186,7 @@ Plan 8c (design record §3.4, §3.5, §8.1, §8.2, §8.7).
   (see [`content/README.md`](../../content/README.md)). A file the portal cannot read stops the start, with every
   problem named. A file whose first line is not exactly `---` is refused before it is parsed: web-content's front-matter
   parser runs a `---js` block as code (measured).
-- **The status** is in the database, set with `hdp-status` (the repository's README) until the staff area's form. With
+- **The status** is in the database, set on the studio's Environment status screen, or with `hdp-status` (the repository's README), which stays for scripts. With
   nothing set, an environment is "not reported", never shown as working. Who made a change is kept for staff and never
   shown. Run the migrations (`hdp-migrate`, or `hdp-status` itself) on a database made before plan 8c.
 - **The search index** belongs to each server instance and lives in memory. It is built on the first search and again
