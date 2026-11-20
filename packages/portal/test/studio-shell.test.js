@@ -85,6 +85,22 @@ describe( "The studio's shell", { skip: !SEEDED && "build the seed first: npm ru
         assert.equal( ( await view( "studio-home", "admin" ) ).admin, true );
     } );
 
+    it( "the landing gives no editor specs to a session that is not an editor, whatever it still holds", async () => {
+        // A failed refresh used to leave the last specs on the session. The view answers from the roles, which the same failure
+        // had cleared, and not from what the session still carries.
+        const StudioManager = require( "#studio/manager" );
+        const manager = new StudioManager();
+        const stale = { user: { name: "Ana", roles: [ "studio:reader" ] }, studio: { key: "local:ana", editorSpecs: [ "CL009" ] } };
+        assert.deepEqual( ( await manager.processDataRequest( stale, "studio-home" ) ).editorSpecs, [] );
+        stale.user.roles = [];
+        assert.deepEqual( ( await manager.processDataRequest( stale, "studio-home" ) ).editorSpecs, [] );
+        // An editor keeps theirs, and `null` stays `null`: an editor of every spec is not an editor of none.
+        stale.user.roles = [ "studio:editor" ];
+        assert.deepEqual( ( await manager.processDataRequest( stale, "studio-home" ) ).editorSpecs, [ "CL009" ] );
+        stale.studio.editorSpecs = null;
+        assert.equal( ( await manager.processDataRequest( stale, "studio-home" ) ).editorSpecs, null );
+    } );
+
     it( "the config marks an admin, and only an admin", async () => {
         assert.equal( ( await view( "config", "admin" ) ).studio.admin, true );
         assert.equal( ( await view( "config", "config-admin" ) ).studio.admin, true );

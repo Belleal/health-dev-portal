@@ -39,9 +39,9 @@ const sameList = ( left, right ) => left === right || ( Array.isArray( left ) &&
  * @method
  * @param {Object} user The session's user.
  * @param {string} authMethod The session's sign-in method.
- * @returns {string} `entra:<objectID>` for an Entra sign-in, the framework's user ID for a local one.
- * @throws {Error} For an Entra sign-in without an object ID, and for any other method: an unkeyed person would share
- *     grants with the next one.
+ * @returns {string} `entra:<objectID>` for an Entra sign-in, `local:<username>` for a local one.
+ * @throws {Error} For an Entra sign-in without an object ID, a local one without a username, and any other method: an
+ *     unkeyed person would share grants with the next one.
  * @public
  */
 module.exports.personKeyOf = ( user, authMethod ) => {
@@ -52,7 +52,12 @@ module.exports.personKeyOf = ( user, authMethod ) => {
         return `entra:${ user.objectID }`;
     }
     if ( authMethod === "local" ) {
-        return user.userID;
+        // Never the users file's own `userID`: the framework lets an entry set it, and one written `entra:<oid>` would take that
+        // Entra person's grants. The prefix is what keeps the two sources apart, so it is the studio's to put on.
+        if ( typeof user.username !== "string" || user.username === "" ) {
+            throw new Error( "A local sign-in carries no username, so the studio cannot tell who the person is." );
+        }
+        return `local:${ user.username }`;
     }
     throw new Error( `The studio does not take a sign-in by ${ JSON.stringify( authMethod ) }.` );
 };
@@ -94,7 +99,17 @@ module.exports.refresh = async ( session, db ) => {
     // no studio role; throwing here would fail every request it makes.
     session.studio = session.studio || {};
     const key = session.studio.key;
-    const granted = typeof key === "string" && key !== "" ? sessionRolesOf( await loadGrants( db, key ) ) : { roles: [], editorSpecs: [] };
+    let granted = { roles: [], editorSpecs: [] };
+    if ( typeof key === "string" && key !== "" ) {
+        try {
+            granted = sessionRolesOf( await loadGrants( db, key ) );
+        } catch ( error ) {
+            // The throw sends the framework down its fail-closed path, but the session outlives this request and still holds the
+            // last specs: a screen that reads them would keep showing an editor's specs the database could no longer vouch for.
+            session.studio.editorSpecs = [];
+            throw error;
+        }
+    }
     const current = session.user.roles || [];
     const roles = withFramework( current, granted.roles );
     if ( !sameList( session.user.roles, roles ) ) {

@@ -43,8 +43,16 @@ describe( "The person's key", () => {
         assert.throws( () => personKeyOf( userOf(), "openid-azure" ), Error );
     } );
 
-    it( "keys a local sign-in by the framework's user ID", () => {
+    it( "keys a local sign-in by its username, so a users file cannot name an Entra person's key", () => {
         assert.equal( personKeyOf( userOf( { userID: "local:ana" } ), "local" ), "local:ana" );
+        // The framework lets a users-file entry set its own `userID`; an entry that sets one in the Entra form must not take that person's grants.
+        assert.equal( personKeyOf( userOf( { userID: "entra:oid-1", username: "ana" } ), "local" ), "local:ana" );
+        assert.equal( personKeyOf( userOf( { userID: "anything", username: "ana" } ), "local" ), "local:ana" );
+    } );
+
+    it( "refuses a local sign-in that carries no username", () => {
+        assert.throws( () => personKeyOf( userOf( { username: "" } ), "local" ), Error );
+        assert.throws( () => personKeyOf( userOf( { username: undefined } ), "local" ), Error );
     } );
 
     it( "refuses a sign-in method the studio does not use", () => {
@@ -130,6 +138,15 @@ describe( "The studio's session", () => {
         const session = { authMethod: "local", user: user };
         await refresh( session, db );
         assert.deepEqual( session.user.roles, [] );
+        assert.deepEqual( session.studio.editorSpecs, [] );
+    } );
+
+    it( "refresh clears the editor's specs when the read fails, and the failure still propagates", async () => {
+        const session = { authMethod: "local", user: userOf( { userID: "local:ana", username: "ana", roles: [ "studio:editor" ] } ),
+            studio: { key: "local:ana", editorSpecs: [ "CL009" ] } };
+        const broken = new Proxy( {}, { get: () => async () => { throw new Error( "the database is gone" ); } } );
+        // The framework's fail-closed path runs on the throw; what it does not clear is a value the session keeps for the next read.
+        await assert.rejects( refresh( session, broken ), /the database is gone/ );
         assert.deepEqual( session.studio.editorSpecs, [] );
     } );
 

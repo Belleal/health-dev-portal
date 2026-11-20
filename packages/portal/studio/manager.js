@@ -29,7 +29,7 @@ const TiWebAppManager = require( "@ti-engine/web-framework/web-application" );
 const context = require( "#studio/context" );
 const { announceWindow, changeStatus, environmentView, withdrawWindow } = require( "#studio/environment" );
 const { changeGrants, peopleView } = require( "#studio/people" );
-const { ADMIN_ROLES, STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
+const { ADMIN_ROLES, SESSION_ROLE, STAFF_ROLES, isStudioAdmin } = require( "#studio/roles" );
 const { saveSettings, settingsView } = require( "#studio/settings" );
 
 // The sidebar entry each screen lights.
@@ -109,8 +109,9 @@ class StudioManager extends TiWebAppManager {
             return {
                 name: ( session && session.user && session.user.name ) || "",
                 roles: roles,
-                // `null` is an editor of every spec, which is not the same as none.
-                editorSpecs: ( session && session.studio ) ? session.studio.editorSpecs : [],
+                // `null` is an editor of every spec, which is not the same as none. Only an editor has any: the session can still hold
+                // the last read's specs after a refresh failed, and the roles are what that failure clears.
+                editorSpecs: ( session && session.studio && roles.includes( SESSION_ROLE.editor ) ) ? session.studio.editorSpecs : [],
                 admin: isStudioAdmin( roles )
             };
         }
