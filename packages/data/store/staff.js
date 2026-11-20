@@ -152,7 +152,8 @@ const checked = async ( db, grants ) => {
 };
 
 /**
- * Replaces everything a person holds, and records the change, in one batch.
+ * Replaces everything a person holds, and records the change, in one batch. Two replacements of one person made at once
+ * never merge: the later one replaces the earlier one whole.
  *
  * @method
  * @param {import( "#definitions" ).Database} db
@@ -176,6 +177,12 @@ module.exports.setGrants = async ( db, key, grants, { by, at = new Date() } ) =>
         throw new RangeError( `${ JSON.stringify( key ) } is not a person who has signed in.` );
     }
     await db.batch( [
+        // Locks the person's row until the batch ends. On PostgreSQL, under READ COMMITTED, two replacements at once each
+        // deleted only the grants their own snapshot saw, so both sets stayed and the stored set was their union — an
+        // editor of every spec and of named ones, which no single request may make (CodeRabbit on #10; 499 of 500
+        // concurrent pairs, measured). A second replacement now waits here, and its DELETE then sees the first one's rows.
+        // SQLite and D1 serialise writers, and there it changes nothing.
+        { sql: "UPDATE staff_people SET name = name WHERE key = ?", params: [ key ] },
         { sql: "DELETE FROM staff_grants WHERE person_key = ?", params: [ key ] },
         ...insertStatements( "staff_grants", [ "person_key", "role", "spec" ], set.map( ( one ) => [ key, one.role, one.spec ] ) ),
         { sql: "INSERT INTO staff_grant_changes ( id, person_key, changed_by, changed_at, grants ) VALUES ( ?, ?, ?, ?, ? )",

@@ -21,12 +21,15 @@
 
 const { before, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
-const { eachDatabase } = require( "./support/databases" );
+const { isDeepStrictEqual } = require( "node:util" );
+const { eachDatabase, holding } = require( "./support/databases" );
 const { migrateSchema } = require( "#schema" );
 const { ensureSpec, listSpecs } = require( "#versions" );
 const { EVERY_SPEC, ROLE, ROLES, grantChanges, listPeople, loadGrants, recordSignIn, setGrants } = require( "#staff" );
 
 const at = ( iso ) => new Date( iso );
+const pause = ( ms ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
+const settled = ( promise ) => promise.then( ( value ) => ( { ok: true, value: value } ), ( error ) => ( { ok: false, error: error } ) );
 
 eachDatabase( "Staff", ( db ) => {
 
@@ -103,5 +106,29 @@ eachDatabase( "Staff", ( db ) => {
 
     it( "lists every spec", async () => {
         assert.deepEqual( await listSpecs( db() ), [ "CL009", "e-prescription" ] );
+    } );
+
+    // On PostgreSQL, under READ COMMITTED, each of two replacements made at once deleted only the grants its own snapshot
+    // saw, so both new sets stayed and the stored set was their union: here an editor of every spec and of a named one,
+    // which the store refuses for any one request, and which no change in the log shows (CodeRabbit on #10). A second
+    // connection holds the person's one grant until both are in flight, so both reach their DELETE before either commits.
+    // SQLite serialises writers, so there the two simply run one after the other.
+    it( "lets one of two replacements made at once for one person stand whole, never their union", async () => {
+        await recordSignIn( db(), { key: "oid-5", name: "Даниела", configuredAdmin: false } );
+        await setGrants( db(), "oid-5", [ { role: "reader", spec: "*" } ], { by: "oid-admin" } );
+        const requests = [ [ { role: "editor", spec: "*" } ], [ { role: "editor", spec: "CL009" } ] ];
+        const free = await holding( db(), "UPDATE staff_grants SET role = role WHERE person_key = $1", [ "oid-5" ] );
+        const first = settled( setGrants( db(), "oid-5", requests[ 0 ], { by: "oid-admin" } ) );
+        await pause( free ? 500 : 0 );
+        const second = settled( setGrants( db(), "oid-5", requests[ 1 ], { by: "oid-second-admin" } ) );
+        if ( free ) {
+            await pause( 500 );
+            await free();
+        }
+        const results = [ await first, await second ];
+        const stored = await loadGrants( db(), "oid-5" );
+        const outcome = JSON.stringify( { stored: stored, results: results.map( ( result ) => result.ok || result.error.message ) } );
+        assert.equal( requests.filter( ( request, index ) => results[ index ].ok && isDeepStrictEqual( request, stored ) ).length, 1, outcome );
+        assert.deepEqual( ( await grantChanges( db(), { key: "oid-5", limit: 1 } ) )[ 0 ].grants, stored, outcome );
     } );
 } );
