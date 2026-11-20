@@ -57,6 +57,29 @@ describe( "The studio's labels", () => {
         }
     } );
 
+    it( "no visible or announced text in a fragment is a literal English one", () => {
+        // A literal in an attribute or an expression reaches a Bulgarian screen as English (the sidebar's theme button and its
+        // names did, until labelled). A literal needs its label: `x-text-label:<attribute>` beside it, or no literal at all.
+        const directory = path.join( __dirname, "..", "..", "public", "fragments" );
+        const files = fs.readdirSync( directory, { recursive: true } ).filter( ( name ) => name.endsWith( ".html" ) );
+        const found = [];
+        for ( const file of files ) {
+            const html = fs.readFileSync( path.join( directory, file ), "utf8" ).replace( /<!--[\s\S]*?-->/g, "" );
+            for ( const [ tag ] of html.matchAll( /<[a-z][^>]*>/g ) ) {
+                for ( const [ , attribute ] of tag.matchAll( /(?<![:\w-])(aria-label|data-tip|title|placeholder)="[^"]+"/g ) ) {
+                    if ( !tag.includes( `x-text-label:${ attribute }=` ) && !tag.includes( `x-bind:${ attribute }=` ) ) {
+                        found.push( `${ file }: ${ attribute } in ${ tag.slice( 0, 60 ) }` );
+                    }
+                }
+                // An expression that picks between English words: the words belong in the catalogue.
+                for ( const [ expression ] of tag.matchAll( /x-(?:text|bind:[\w-]+)="[^"]*'[A-Z][a-z]+[^']*'[^"]*"/g ) ) {
+                    found.push( `${ file }: ${ expression }` );
+                }
+            }
+        }
+        assert.deepEqual( found, [] );
+    } );
+
     it( "every refusal reason the studio raises is a label with Bulgarian and English", () => {
         // A refusal's `details` is looked up as a label by the framework; a key missing here would reach a Bulgarian screen as the raw key.
         const keys = new Set( leavesOf( catalogue ).map( ( [ key ] ) => key ) );

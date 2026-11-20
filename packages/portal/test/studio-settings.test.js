@@ -118,7 +118,9 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
         const shown = await dataOf( "environment-status", session );
         const production = shown.current.find( ( one ) => one.environment === "production" );
         assert.equal( production.state, "degraded" );
-        assert.equal( production.messageText, "Бавни отговори", "in the screen's language, which starts as Bulgarian" );
+        // "Now" shows both halves of the public text, so it carries both and no one language's rendering of them.
+        assert.deepEqual( production.message, { bg: "Бавни отговори", en: "Slow answers" } );
+        assert.equal( production.messageText, undefined );
         assert.equal( production.updatedAtText, formatSofia( production.updatedAt, "bg", { time: true } ) );
         assert.equal( shown.current.find( ( one ) => one.environment === "test" ).state, null );
         assert.equal( shown.events[ 0 ].kind, "status" );
@@ -131,9 +133,8 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
         const cookie = [ session.cookie, ...chosen.headers.getSetCookie().map( ( line ) => line.split( ";" )[ 0 ] ) ].join( "; " );
         const english = { ...session, cookie: cookie };
         const production = ( await dataOf( "environment-status", english ) ).current.find( ( one ) => one.environment === "production" );
-        assert.equal( production.messageText, "Slow answers" );
+        assert.deepEqual( production.message, { bg: "Бавни отговори", en: "Slow answers" }, "both languages, whatever the screen's" );
         assert.equal( production.updatedAtText, formatSofia( production.updatedAt, "en", { time: true } ) );
-        assert.match( production.updatedAtText, /^\d\d [A-Z][a-z]{2} \d{4} \d\d:\d\d$/ );
     } );
 
     it( "takes a status with no message, and refuses one in a single language", async () => {
@@ -142,7 +143,6 @@ describe( "Settings and Environment status", { skip: !SEEDED && "build the seed 
         const test = ( await dataOf( "environment-status", session ) ).current.find( ( one ) => one.environment === "test" );
         assert.equal( test.state, "operational" );
         assert.equal( test.message, null );
-        assert.equal( test.messageText, "" );
         const one = await call( "status-set", session, { environment: "test", state: "outage", messageBg: "Авария", messageEn: "" } );
         await assertRefusal( one, "studio.refused.message-both-languages" );
         await assertRefusal( await call( "status-set", session, { environment: "staging", state: "outage" } ), "studio.refused.unknown-environment" );

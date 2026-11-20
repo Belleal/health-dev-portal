@@ -34,7 +34,7 @@
                 <h2 id="ti-environment-set" x-text-label="studio.environment.set-title">Set a state</h2>
                 <div>
                     <label for="ti-environment-status-environment" x-text-label="studio.environment.environment">Environment</label>
-                    <select id="ti-environment-status-environment" name="ti-environment-status-environment" x-model="statusEnvironment">
+                    <select id="ti-environment-status-environment" name="ti-environment-status-environment" x-model="statusEnvironment" @change="followEnvironment( $event.target.value )">
                         <template x-for="one in environments" x-bind:key="one.id">
                             <option x-bind:value="one.id" x-text="one.text"></option>
                         </template>
@@ -58,7 +58,7 @@
                     <input type="text" id="ti-environment-status-message-en" name="ti-environment-status-message-en" maxlength="500" x-model="statusMessageEn"/>
                 </div>
                 <div>
-                    <button type="button" class="ti-btn primary" @click="setStatus()" x-text-label="studio.environment.set">Set</button>
+                    <button type="button" class="ti-btn primary" x-bind:disabled="isSaving()" @click="setStatus()" x-text-label="studio.environment.set">Set</button>
                 </div>
             </section>
 
@@ -71,7 +71,7 @@
                     <template x-for="announced in windows" x-bind:key="announced.id">
                         <li>
                             <span x-text="announced.text"></span>
-                            <button type="button" class="ti-btn sm" @click="cancelWindow( announced.id )" x-text-label="studio.environment.cancel">Cancel</button>
+                            <button type="button" class="ti-btn sm" x-bind:aria-label="announced.cancelText" x-bind:disabled="isSaving()" @click="cancelWindow( announced.id )" x-text-label="studio.environment.cancel">Cancel</button>
                         </li>
                     </template>
                 </ul>

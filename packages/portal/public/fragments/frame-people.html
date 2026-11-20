@@ -36,13 +36,13 @@
                                 <td>
                                     <span x-text="person.name"></span>
                                     <template x-if="person.configuredAdmin">
-                                        <span class="ti-tag accent" x-text-label="studio.people.configured-admin">Admin by configuration</span>
+                                        <span class="ti-tag accent" x-text-label="studio.people.configured-admin">Admin by configuration (as of their last sign-in)</span>
                                     </template>
                                 </td>
                                 <td x-text="person.holdsText"></td>
                                 <td x-text="person.lastSeenText"></td>
                                 <td>
-                                    <button type="button" class="ti-btn sm" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
+                                    <button type="button" class="ti-btn sm" x-bind:id="person.buttonID" x-bind:aria-label="person.editText" @click="edit( person.key )" x-text-label="studio.people.edit">Edit roles</button>
                                 </td>
                             </tr>
                         </template>
@@ -52,7 +52,7 @@
 
             <template x-if="isEditing()">
                 <section class="ti-panel" aria-labelledby="ti-people-form-title">
-                    <h2 id="ti-people-form-title" x-text="form.name"></h2>
+                    <h2 id="ti-people-form-title" tabindex="-1" x-text="form.name"></h2>
                     <fieldset>
                         <legend x-text-label="studio.people.roles">Roles</legend>
                         <div>
@@ -98,8 +98,8 @@
                         <p x-text-label="studio.people.choose-specs">Choose at least one spec, or every spec.</p>
                     </template>
                     <div>
-                        <button type="button" class="ti-btn primary" x-bind:disabled="cannotSave()" @click="save()" x-text-label="studio.people.save">Save</button>
-                        <button type="button" class="ti-btn ghost" @click="cancel()" x-text-label="studio.people.cancel">Cancel</button>
+                        <button type="button" class="ti-btn primary" x-bind:disabled="cannotSubmit()" @click="save()" x-text-label="studio.people.save">Save</button>
+                        <button type="button" class="ti-btn ghost" x-bind:disabled="isSaving()" @click="cancel()" x-text-label="studio.people.cancel">Cancel</button>
                     </div>
                 </section>
             </template>

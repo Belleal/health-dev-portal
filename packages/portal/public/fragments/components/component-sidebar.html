@@ -1,12 +1,14 @@
 <!--
     The studio's sidebar: the framework's (web-framework 1.63.1, fragments/components/component-sidebar.html) with its
-    brand and navigation slots filled and the rest as it is. The static-path search resolves this file in preference
-    to the framework's. People, Settings and Environment status are an admin's: the `studio` block of /app/config says
+    brand and navigation slots filled and the rest as it is, but for the words the framework writes in English (the
+    navigation's name, the collapse button and the theme button), which are labelled here in both languages; the
+    framework's own file keeps them (CA-595). The static-path search resolves this file in preference to the
+    framework's. People, Settings and Environment status are an admin's: the `studio` block of /app/config says
     whether the person is one, and the server refuses the screens to anyone else, so hiding them here is courtesy and
     not the control. A later screen adds its entry to the admin group, or beside Home for a staff screen.
 -->
-<nav class="ti-sidebar" x-data="tiComponentSidebarNav" aria-label="Main navigation">
-    <button class="ti-sidebar-collapse-btn" @click="toggleCollapse()" x-bind:aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'" type="button">
+<nav class="ti-sidebar" x-data="tiComponentSidebarNav" x-text-label:aria-label="studio.nav.main" aria-label="Main navigation">
+    <button class="ti-sidebar-collapse-btn" x-data="tiStudioChrome" @click="toggleCollapse()" x-bind:aria-label="collapseText()" type="button">
         <span class="ti-icon chevron-left xs" aria-hidden="true"></span>
     </button>
 
@@ -65,11 +67,11 @@
     <div class="ti-sidebar-foot">
         <!-- No aria-label: the framework's "Toggle theme" differed from the visible "Glass Theme" or "Daylight Theme", which
              axe reports as label-content-name-mismatch (WCAG 2.5.3, label in name). The visible text is the name. -->
-        <button class="ti-sidebar-item" @click="toggleTheme()" data-tip="Toggle theme" type="button">
+        <button class="ti-sidebar-item" x-data="tiStudioChrome" @click="toggleTheme()" x-text-label:data-tip="studio.nav.theme-tip" data-tip="Toggle theme" type="button">
             <span class="ti-sidebar-item-icon">
                 <span class="ti-icon sun md" aria-hidden="true"></span>
             </span>
-            <span class="ti-sidebar-item-label" data-ti-keep x-text="theme === 'daylight' ? 'Glass Theme' : 'Daylight Theme'">Toggle Theme</span>
+            <span class="ti-sidebar-item-label" data-ti-keep x-text="themeText()">Toggle Theme</span>
         </button>
 
         <!--

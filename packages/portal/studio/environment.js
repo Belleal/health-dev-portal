@@ -50,8 +50,9 @@ const messageOf = ( params ) => {
  * @param {string} [language] The screen's language, for the times and the messages; Bulgarian without one.
  * @returns {Promise<{environments: string[], states: string[], current: Array<Object>, windows: Array<Object>, events: Array<Object>}>}
  *     `current` is each environment's last state, `null` for one never set; `windows` are those not ended or cancelled;
- *     `events` are the latest updates and announcements. Each carries its times in Sofia time (`...Text`) and its message in
- *     the screen's language (`messageText`), the message itself too.
+ *     `events` are the latest updates and announcements. Each carries its times in Sofia time (`...Text`). `windows` and `events`
+ *     carry their message in the screen's language (`messageText`) as well as the message itself; `current` carries only the
+ *     message itself, both languages, as the screen shows both: staff edit both halves of a public text.
  * @throws {TiException} `E_SEC_UNAUTHORIZED_ACCESS` (403) unless the session is an admin's.
  * @public
  */
@@ -61,7 +62,7 @@ module.exports.environmentView = async ( db, session, now = new Date(), language
     return {
         environments: [ ...ENVIRONMENTS ],
         states: [ ...STATES ],
-        current: current.map( ( one ) => ( { ...one, messageText: textOf( one.message, language ),
+        current: current.map( ( one ) => ( { ...one,
             updatedAtText: one.updatedAt === null ? "" : formatSofia( one.updatedAt, language, { time: true } ) } ) ),
         windows: windows.map( ( one ) => ( { ...one, messageText: textOf( one.message, language ), startsAtText: formatSofia( one.startsAt, language, { time: true } ),
             endsAtText: formatSofia( one.endsAt, language, { time: true } ) } ) ),

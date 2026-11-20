@@ -112,6 +112,27 @@
         };
     };
 
+    /**
+     * The sidebar's own words that the framework's component writes in English: the collapse button's name and the theme
+     * button's text. Read from the store rather than the sidebar's scope, so the component works wherever it is put. The
+     * framework's file has the same strings (CA-595); this is the studio's copy until that card lands.
+     *
+     * @returns {Object}
+     */
+    const configureStudioChrome = () => {
+        const application = () => Alpine.store( "tiApplication" );
+        return {
+            collapseText() {
+                return application().collapsed ? application().getLabel( "studio.nav.expand", "Expand sidebar" ) : application().getLabel( "studio.nav.collapse", "Collapse sidebar" );
+            },
+
+            // The button offers the other theme, so a daylight page says "Glass".
+            themeText() {
+                return application().theme === "daylight" ? application().getLabel( "studio.nav.theme-glass", "Glass theme" ) : application().getLabel( "studio.nav.theme-daylight", "Daylight theme" );
+            }
+        };
+    };
+
     // Reader, approver and admin hold for every spec; only an editor's grant names specs.
     const EVERY_SPEC = "*";
     const ROLE_ORDER = [ "reader", "editor", "approver", "admin" ];
@@ -142,6 +163,8 @@
             specs: [],
             changes: [],
             form: null,
+            // A save is in flight: a second click would send the person's set again, and the server writes a row of history for each.
+            saving: false,
 
             init() {
                 whenInitialized( this, () => this.load() );
@@ -149,16 +172,19 @@
 
             load() {
                 this.busy = true;
-                Alpine.store( "tiApplication" ).sendRequest( "/app/people" ).then( ( result ) => {
+                return Alpine.store( "tiApplication" ).sendRequest( "/app/people" ).then( ( result ) => {
                     const data = ( result && result.data && typeof result.data === "object" ) ? result.data : {};
                     const people = Array.isArray( data.people ) ? data.people : [];
                     const names = new Map( people.map( ( one ) => [ one.key, String( one.name ) ] ) );
                     this.specs = ( Array.isArray( data.specs ) ? data.specs : [] ).map( String );
-                    this.people = people.map( ( one ) => ( { key: String( one.key ), name: String( one.name ), configuredAdmin: Boolean( one.configuredAdmin ),
-                        grants: one.grants || [], holdsText: holdsText( one.grants || [] ), lastSeenText: String( one.lastSeenText || "" ) } ) );
+                    // Each button's name says whose roles it edits: a screen reader lists buttons apart from their rows, and a column of
+                    // "Edit roles" tells them apart by nothing. The name starts with the visible text (WCAG 2.5.3).
+                    this.people = people.map( ( one, index ) => ( { key: String( one.key ), name: String( one.name ), configuredAdmin: Boolean( one.configuredAdmin ),
+                        grants: one.grants || [], holdsText: holdsText( one.grants || [] ), lastSeenText: String( one.lastSeenText || "" ),
+                        buttonID: `ti-people-edit-${ index }`, editText: `${ label( "studio.people.edit", "Edit roles" ) }: ${ String( one.name ) }` } ) );
                     // Who it was done to and by, by name where the studio knows them: a key is an identity provider's, not for reading.
                     this.changes = ( Array.isArray( data.changes ) ? data.changes : [] ).map( ( one ) => ( { id: String( one.id ),
-                        text: `${ String( one.atText || "" ) } ·${ names.get( one.key ) || one.key } · ${ holdsText( one.grants || [] ) } · ${ names.get( one.by ) || one.by }` } ) );
+                        text: `${ String( one.atText || "" ) } · ${ names.get( one.key ) || one.key } · ${ holdsText( one.grants || [] ) } · ${ names.get( one.by ) || one.by }` } ) );
                     this.loaded = true;
                     this.busy = false;
                 } ).catch( ( error ) => this.fail( error ) );
@@ -171,6 +197,24 @@
                 }
                 const application = Alpine.store( "tiApplication" );
                 application.notify( application.formatException( error ) );
+            },
+
+            // Puts the keyboard where the person's eyes are: on the form's heading when it opens, and on the row's button when it
+            // closes, as the page would otherwise leave focus on an element that is gone (WCAG 2.4.3).
+            focusLater( find ) {
+                this.$nextTick( () => {
+                    const element = find();
+                    if ( element ) {
+                        element.focus();
+                    }
+                } );
+            },
+
+            focusRow( key ) {
+                const person = this.people.find( ( one ) => one.key === key );
+                if ( person ) {
+                    this.focusLater( () => document.getElementById( person.buttonID ) );
+                }
             },
 
             edit( key ) {
@@ -194,14 +238,24 @@
                     someSpecs: !allSpecs,
                     specs: specs.map( ( id, index ) => ( { id: id, inputID: `ti-people-spec-${ index }`, checked: named.includes( id ) } ) )
                 };
+                this.focusLater( () => document.getElementById( "ti-people-form-title" ) );
             },
 
             isEditing() {
                 return this.form !== null;
             },
 
+            isSaving() {
+                return this.saving;
+            },
+
             cancel() {
+                if ( this.saving ) {
+                    return;
+                }
+                const key = this.form === null ? "" : this.form.key;
                 this.form = null;
+                this.focusRow( key );
             },
 
             setRole( role, checked ) {
@@ -225,14 +279,20 @@
             },
 
             // An editor limited to named specs needs one: with none the set would silently hold no editor role.
+            // Saving or not, the form says why a save is not possible only when it is the specs: see `cannotSave`.
+            cannotSubmit() {
+                return this.saving || this.cannotSave();
+            },
+
             cannotSave() {
                 return this.form === null || ( this.form.editor && this.form.someSpecs && !this.form.specs.some( ( spec ) => spec.checked ) );
             },
 
             save() {
-                if ( this.cannotSave() ) {
+                if ( this.cannotSubmit() ) {
                     return;
                 }
+                this.saving = true;
                 const form = this.form;
                 const grants = [ "reader", "approver", "admin" ].filter( ( role ) => form[ role ] ).map( ( role ) => ( { role: role, spec: EVERY_SPEC } ) );
                 if ( form.editor ) {
@@ -241,8 +301,10 @@
                 }
                 Alpine.store( "tiApplication" ).sendRequest( "/app/people-grants", "POST", { key: form.key, grants: grants } ).then( () => {
                     this.form = null;
-                    this.load();
-                } ).catch( ( error ) => this.fail( error ) );
+                    return this.load().then( () => this.focusRow( form.key ) );
+                } ).catch( ( error ) => this.fail( error ) ).finally( () => {
+                    this.saving = false;
+                } );
             }
         };
     };
@@ -340,6 +402,9 @@
             windowMessageEn: "",
             startsAt: "",
             endsAt: "",
+            // A write is in flight. Each post inserts a row that shows on the public status page and in its Atom feed, where a
+            // feed reader keeps both of two entries for good, so a second click must not send a second request.
+            saving: false,
 
             init() {
                 whenInitialized( this, () => this.load() );
@@ -352,10 +417,15 @@
                     const list = ( value ) => Array.isArray( value ) ? value : [];
                     this.environments = list( data.environments ).map( ( id ) => ( { id: String( id ), text: environmentText( id ) } ) );
                     this.states = list( data.states ).map( ( id ) => ( { id: String( id ), text: stateText( id ) } ) );
-                    this.current = list( data.current ).map( ( one ) => ( { environment: String( one.environment ),
-                        text: joined( [ environmentText( one.environment ), stateText( one.state ), String( one.messageText || "" ), String( one.updatedAtText || "" ) ] ) } ) );
+                    // The message in both languages, each named: staff edit both halves of a public text, and the screen's language
+                    // is not the public page's reader's.
+                    const messageIn = ( one, language ) => one.message && one.message[ language ] ? `${ label( `studio.environment.message-${ language }`, language ) }: ${ String( one.message[ language ] ) }` : "";
+                    this.current = list( data.current ).map( ( one ) => ( { environment: String( one.environment ), state: one.state === null || one.state === undefined ? null : String( one.state ),
+                        text: joined( [ environmentText( one.environment ), stateText( one.state ), messageIn( one, "bg" ), messageIn( one, "en" ), String( one.updatedAtText || "" ) ] ) } ) );
+                    // The cancel button's name says which window it cancels: a screen reader lists buttons apart from their rows.
                     this.windows = list( data.windows ).map( ( one ) => ( { id: String( one.id ),
-                        text: joined( [ environmentText( one.environment ), `${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }`, String( one.messageText || "" ) ] ) } ) );
+                        text: joined( [ environmentText( one.environment ), `${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }`, String( one.messageText || "" ) ] ),
+                        cancelText: `${ label( "studio.environment.cancel", "Cancel" ) }: ${ environmentText( one.environment ) }, ${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }` } ) );
                     this.events = list( data.events ).map( ( one ) => ( { id: String( one.id ), text: one.kind === "maintenance"
                         ? joined( [ String( one.atText || "" ), environmentText( one.environment ), `${ label( "studio.environment.window-event", "Maintenance" ) } ${ String( one.startsAtText ) } – ${ String( one.endsAtText ) }`
                             + ( one.cancelled ? ` (${ label( "studio.environment.cancelled", "cancelled" ) })` : "" ), String( one.messageText || "" ) ] )
@@ -364,6 +434,9 @@
                     const first = ( options, current ) => options.some( ( one ) => one.id === current ) || options.length === 0 ? current : options[ 0 ].id;
                     this.statusEnvironment = first( this.environments, this.statusEnvironment );
                     this.statusState = first( this.states, this.statusState );
+                    // The form starts on what the chosen environment is now: it would otherwise start on "operational", and a Set
+                    // pressed without a choice would overwrite that environment's public state with it.
+                    this.followEnvironment( this.statusEnvironment );
                     this.windowEnvironment = first( this.environments, this.windowEnvironment );
                     this.loaded = true;
                     this.busy = false;
@@ -373,6 +446,20 @@
             fail( error ) {
                 this.busy = false;
                 reportFailure( error );
+            },
+
+            // The state select shows the chosen environment's current state, the first one when it has never been set.
+            followEnvironment( environment ) {
+                const one = this.current.find( ( entry ) => entry.environment === environment );
+                if ( one && one.state !== null && this.states.some( ( state ) => state.id === one.state ) ) {
+                    this.statusState = one.state;
+                } else if ( this.states.length > 0 ) {
+                    this.statusState = this.states[ 0 ].id;
+                }
+            },
+
+            isSaving() {
+                return this.saving;
             },
 
             hasNoWindows() {
@@ -385,16 +472,22 @@
 
             // Both times are needed; the server judges the rest, and says why when it refuses.
             cannotAnnounce() {
-                return this.startsAt === "" || this.endsAt === "";
+                return this.saving || this.startsAt === "" || this.endsAt === "";
             },
 
             // After a change the screen is loaded again, so what it shows is what the server holds. The fields are emptied only
             // once the server has accepted the change: a refusal must leave what was typed to be corrected.
             send( service, body, emptied ) {
+                if ( this.saving ) {
+                    return;
+                }
+                this.saving = true;
                 Alpine.store( "tiApplication" ).sendRequest( `/app/${ service }`, "POST", body ).then( () => {
                     Object.assign( this, emptied || {} );
-                    this.load();
-                } ).catch( ( error ) => this.fail( error ) );
+                    return this.load();
+                } ).catch( ( error ) => this.fail( error ) ).finally( () => {
+                    this.saving = false;
+                } );
             },
 
             setStatus() {
@@ -420,6 +513,7 @@
         Alpine.data( "tiStudioSettings", configureSettings );
         Alpine.data( "tiStudioEnvironment", configureEnvironment );
         Alpine.data( "tiStudioNav", configureStudioNav );
+        Alpine.data( "tiStudioChrome", configureStudioChrome );
         Alpine.data( "tiStudioHome", configureStudioHome );
         Alpine.data( "tiStudioPeople", configurePeople );
     } );

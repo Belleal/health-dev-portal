@@ -34,7 +34,13 @@
             "home": { "bg": "Начало", "en": "Home" },
             "people": { "bg": "Хора", "en": "People" },
             "settings": { "bg": "Настройки", "en": "Settings" },
-            "environment": { "bg": "Състояние на средата", "en": "Environment status" }
+            "environment": { "bg": "Състояние на средата", "en": "Environment status" },
+            "main": { "bg": "Основна навигация", "en": "Main navigation" },
+            "expand": { "bg": "Разгъване на страничната лента", "en": "Expand sidebar" },
+            "collapse": { "bg": "Свиване на страничната лента", "en": "Collapse sidebar" },
+            "theme-glass": { "bg": "Тъмна тема", "en": "Glass theme" },
+            "theme-daylight": { "bg": "Светла тема", "en": "Daylight theme" },
+            "theme-tip": { "bg": "Смяна на темата", "en": "Toggle theme" }
         },
         "home": {
             "eyebrow": { "bg": "Студио", "en": "Studio" },
@@ -65,7 +71,7 @@
             "holds": { "bg": "Роли", "en": "Roles" },
             "last-seen": { "bg": "Последно", "en": "Last seen" },
             "actions": { "bg": "Действия", "en": "Actions" },
-            "configured-admin": { "bg": "Администратор по конфигурация", "en": "Admin by configuration" },
+            "configured-admin": { "bg": "Администратор по конфигурация (към последното влизане)", "en": "Admin by configuration (as of their last sign-in)" },
             "none": { "bg": "няма", "en": "none" },
             "edit": { "bg": "Промяна на ролите", "en": "Edit roles" },
             "roles": { "bg": "Роли", "en": "Roles" },
