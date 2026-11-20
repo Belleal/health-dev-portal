@@ -99,10 +99,13 @@ status (plan 9a; the editor's and the approver's screens follow). Its design is 
 - **Times** on staff screens are Sofia time, whatever zone the server runs in.
 - **With sign-in off.** An empty `TI_WEB_AUTH_METHODS`, or one whose methods are all dropped by the framework as
   unconfigured (an OpenID provider with no client ID), switches the studio off, and the public site runs on. Every studio
-  address then answers exactly as `/bg/nope` does: the pages' 404 for a GET or a HEAD, the framework's own answer for
-  any other method, and no redirect. An anonymous visitor gets no cookie. A request that carries a session left from
-  before sign-in was switched off gets that session's cookie renewed, as at any address. A name the framework does not
-  know is not dropped, so a misspelt method keeps the studio on with no way to sign in.
+  address then answers exactly as `/bg/nope` does: the pages' 404 for a GET or a HEAD, and the framework's own answer
+  for any other method. Neither redirects, with one exception, which `/bg/nope` shares. A request of any other method
+  marked as htmx's (`HX-Request: true`), when the framework answers it with its 404, gets `HX-Redirect` to
+  `/studio/not-found`. That happens without a token for an OPTIONS, and for a POST or a PUT only with a session from
+  before. The framework names its home there, which is CA-593. An anonymous visitor gets no cookie. A request that
+  carries a session left from before sign-in was switched off gets that session's cookie renewed, as at any address.
+  A name the framework does not know is not dropped, so a misspelt method keeps the studio on with no way to sign in.
 
 **Deployment note.** Once sign-in is switched on after a run with it off, a shared cache in front of the portal may keep
 answering a studio address with the 404 for up to 60 seconds (`public, max-age=60`, the same as any unknown address).

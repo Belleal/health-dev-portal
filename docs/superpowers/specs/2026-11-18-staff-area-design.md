@@ -134,11 +134,11 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
   - any other method gets the framework's own answer for an address that is none. That is a 403 from its CSRF check
     when the check applies and no token is sent, as for a POST or a PUT, and its JSON 404 otherwise, as for an
     OPTIONS, to which the check does not apply;
-  - every answer is the same as for `/bg/nope`, with no redirect. No answer to an anonymous request sets a cookie. A
-    request carrying a session left from before gets that session's cookie renewed, as at `/bg/nope`. Two framework
-    answers still name the
-    home and are not covered: the redirect an htmx error answer carries (CA-593), and the refusal of a request target
-    in absolute form (CA-592);
+  - every answer is the same as for `/bg/nope`. No answer to an anonymous request sets a cookie, and a request
+    carrying a session left from before gets that session's cookie renewed, as at `/bg/nope`. No answer redirects,
+    except two the framework gives at `/bg/nope` too, which still name the home and are not covered here:
+    - the `HX-Redirect` to `/studio/not-found` that its 404 carries for a request marked as htmx's (CA-593);
+    - its refusal of a request target in absolute form (CA-592);
   - the studio's own static files stay served under `/static`, which is outside the list;
   - the public pages and `/health` are unchanged;
   - the portal logs a notice at start that the studio is off.
