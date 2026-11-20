@@ -24,6 +24,7 @@
 
 // First: it lays the studio's texts under the application's before anything asks for one.
 require( "#studio/labels" );
+const logger = require( "@ti-engine/core/logger" );
 const TiWebAppManager = require( "@ti-engine/web-framework/web-application" );
 const context = require( "#studio/context" );
 const { announceWindow, changeStatus, environmentView, withdrawWindow } = require( "#studio/environment" );
@@ -44,6 +45,8 @@ const SIDEBAR_ENTRY = Object.freeze( { dashboard: "home", people: "people", sett
  */
 class StudioManager extends TiWebAppManager {
 
+    #hasSignIn = false;
+
     /**
      * @constructor
      */
@@ -53,6 +56,36 @@ class StudioManager extends TiWebAppManager {
         this.addFragment( "people", { title: "People", path: "fragments/frame-people.html", roles: ADMIN_ROLES } );
         this.addFragment( "settings", { title: "Settings", path: "fragments/frame-settings.html", roles: ADMIN_ROLES } );
         this.addFragment( "environment-status", { title: "Environment status", path: "fragments/frame-environment-status.html", roles: ADMIN_ROLES } );
+    }
+
+    /**
+     * Whether anybody can sign in to the studio: `true` once the framework has handed over a list of methods in effect
+     * that is not empty. `false` before it has, so the studio fails closed. With none, the studio does not exist (spec
+     * §3, "No sign-in method, no staff area"): the portal server answers every staff address with the pages' 404.
+     *
+     * @returns {boolean}
+     * @public
+     */
+    get hasSignIn() {
+        return this.#hasSignIn;
+    }
+
+    /**
+     * Keeps the sign-in methods in effect, as the framework hands them over at start: after `AuthManager#initialize` has
+     * dropped any provider with no client ID, and before the server listens. The framework keeps its copy to itself, so
+     * whether there are any is recorded here, and said when there are none.
+     *
+     * @method
+     * @param {string[]} methods
+     * @override
+     * @public
+     */
+    setEnabledAuthMethods( methods ) {
+        super.setEnabledAuthMethods( methods );
+        this.#hasSignIn = Array.isArray( methods ) && methods.length > 0;
+        if ( !this.#hasSignIn ) {
+            logger.log( "The studio is off: no sign-in method is in effect (TI_WEB_AUTH_METHODS).", logger.logSeverity.NOTICE );
+        }
     }
 
     /**

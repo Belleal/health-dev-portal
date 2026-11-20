@@ -30,6 +30,7 @@ const { PUBLIC_DIRECTORY } = require( "#assets" );
 const { CONTENT_DIRECTORY, loadContent } = require( "#content" );
 const { nameOf } = require( "#pages/nomenclatures" );
 const { setPublicUrl } = require( "#paths" );
+const { CACHE } = require( "#responses" );
 const { pageHandler, rootRedirect } = require( "#routes" );
 const { createSearch } = require( "#search" );
 const context = require( "#studio/context" );
@@ -37,6 +38,11 @@ const studioSession = require( "#studio/session" );
 
 // The studio's web application manager, which the framework loads by its path.
 const STUDIO_MANAGER = path.join( __dirname, "..", "studio", "manager.js" );
+
+// Every staff address, by its first segment: the studio and its screens and services, the framework's configuration API,
+// the signed-in user, the sign-in and the sign-out, the token a form asks for, and the choice of language. In any case,
+// as Express routes them. With no sign-in method, none of them exists (spec §3, "No sign-in method, no staff area").
+const STAFF_ADDRESS = /^\/(?:studio|app|admin|me|login|logout|csrf-token|language)(?:\/|$)/i;
 
 /**
  * The public website: every published specification version by stage, its messages, the code lists, the errors and the
@@ -155,7 +161,33 @@ class PortalServer extends TiWebServer {
     }
 
     /**
+     * Whether the framework's protection lets a request through without a session. While nobody can sign in, every staff
+     * address does, so that it reaches the route that answers it with the pages' 404: refused here, an anonymous
+     * `/app/profile` or `/me` was answered 303 to `/studio/` (401 to a script), which names the address the studio is
+     * meant not to have (measured). Opening them is safe only then: nobody can sign in, and that route answers each one
+     * before anything of the studio's. The address is read up to `?`, as the framework reads it, and in any case.
+     *
+     * @method
+     * @param {string} route The request's address, as the framework's protection hands it over (`request.url`).
+     * @returns {boolean}
+     * @override
+     * @public
+     */
+    isUnprotectedRoute( route ) {
+        if ( this.#isStudioOff() && STAFF_ADDRESS.test( String( route || "" ).split( "?" )[ 0 ] ) ) {
+            return true;
+        }
+        return super.isUnprotectedRoute( route );
+    }
+
+    /**
      * The portal's routes around the framework's.
+     * - **First of all**, every staff address while nobody can sign in: a GET or a HEAD is the pages' 404 page and any
+     *   other method a bare 404, with no cookie and no redirect, so the studio behaves as if it did not exist (spec §3).
+     *   Ahead of the framework's routes, which served the sign-in screen with no method on it at `/studio/`, a session's
+     *   cookie at `/csrf-token`, and a redirect to `/studio/` at `/language/bg` (measured). Decided per request, as the
+     *   framework learns which methods are in effect only after the routes are defined. Tested against the path Express
+     *   routes, so `/me#x`, sent as written, is caught as `/me`.
      * - **Before them**, `/`, the public site's: the framework's home is `/studio/` (plan 9a), so it serves nothing at
      *   the root. The portal no longer shadows any of the framework's routes with its 404, as it did while it had no
      *   web application: the studio is the manager the handlers of `/app`, `/app/:view` and `POST /app/:service` read,
@@ -175,9 +207,19 @@ class PortalServer extends TiWebServer {
      * @public
      */
     defineWebApplicationRoutes() {
+        const pages = pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content, search: this.#search } ) );
+        this.registerRoute( "all", STAFF_ADDRESS, ( request, response, next ) => {
+            if ( !this.#isStudioOff() ) {
+                next();
+            } else if ( request.method === "GET" || request.method === "HEAD" ) {
+                pages( request, response );
+            } else {
+                response.status( 404 ).set( "Cache-Control", CACHE.NONE ).end();
+            }
+        } );
         this.registerRoute( "get", "/", rootRedirect );
         super.defineWebApplicationRoutes();
-        this.registerRoute( "get", /^\/.*$/, pageHandler( () => ( { db: this.#db, store: this.#store, content: this.#content, search: this.#search } ) ) );
+        this.registerRoute( "get", /^\/.*$/, pages );
     }
 
     /**
@@ -228,6 +270,12 @@ class PortalServer extends TiWebServer {
         }
         this.#store = directoryStore( path.resolve( process.env.HDP_FILES_DIR || ".files" ) );
         this.#db = await openDatabase( url );
+    }
+
+    // Whether the studio is off: nobody can sign in. The protection and the route above ask the same question, so neither
+    // can open a staff address the other still serves. Off until the framework has handed the manager its methods.
+    #isStudioOff() {
+        return !( this.webAppManager && this.webAppManager.hasSignIn === true );
     }
 
     // Detaches the studio's context and closes the database. The field is cleared before the close: node:sqlite throws on

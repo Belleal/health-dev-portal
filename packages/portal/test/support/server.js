@@ -19,8 +19,8 @@
  * A real portal server for a test file (plan 8a, decision 12): in this process, on a copy of the seed, with core's cache
  * replaced by the portal's stand-in, and no TLS, message exchange, health check or jobs timer. Sign-in is on, by the
  * framework's local method for the seed's synthetic staff (plan 9a), so every public page is tested as it is served
- * beside the studio. Core allows one service instance per process, so a test file starts one; `node --test` runs each
- * file in a process of its own.
+ * beside the studio; a file that tests the studio switched off starts with none. Core allows one service instance per
+ * process, so a test file starts one; `node --test` runs each file in a process of its own.
  */
 
 // Before ti-engine: the seed's module loads nothing of it, and the environment below names the seed's users file.
@@ -124,12 +124,15 @@ module.exports.createPortal = ( environment = {} ) => {
  * @param {Object} [options]
  * @param {string} [options.contentDirectory] The guides and questions to load (`HDP_CONTENT_DIR`); the repository's own
  *     `content/` without it.
+ * @param {Object<string, string|undefined>} [options.environment] Anything else to set or remove before the portal is
+ *     constructed, as `createPortal` takes it: `{ TI_WEB_AUTH_METHODS: "" }` starts it with no sign-in method. The
+ *     framework reads its `TI_WEB_*` settings as the server is constructed, not as it starts (measured).
  * @returns {Promise<{url: string, database: string, files: string, stop: function(): Promise<void>}>} `database` is the
  *     copy's SQLite file and `files` its file store, for a test that moves a spec on through the data layer, as staff
  *     would; `stop` stops the server and removes the copy.
  * @public
  */
-module.exports.startPortal = async ( { contentDirectory } = {} ) => {
+module.exports.startPortal = async ( { contentDirectory, environment = {} } = {} ) => {
     const directory = fs.mkdtempSync( path.join( os.tmpdir(), "hdp-portal-" ) );
     const database = path.join( directory, "seed.sqlite" );
     const files = path.join( directory, "files" );
@@ -140,7 +143,7 @@ module.exports.startPortal = async ( { contentDirectory } = {} ) => {
         fs.copyFileSync( SEED_DATABASE, database );
         fs.cpSync( SEED_FILES, files, { recursive: true } );
         // An undefined value is deleted from the environment, so a file that names no folder gets the repository's own.
-        server = module.exports.createPortal( { HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files, HDP_CONTENT_DIR: contentDirectory } );
+        server = module.exports.createPortal( { ...environment, HDP_DATABASE_URL: `sqlite:${ database }`, HDP_FILES_DIR: files, HDP_CONTENT_DIR: contentDirectory } );
         await server.start();
     } catch ( error ) {
         // A stop after a refused start may fail too; the start's error is the one worth reporting.
