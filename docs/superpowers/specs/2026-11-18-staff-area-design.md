@@ -129,8 +129,14 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
 - **No sign-in method, no staff area** *(Boris, 2026-11-19)*. A deployment may run the public site before IT has
   registered the application with Entra, with `TI_WEB_AUTH_METHODS` empty. With no sign-in method in effect (none
   listed, or each listed one dropped by the framework as unconfigured), the staff area behaves as if it did not exist:
-  - every address under `/studio`, `/app`, `/admin`, `/me`, `/login`, `/logout`, `/csrf-token` and `/language`, in any
-    case, is a 404 that sets no cookie and redirects nowhere. A GET of one is the pages' 404 page;
+  - for every address under `/studio`, `/app`, `/admin`, `/me`, `/login`, `/logout`, `/csrf-token` and `/language`, in
+    any case, a GET is the pages' 404 page;
+  - any other method gets the framework's own answer for an address that is none: a 403 from its CSRF check when the
+    request carries no token, and its JSON 404 otherwise;
+  - every answer is the same as for `/bg/nope`, with no cookie and no redirect. Two framework answers still name the
+    home and are not covered: the redirect an htmx error answer carries (CA-593), and the refusal of a request target
+    in absolute form (CA-592);
+  - the studio's own static files stay served under `/static`, which is outside the list;
   - the public pages and `/health` are unchanged;
   - the portal logs a notice at start that the studio is off.
 

@@ -62,7 +62,7 @@ It needs a database, a file store and a Redis.
    | `HDP_CONTENT_DIR` | The guides and the questions. Default: the repository's `content/`, which is what a deployment serves. |
    | `TI_WEB_PUBLIC_URL` | The public origin every absolute link is written from (required): canonical addresses, `hreflang`, feeds. |
    | `TI_WEB_USE_TLS`, `TI_WEB_HOST`, `TI_WEB_PORT` | Plain HTTP on `127.0.0.1:3000` here; in a deployment TLS ends in front of the container. |
-   | `TI_WEB_AUTH_METHODS` | Empty: no sign-in method until plan 9 brings the staff area. |
+   | `TI_WEB_AUTH_METHODS` | Empty in `.env.example`: no sign-in method, so no studio (see *The studio*). |
    | `TI_MESSAGE_EXCHANGE_ENABLED`, `TI_SERVICE_HEALTH_CHECK_ENABLED`, `TI_WEB_JOBS_TRIGGER` | `false`, `false`, `off`: one instance, no mesh, no heartbeat, no scheduled jobs. |
    | `TI_MEMORY_CACHE_REDIS_HOST`, `TI_MEMORY_CACHE_REDIS_PORT` | The framework's cache; without a Redis the start never completes (step 2). |
    | `TI_LOCALIZATION_TIME_ZONE` | `Europe/Sofia`: a day is a calendar day there (design record §7.12). |
@@ -75,6 +75,31 @@ It needs a database, a file store and a Redis.
    ```bash
    npm start --workspace packages/portal
    ```
+
+## The studio
+
+The studio is the staff area, where the team gives people roles and sets the portal's settings and the environments'
+status (plan 9a; the editor's and the approver's screens follow). Its design is the staff-area design record,
+`docs/superpowers/specs/2026-11-18-staff-area-design.md`.
+
+- **Address.** `/studio/`. No public page links to it or names it; staff reach it by the address.
+- **Sign-in.** Microsoft Entra ID (`openid-azure`) in production, set by the `TI_AZURE_AUTH_*` variables in
+  `.env.example`. In development and the tests, the framework's local method (`TI_WEB_AUTH_METHODS=local`, with
+  `TI_WEB_AUTH_LOCAL_USERS_PATH` naming a users file). Signing in grants nothing.
+- **The first admin** is whoever `TI_WEB_AUTH_ADMINS` names. They give everyone else a role on the People screen, which
+  cannot take theirs away: it comes from configuration.
+- **Roles.** `reader`, `editor`, `approver` and `admin`, as in the design record §10.1. An editor may be limited to named
+  specs. Roles are read on every request, so a change takes effect on the person's next one. Today only an admin has a
+  screen beyond the landing, which names the person and their roles.
+- **Language.** Bulgarian first, with English: a session starts in Bulgarian, and `/language/en` switches it.
+- **Times** on staff screens are Sofia time, whatever zone the server runs in.
+- **With sign-in off.** An empty `TI_WEB_AUTH_METHODS`, or one whose methods are all dropped by the framework as
+  unconfigured (an OpenID provider with no client ID), switches the studio off, and the public site runs on. Every studio
+  address then answers as an address that is none: the pages' 404 for a GET, with no cookie and no redirect. A name the
+  framework does not know is not dropped, so a misspelt method keeps the studio on with no way to sign in.
+
+**Deployment note.** Once sign-in is switched on after a run with it off, a shared cache in front of the portal may keep
+answering a studio address with the 404 for up to 60 seconds (`public, max-age=60`, the same as any unknown address).
 
 ## Testing
 
