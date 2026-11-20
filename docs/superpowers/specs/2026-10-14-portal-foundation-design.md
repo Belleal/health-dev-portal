@@ -1430,7 +1430,8 @@ As built for the staff area (plan 9a), which is called the studio:
 - **Refusals** are sent as label keys: a 422 whose `details` names a label, which the framework looks up in the
   person's language (`studio/refusals.js`). An English sentence there would reach a Bulgarian screen as English.
 - **Colour.** The framework's daylight theme misses 4.5:1 for its muted text and its red; the studio's stylesheet darkens
-  those tokens. `a11y.test.js` runs axe over the studio signed in, in both languages.
+  those tokens, for the daylight theme only, until the framework's own is fixed (CA-594).
+  `a11y.test.js` runs axe over the studio signed in, in both languages.
 - **No sign-in method, no studio.** With none in effect, every studio address answers as an address that is none
   (staff-area design §3).
 

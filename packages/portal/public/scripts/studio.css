@@ -22,10 +22,15 @@
  * darkened rather than each rule, since every use of a token shares its fault. Measured with these values: the muted text
  * is 5.18 on the beige, 5.78 on white and 5.00 on the tinted panel, white on the button 5.69, and the tag 4.88.
  *
- * Loaded after the framework's themes (see public/index.html), at the same specificity, so that it wins by order.
+ * The framework's contrast fault in its daylight theme is CA-594; these overrides stand until it is fixed there.
+ *
+ * Loaded after the framework's themes (see public/index.html), at the same specificity as the daylight theme's own
+ * `:root, [data-theme="daylight"]`, so that it wins by order. Only `[data-theme="daylight"]` is named here, and never
+ * `:root`: the glass theme has no `:root` selector, so a rule for it here would match at the same specificity and, loaded
+ * last, replace the glass tokens too (measured: dark muted text on glass's dark background). The shell's `<html>`
+ * carries `data-theme="daylight"` by default.
  */
 
-:root,
 [data-theme="daylight"] {
     --fg-tertiary: #6b6559;
     --accent: #b93a24;

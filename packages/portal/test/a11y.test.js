@@ -147,4 +147,31 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
         }
         assert.deepEqual( found, [] );
     } );
+
+    // The studio's stylesheet darkens the daylight theme's tokens (CA-594). Loaded last, a rule for `:root` would also beat
+    // the glass theme, which has no `:root` selector, and give it dark text on its dark background (measured, 25141e6).
+    it( "applies the studio's colour tokens to the daylight theme only", { timeout: 60000 }, async ( context ) => {
+        if ( skip !== null ) {
+            context.skip( skip );
+            return;
+        }
+        const TOKENS = [ "--fg-tertiary", "--accent", "--accent-hover", "--accent-ring" ];
+        const tidy = ( value ) => value.replace( /\s+/g, " " ).trim().toLowerCase();
+        // The expected values are read from the stylesheets as served, so that they cannot drift from what the page loads.
+        const tokensIn = ( css, selector ) => {
+            const block = css.slice( css.indexOf( selector ) ).match( /{([^}]*)}/ )[ 1 ];
+            return Object.fromEntries( TOKENS.map( ( name ) => [ name, tidy( block.match( new RegExp( `${ name }:([^;]+);` ) )[ 1 ] ) ] ) );
+        };
+        const glass = tokensIn( ( await get( "/static/scripts/ti-theme-black-glass.css" ) ).text, '[data-theme="glass"]' );
+        const daylight = tokensIn( ( await get( "/static/scripts/studio.css" ) ).text, '[data-theme="daylight"]' );
+        await page.goto( new URL( "/studio/", portal.url ).href );
+        // A script as a string: it runs in the browser, whose globals this file does not declare.
+        const inEffect = ( theme ) => page.evaluate( `( () => {
+            document.documentElement.setAttribute( "data-theme", ${ JSON.stringify( theme ) } );
+            const style = getComputedStyle( document.documentElement );
+            return Object.fromEntries( ${ JSON.stringify( TOKENS ) }.map( ( name ) => [ name, style.getPropertyValue( name ).replace( /\\s+/g, " " ).trim().toLowerCase() ] ) );
+        } )()` );
+        assert.deepEqual( await inEffect( "daylight" ), daylight );
+        assert.deepEqual( await inEffect( "glass" ), glass );
+    } );
 } );
