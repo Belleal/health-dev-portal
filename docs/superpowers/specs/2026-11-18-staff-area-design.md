@@ -228,8 +228,10 @@ Until plan 10 brings the editing screens, a change is still authored in a workbo
   - A release that also holds another person's spec is not theirs to submit, withdraw from or resubmit. The release
     is reviewed and promoted as one, so acting on it decides for specs they were not given.
   - They see only those releases and their own specs' development versions.
-  - **Seeing more takes the reader role.** An editor limited to CL009 who also holds reader sees every release
-    read-only, and still acts only where every spec is theirs. An unlimited editor acts on any release.
+  - **Seeing more takes the reader or the approver role,** since an approver may do what a reader may (the table
+    above). An editor limited to CL009 who also holds either sees every release read-only, and still acts as an editor
+    only where every spec is theirs. An unlimited editor acts on any release. *(clarified 2026-11-20, CodeRabbit on
+    #10)*
 - **Roles are stored in the portal's database,** one row per person, role and, for a limited editor, spec. An admin
   changes them on the People screen.
 - **They are read again on every request,** through web-framework's `refreshSession`, which since 1.63.0 may await
@@ -297,7 +299,7 @@ What needs this person, newest first, in sections that show only for their roles
 
 - **Each line opens the release, or the version.**
 - **An editor limited to named specs** sees only releases whose every spec is theirs, and their own specs'
-  development versions, unless they also hold reader (§5.2).
+  development versions, unless they also hold reader or approver (§5.2). *(clarified 2026-11-20, CodeRabbit on #10)*
 
 ### 6.2 A release
 
@@ -428,7 +430,7 @@ When an approved change carried into a development version conflicts with the ed
   - adding a maintenance window, with times in Sofia time, and cancelling one;
   - the recent updates.
 
-  It writes through `packages/data/store/status.js`, with the person's user ID as `by`. `hdp-status` stays for
+  It writes through `packages/data/store/status.js`, with the person's key (§5.3) as `by`. `hdp-status` stays for
   scripts.
 
 ## 7. Data
@@ -444,7 +446,7 @@ When an approved change carried into a development version conflicts with the ed
   them:
   - a spec's development version and its anomalies;
   - the releases in a status.
-- **The actor in every call** is the person's user ID (§5.3).
+- **The actor in every call** is the person's key (§5.3).
 
 ## 8. Privacy
 

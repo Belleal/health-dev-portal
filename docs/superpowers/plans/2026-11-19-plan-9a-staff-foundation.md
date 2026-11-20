@@ -205,8 +205,8 @@ CREATE TABLE staff_grant_changes ( id TEXT PRIMARY KEY, person_key TEXT NOT NULL
   - `#studio/session`:
     - `personKeyOf( user, authMethod ) → string`:
       - `openid-azure` gives `entra:<objectID>`;
-      - `local` gives `user.userID`;
-      - an Entra user with no `objectID`, or any other method, throws `Error`.
+      - `local` gives `local:<username>`, never the users file's own `userID`, which an entry may set to an `entra:` key;
+      - an Entra user with no `objectID`, a local one with no `username`, or any other method, throws `Error`.
     - `augment( session, db, { admins, now = new Date() } ) → Promise<void>`: records the sign-in, with the name
       `user.name || user.username` and `configuredAdmin` from `authorization.isAdminIdentity( user, admins )`. It sets
       `session.studio = { key, editorSpecs }` and `session.user.roles` from the person's grants.
@@ -218,7 +218,8 @@ CREATE TABLE staff_grant_changes ( id TEXT PRIMARY KEY, person_key TEXT NOT NULL
   - `keys an Entra sign-in by its object ID, whatever its subject`: two users with different `userID` and the same
     `objectID` give the same key, `entra:<oid>`.
   - `refuses an Entra sign-in that carries no object ID`
-  - `keys a local sign-in by the framework's user ID`
+  - `keys a local sign-in by its username, so a users file cannot name an Entra person's key`: `local:<username>`.
+  - `refuses a local sign-in that carries no username`
   - `refuses a sign-in method the studio does not use` (`openid-google`)
   - `turns grants into session roles and an editor's specs`. As a table:
     - no grant gives `{ roles: [], editorSpecs: [] }`;
@@ -483,9 +484,12 @@ Added on 2026-11-19, after Task 3's review, with Boris's approval. Spec §3, "No
   - With no sign-in method in effect, every address whose first segment is `studio`, `app`, `admin`, `me`, `login`,
     `logout`, `csrf-token` or `language`, in any case, answers 404, sets no cookie and redirects nowhere:
     - a GET or HEAD is the pages' own 404 page;
-    - any other method is a bare 404.
+    - any other method gets the framework's own answer, exactly as at an address that is none: 403 from its CSRF
+      check without a token, and otherwise its JSON 404 (`E_WEB_INVALID_REQUEST_URI`). Each is compared with
+      `/bg/nope`'s live answer.
 
-    The public pages and `/health` are unchanged. With a method in effect, nothing changes.
+    The public pages and `/health` are unchanged. With a method in effect, nothing changes. *(Revised after Task 6a's
+    review: a bare 404 of the studio's own told an outsider which addresses were the studio's.)*
   - A NOTICE at start when the studio is off: `The studio is off: no sign-in method is in effect (TI_WEB_AUTH_METHODS).`
 
 - [ ] **Step 1: Write the failing tests for a refused start** (`start.test.js`):
@@ -513,8 +517,13 @@ Added on 2026-11-19, after Task 3's review, with Boris's approval. Spec §3, "No
     - `/me#x`, through `rawStatus`.
 
     Each one answers 404 with no `Set-Cookie` and no `Location`, and its body is the pages' 404 page.
-  - `with no sign-in method, any other method is a bare 404`: `POST` to `/app/feedback`, `/login/local` and `/logout`.
-    Each answers 404 with no cookie and no `Location`.
+  - `with no sign-in method, any other method at a studio address answers as at an address that is none`: `OPTIONS`
+    to `/studio/`, `/app/feedback` and `/logout`, which the CSRF check never applies to, and a `POST` to
+    `/app/feedback`, `/login/local` and `/logout` with a session left in the store and its CSRF token. Each answer —
+    status, `Location`, content type, `Cache-Control`, cookie names and exception code — equals `/bg/nope`'s live
+    answer to the same request: the framework's JSON 404, `E_WEB_INVALID_REQUEST_URI`.
+  - `with no sign-in method, a POST or PUT with no session is refused as at an address that is none`: the CSRF check
+    answers 403 before any route, at a studio address as at `/bg/nope`.
   - `with no sign-in method, the public pages and /health are unchanged`: `assertPublic` on `/bg/` and `/en/`, and
     `/health` answering 200.
   - `a listed method the framework drops leaves the studio off too`: `openid-azure` with no client ID, then
@@ -536,7 +545,8 @@ Added on 2026-11-19, after Task 3's review, with Boris's approval. Spec §3, "No
     route below answers every one of them with 404.
   - `defineWebApplicationRoutes`: first, before `/` and the framework's routes, add
     `registerRoute( "all", <the studio address pattern>, … )`. It calls `next()` while sign-in is on. Otherwise a GET
-    or HEAD goes to the pages handler (the catch-all's own instance) and any other method gets a 404. The pattern is
+    or HEAD goes to the pages handler (the catch-all's own instance), and any other method is passed the error the
+    framework's catch-all raises, `E_WEB_INVALID_REQUEST_URI` with 404, for its error handler to answer. The pattern is
     tested against the routed path, so `/me#x` is caught as `/me`.
 - [ ] **Step 5: Run them and watch them pass,** then run the whole portal suite. Check `/studio/` in the Browser pane
   with sign-in off (the controller does this, ruling R2).

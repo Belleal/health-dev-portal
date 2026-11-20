@@ -1517,9 +1517,12 @@ each; the rest is labelled example data.
     `/admin`, `/app`, `/studio` and `/me`, in any case. Without that, the staff screens and the shell would have been
     open to anyone.
   - **Every view and service checks the role on the server.** The screens only hide what the server would refuse. A
-    test pins every view and service against every role: an anonymous caller is refused (401 to a script, a redirect to
-    the sign-in for a browser, 403 from the CSRF check for a POST without a token), and so is every person who is not an
-    admin (403), whichever way the request is made.
+    test pins every view and service against every role. An anonymous caller is refused (401 to a script, a redirect to
+    the sign-in for a browser, 403 from the CSRF check for a POST without a token); only the framework's own `config`
+    answers them, with no person in it, as it is how the shell learns whether anyone is signed in. The landing
+    (`studio-home`) and `config` are open to everyone signed in, a person with no role included. The admin views and
+    services (People, Settings, Environment status) refuse every person who is not an admin (403), whichever way the
+    request is made.
   - **No sign-in method, no studio.** The studio is not served, and the public pages are unchanged (staff-area design
     §3).
 - **Uploads are hostile input**, even from staff: size and decompression limits (an `.xlsx` is a zip), a parse
