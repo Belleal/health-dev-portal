@@ -33,6 +33,16 @@ describe( "The studio's times", () => {
         assert.equal( formatSofia( "2026-11-19T15:15:00Z", "en", { time: true } ), "19 Nov 2026 17:15" );
     } );
 
+    it( "writes a September instant in both languages, whatever the ICU data calls the month", () => {
+        // Node 26.3.1 with ICU 78.3 writes September as "Sept" in English (measured: "15 Sept 2026 13:00"), where every other month
+        // has three letters; a test that pinned three failed one month a year. The month's abbreviation is the data's, so only
+        // its first three letters, the day, the year and the Sofia time are pinned.
+        const instant = new Date( "2026-09-15T10:00:00Z" );
+        assert.match( formatSofia( instant, "en", { time: true } ), /^15 Sep[a-z]* 2026 13:00$/ );
+        assert.equal( formatSofia( instant, "bg", { time: true } ), "15.09.2026 13:00" );
+        assert.match( formatSofia( instant, "en" ), /^15 Sep[a-z]* 2026$/ );
+    } );
+
     it( "carries a late instant over to the next day in Sofia", () => {
         assert.equal( formatSofia( "2026-11-18T22:30:00Z", "bg" ), "19.11.2026" );
         assert.equal( formatSofia( new Date( "2026-07-15T21:30:00Z" ), "en" ), "16 Jul 2026" );

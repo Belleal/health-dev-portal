@@ -25,7 +25,7 @@
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 // First: it sets the environment ti-engine reads as it loads.
-const { SEED, SEEDED, assertPublic, get, startPortal } = require( "./support/server" );
+const { SEED, SEEDED, assertPublic, get, rawStatus, startPortal } = require( "./support/server" );
 const { elementOf, pagesToCheck } = require( "./support/pages" );
 const { grant, signIn } = require( "./support/staff" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
@@ -98,6 +98,17 @@ describe( "The studio's access", { skip: !SEEDED && "build the seed first: npm r
             assert.deepEqual( [ page.status, page.headers.get( "location" ), page.headers.get( "set-cookie" ) ], [ 303, "/studio/", null ], path );
             const data = await ask( path, "application/json" );
             assert.deepEqual( [ data.status, data.headers.get( "set-cookie" ) ], [ 401, null ], path );
+        }
+    } );
+
+    it( "answers an address that only looks like a staff one as no studio route would", async () => {
+        // The exemption's comment (bin/portal-server.js) says the first three reach no studio route, and the trailing slash is the
+        // staff address itself, refused. Sent as written (`rawStatus`), as `fetch` resolves the dot-segment and the doubled slash
+        // before sending. Measured: the pages' 404 for the three, 401 for the fourth; never a 2xx, which would be a studio answer
+        // to a visitor who has not signed in.
+        const expected = { "//app/profile": 404, "/%61pp/profile": 404, "/./app/profile": 404, "/app/profile/": 401 };
+        for ( const [ address, status ] of Object.entries( expected ) ) {
+            assert.equal( await rawStatus( address ), status, address );
         }
     } );
 
