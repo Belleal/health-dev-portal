@@ -19,7 +19,7 @@
  * Who reaches the studio, against a real server on a copy of the seed (plan 9a): its sign-in screen at /studio/, its
  * addresses refused to anyone not signed in in whatever case they are written, every public page as anonymous and as
  * cacheable as it was with sign-in on, a person recorded at first sign-in, and the roles a session carries following the
- * person's grants from one request to the next.
+ * person's grants from one request to the next; then the table of every view and service against every role.
  */
 
 const { after, before, describe, it } = require( "node:test" );
@@ -29,6 +29,9 @@ const { SEED, SEEDED, assertPublic, get, startPortal } = require( "./support/ser
 const { elementOf, pagesToCheck } = require( "./support/pages" );
 const { grant, signIn } = require( "./support/staff" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
+const { readSetting } = require( "@health-dev-portal/data/files" );
+const { TWO_PEOPLE } = require( "@health-dev-portal/data/review" );
+const { addMaintenance } = require( "@health-dev-portal/data/status" );
 const { EVERY_SPEC, ROLE, listPeople } = require( "@health-dev-portal/data/staff" );
 const paths = require( "#paths" );
 
@@ -149,5 +152,169 @@ describe( "The studio's access", { skip: !SEEDED && "build the seed first: npm r
             assert.equal( text.includes( "/studio" ), false, address );
             assert.equal( text.includes( "/app/" ), false, address );
         }
+    } );
+
+    // The table (plan 9a, Task 7): every view and service the studio adds, against everyone who might ask. A cell is the
+    // status the server answers over HTTP, never one a screen would hide; a refused cell must also have changed nothing,
+    // and an allowed one must leave the data as it found it, so that no cell depends on another.
+    describe( "the table of views and services against roles", () => {
+        const ADMINS = [ "admin", "config-admin" ];
+        const REFUSED = [ "nobody", "reader", "editor", "approver" ];
+        const SERVICE_NAMES = [ "people-grants", "settings-save", "status-set", "maintenance-add", "maintenance-cancel" ];
+        const TABLES = [ "staff_grant_changes", "status_updates", "maintenance_windows" ];
+        const sessions = new Map();
+        let atStart = null;
+
+        const withDatabase = async ( work ) => {
+            const db = await openDatabase( `sqlite:${ portal.database }` );
+            try {
+                return await work( db );
+            } finally {
+                await db.close();
+            }
+        };
+        const idsOf = async ( db ) => {
+            const ids = {};
+            for ( const table of TABLES ) {
+                ids[ table ] = ( await db.all( `SELECT id FROM ${ table } ORDER BY id` ) ).map( ( row ) => row.id );
+            }
+            return ids;
+        };
+        // Everything a studio service writes, so that "nothing changed" is one comparison.
+        const snapshot = () => withDatabase( async ( db ) => JSON.stringify( [ await readSetting( db, TWO_PEOPLE ), await idsOf( db ),
+            await db.all( "SELECT person_key, role, spec FROM staff_grants ORDER BY person_key, role, spec" ),
+            await db.all( "SELECT id, cancelled_at FROM maintenance_windows ORDER BY id" ) ] ) );
+        // What an allowed call added is taken away again. A setting and a person's grants are put back by the body the
+        // cell sends, which is the value they already hold.
+        const restore = ( baseline ) => withDatabase( async ( db ) => {
+            const now = await idsOf( db );
+            for ( const table of TABLES ) {
+                for ( const id of now[ table ].filter( ( one ) => !baseline[ table ].includes( one ) ) ) {
+                    await db.run( `DELETE FROM ${ table } WHERE id = ?`, [ id ] );
+                }
+            }
+        } );
+        const json = ( session ) => ( { accept: "application/json", ...( session === null ? {} : { cookie: session.cookie } ) } );
+        const view = ( name, session ) => fetch( `${ portal.url }/app/${ name }`, { redirect: "manual", headers: json( session ) } );
+        const screen = ( name, session ) => fetch( `${ portal.url }/app/${ name }`, { redirect: "manual",
+            headers: { accept: "text/html", "hx-request": "true", ...( session === null ? {} : { cookie: session.cookie } ) } } );
+        const service = ( name, session, body ) => fetch( `${ portal.url }/app/${ name }`, { method: "POST", redirect: "manual",
+            headers: { ...json( session ), "content-type": "application/json", ...( session === null ? {} : { "x-xsrf-token": session.token, origin: portal.url } ) },
+            body: JSON.stringify( body ) } );
+        // An answer that refuses must carry no one's data: not a name, a key, an address, a setting or a screen.
+        const assertBare = async ( response, message ) => {
+            const text = await response.text();
+            for ( const leaked of [ "Test ", "local:", "example.test", "selfApproval", "x-data" ] ) {
+                assert.equal( text.includes( leaked ), false, `${ message }: the answer holds ${ leaked }` );
+            }
+        };
+        // What each service is sent to be let through: a body it accepts that leaves the data as it was.
+        const BODIES = {
+            "people-grants": async () => ( { key: "local:nobody", grants: [] } ),
+            // The value it holds now, read as an admin, since a refused role cannot read it.
+            "settings-save": async () => ( { selfApproval: ( await ( await view( "settings", sessions.get( "admin" ) ) ).json() ).data.selfApproval } ),
+            "status-set": async () => ( { environment: "test", state: "operational", messageBg: "Съобщение", messageEn: "Message" } ),
+            "maintenance-add": async () => ( { environment: "test", startsAt: "2099-11-20T10:00", endsAt: "2099-11-20T11:30" } ),
+            // A window to cancel, put in the database directly: the cell is about who may cancel, not who may add.
+            "maintenance-cancel": async () => ( { id: await withDatabase( ( db ) => addMaintenance( db, { environment: "test", startsAt: new Date( "2099-11-20T08:00:00Z" ),
+                endsAt: new Date( "2099-11-20T09:30:00Z" ), by: "access-table" } ) ) } )
+        };
+
+        before( async () => {
+            for ( const username of [ ...REFUSED, ...ADMINS ] ) {
+                sessions.set( username, await signIn( portal.url, username ) );
+            }
+            for ( const [ username, role ] of [ [ "reader", ROLE.READER ], [ "editor", ROLE.EDITOR ], [ "approver", ROLE.APPROVER ], [ "admin", ROLE.ADMIN ] ] ) {
+                await grant( portal.database, username, [ { role: role, spec: EVERY_SPEC } ] );
+            }
+            atStart = await withDatabase( idsOf );
+        } );
+
+        // Measured, not assumed: a script's anonymous GET is a 401, a browser's is a 303 to the sign-in, htmx is told to go
+        // there in a header on a 204, and a POST is refused by the CSRF check (403) before the protection runs, or by the
+        // protection (401) once it has a token.
+        it( "refuses every view and service to an anonymous caller, in the status the framework uses", async () => {
+            const before = await snapshot();
+            for ( const name of [ "studio-home", "people", "settings", "environment-status" ] ) {
+                const data = await view( name, null );
+                assert.equal( data.status, 401, `${ name }: JSON` );
+                await assertBare( data, `${ name }: JSON` );
+                const page = await fetch( `${ portal.url }/app/${ name }`, { redirect: "manual", headers: { accept: "text/html" } } );
+                assert.deepEqual( [ page.status, page.headers.get( "location" ), page.headers.get( "set-cookie" ) ], [ 303, "/studio/", null ], `${ name }: page` );
+                const fragment = await screen( name, null );
+                assert.deepEqual( [ fragment.status, fragment.headers.get( "hx-redirect" ), await fragment.text() ], [ 204, "/studio/", "" ], `${ name }: htmx` );
+            }
+            for ( const name of SERVICE_NAMES ) {
+                const bare = await service( name, null, {} );
+                assert.equal( bare.status, 403, `${ name }: no token` );
+                await assertBare( bare, `${ name }: no token` );
+                // A token with no session: what a script that fetched /csrf-token would have.
+                const first = await fetch( `${ portal.url }/csrf-token`, { redirect: "manual" } );
+                const cookie = first.headers.getSetCookie().map( ( line ) => line.split( ";" )[ 0 ] ).join( "; " );
+                const token = decodeURIComponent( /ti-xsrf-token=([^;]+)/.exec( cookie )[ 1 ] );
+                const tokened = await service( name, { cookie: cookie, token: token }, {} );
+                assert.equal( tokened.status, 401, `${ name }: a token, no session` );
+                await assertBare( tokened, `${ name }: a token, no session` );
+            }
+            assert.equal( await snapshot(), before, "nothing changed" );
+        } );
+
+        // `config` is the framework's own view, open on purpose: it is how the shell learns whether anyone is signed in.
+        it( "answers an anonymous `config` as the framework does, with no person in it", async () => {
+            const response = await view( "config", null );
+            assert.equal( response.status, 200 );
+            const { data } = await response.json();
+            assert.deepEqual( [ data.auth, data.studio ], [ { isAuthenticated: false }, { admin: false } ] );
+            assert.equal( JSON.stringify( data ).includes( "example.test" ), false );
+        } );
+
+        it( "serves `studio-home` and `config` to everyone signed in, and every other view only to an admin", async () => {
+            for ( const username of [ ...REFUSED, ...ADMINS ] ) {
+                const session = sessions.get( username );
+                const admin = ADMINS.includes( username );
+                for ( const name of [ "studio-home", "config" ] ) {
+                    assert.equal( ( await view( name, session ) ).status, 200, `${ username }: ${ name }` );
+                }
+                // The landing's fragment is the framework's `dashboard`, which asks for the view `studio-home`.
+                assert.equal( ( await screen( "dashboard", session ) ).status, 200, `${ username }: the landing as a screen` );
+                for ( const name of [ "people", "settings", "environment-status" ] ) {
+                    const data = await view( name, session );
+                    const fragment = await screen( name, session );
+                    assert.equal( data.status, admin ? 200 : 403, `${ username }: ${ name }` );
+                    assert.equal( fragment.status, admin ? 200 : 403, `${ username }: ${ name } as a screen` );
+                    if ( !admin ) {
+                        await assertBare( data, `${ username }: ${ name }` );
+                        await assertBare( fragment, `${ username }: ${ name } as a screen` );
+                    }
+                }
+            }
+        } );
+
+        for ( const name of SERVICE_NAMES ) {
+            it( `${ name }: every role that is not an admin is refused and changes nothing, and an admin is let through`, async () => {
+                for ( const username of REFUSED ) {
+                    const session = sessions.get( username );
+                    const baseline = await withDatabase( idsOf );
+                    const sent = await BODIES[ name ]( session );
+                    const before = await snapshot();
+                    const response = await service( name, session, sent );
+                    assert.equal( response.status, 403, username );
+                    await assertBare( response, username );
+                    assert.equal( await snapshot(), before, `${ username }: nothing changed` );
+                    await restore( baseline );
+                }
+                for ( const username of ADMINS ) {
+                    const session = sessions.get( username );
+                    const baseline = await withDatabase( idsOf );
+                    const response = await service( name, session, await BODIES[ name ]( session ) );
+                    assert.equal( response.status, 200, `${ username }: ${ await response.clone().text() }` );
+                    await restore( baseline );
+                }
+            } );
+        }
+
+        it( "leaves the data as it found it, after every cell above", async () => {
+            assert.deepEqual( await withDatabase( idsOf ), atStart );
+        } );
     } );
 } );

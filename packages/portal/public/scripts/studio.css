@@ -1,0 +1,34 @@
+/*
+ * health-dev-portal — the developer portal of the Bulgarian National Health Information System (НЗИС).
+ * Copyright © 2026 the health-dev-portal contributors
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission – subsequent
+ * versions of the EUPL (the "Licence"); you may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ *     https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed
+ * on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * SPDX-License-Identifier: EUPL-1.2
+ */
+
+/*
+ * The studio's colours where the framework's daylight theme falls short of WCAG 2.1 AA (plan 9a, Task 7; design record
+ * §8.5). axe measured the staff screens: the muted text colour on the page's beige is 3.31:1 and on white 3.7:1, white on
+ * the red button 3.74:1, and the red tag's text on its pale red 3.21:1; AA asks 4.5:1 for text this size. The tokens are
+ * darkened rather than each rule, since every use of a token shares its fault. Measured with these values: the muted text
+ * is 5.18 on the beige, 5.78 on white and 5.00 on the tinted panel, white on the button 5.69, and the tag 4.88.
+ *
+ * Loaded after the framework's themes (see public/index.html), at the same specificity, so that it wins by order.
+ */
+
+:root,
+[data-theme="daylight"] {
+    --fg-tertiary: #6b6559;
+    --accent: #b93a24;
+    --accent-hover: #9c2f1c;
+    --accent-ring: rgba(185, 58, 36, 0.22);
+}

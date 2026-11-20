@@ -18,16 +18,19 @@
 /*
  * Accessibility in real Chromium (plan 8a, Task 9; design record §8.5, EN 301 549): every kind of page, in both languages
  * where it has two, is opened in a browser and checked by axe against WCAG 2.1 A and AA. A rule is never switched off and
- * no element is excluded: a violation is fixed in the page or the stylesheet that has it.
+ * no element is excluded: a violation is fixed in the page or the stylesheet that has it. The studio's staff screens are
+ * checked signed in, in both languages (plan 9a, Task 7).
  */
 
 const { after, before, describe, it } = require( "node:test" );
 const assert = require( "node:assert/strict" );
 // A missing browser skips locally and fails in CI, as a missing seed does: a skipped check looks exactly like a passing one.
 const { IN_CI, SEED, SEEDED, get, startPortal } = require( "./support/server" );
+const { grant, signIn } = require( "./support/staff" );
 const { elementOf, pagesToCheck } = require( "./support/pages" );
 const { openDatabase } = require( "@health-dev-portal/data/database" );
 const { addMaintenance, setStatus } = require( "@health-dev-portal/data/status" );
+const { EVERY_SPEC, ROLE } = require( "@health-dev-portal/data/staff" );
 const paths = require( "#paths" );
 
 const TAGS = [ "wcag2a", "wcag2aa", "wcag21a", "wcag21aa" ];
@@ -98,6 +101,48 @@ describe( "Accessibility, in Chromium", { skip: !SEEDED && "the portal's seed is
             const result = await new AxeBuilder( { page } ).withTags( TAGS ).analyze();
             for ( const one of result.violations ) {
                 found.push( `${ address } ${ one.id }: ${ one.nodes.map( ( node ) => node.target.join( " " ) ).join( " | " ) }` );
+            }
+        }
+        assert.deepEqual( found, [] );
+    } );
+
+    // The staff screens, full-page as a person opens them. The shell is `/studio/`; each screen's address is the view's, which
+    // a browser asking for HTML is served as its page. The studio starts in Bulgarian, and `/language/en` switches it.
+    it( "finds no WCAG 2.1 AA violation on the staff screens, signed in, in both languages", { timeout: 300000 }, async ( context ) => {
+        if ( skip !== null ) {
+            context.skip( skip );
+            return;
+        }
+        const people = [ [ "admin", [ "/studio/", "/app/people", "/app/settings", "/app/environment-status" ] ], [ "nobody", [ "/studio/" ] ] ];
+        const found = [];
+        for ( const [ username ] of people ) {
+            await signIn( portal.url, username );
+        }
+        await grant( portal.database, "admin", [ { role: ROLE.ADMIN, spec: EVERY_SPEC } ] );
+        for ( const [ username, addresses ] of people ) {
+            for ( const language of [ "bg", "en" ] ) {
+                // A browser of its own per person and language: the cookies are the person's.
+                const browserContext = await browser.newContext();
+                const staffPage = await browserContext.newPage();
+                const session = await signIn( portal.url, username );
+                await browserContext.addCookies( session.cookie.split( "; " ).map( ( pair ) => ( { name: pair.slice( 0, pair.indexOf( "=" ) ),
+                    value: pair.slice( pair.indexOf( "=" ) + 1 ), url: portal.url } ) ) );
+                await staffPage.goto( new URL( `/language/${ language }`, portal.url ).href );
+                for ( const address of addresses ) {
+                    const requested = new URL( address, portal.url ).href;
+                    const response = await staffPage.goto( requested );
+                    if ( response.status() !== 200 || response.url() !== requested ) {
+                        found.push( `${ username } ${ language } ${ address } answered ${ response.status() } at ${ response.url() }` );
+                        continue;
+                    }
+                    // The shell asks for its screen as it loads: axe must see the screen, not the page waiting for it.
+                    await staffPage.waitForLoadState( "networkidle" );
+                    const result = await new AxeBuilder( { page: staffPage } ).withTags( TAGS ).analyze();
+                    for ( const one of result.violations ) {
+                        found.push( `${ username } ${ language } ${ address } ${ one.id }: ${ one.nodes.map( ( node ) => node.target.join( " " ) ).join( " | " ) }` );
+                    }
+                }
+                await browserContext.close();
             }
         }
         assert.deepEqual( found, [] );

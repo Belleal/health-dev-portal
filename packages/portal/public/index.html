@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<!-- Copied from @ti-engine/web-framework 1.63.1, bin/static/index.html, with one line added: the studio's script, before
-     Alpine's. Deferred scripts run in order and Alpine's CSP build starts when its own runs, so the studio's components
-     must be registered on alpine:init by then. The framework has no hook for an application's script. Re-copy it when
-     the framework's shell changes. -->
+<!-- Copied from @ti-engine/web-framework 1.63.1, bin/static/index.html, with two lines added: the studio's script, before
+     Alpine's, and the studio's stylesheet, after the themes. Deferred scripts run in order and Alpine's CSP build starts
+     when its own runs, so the studio's components must be registered on alpine:init by then. The framework has no hook
+     for an application's script or stylesheet (CA-591). Re-copy it when the framework's shell changes. -->
 <html lang="{ti-language-placeholder}" data-theme="daylight">
 <head>
     <meta charset="UTF-8">
@@ -19,6 +19,7 @@
     <link rel="stylesheet" type="text/css" href="/static/scripts/ti-framework.css"/>
     <link rel="stylesheet" type="text/css" href="/static/scripts/ti-theme-daylight.css"/>
     <link rel="stylesheet" type="text/css" href="/static/scripts/ti-theme-black-glass.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/scripts/studio.css"/>
 </head>
 <body hx-ext="safe-nonce">
 <div id="ti-main" class="ti-main">

@@ -63,7 +63,9 @@
 
     <!-- Footer -->
     <div class="ti-sidebar-foot">
-        <button class="ti-sidebar-item" @click="toggleTheme()" data-tip="Toggle theme" aria-label="Toggle theme" type="button">
+        <!-- No aria-label: the framework's "Toggle theme" differed from the visible "Glass Theme" or "Daylight Theme", which
+             axe reports as label-content-name-mismatch (WCAG 2.5.3, label in name). The visible text is the name. -->
+        <button class="ti-sidebar-item" @click="toggleTheme()" data-tip="Toggle theme" type="button">
             <span class="ti-sidebar-item-icon">
                 <span class="ti-icon sun md" aria-hidden="true"></span>
             </span>
